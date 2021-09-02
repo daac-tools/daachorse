@@ -76,6 +76,7 @@ impl SparseTrie {
         }
     }
 
+    #[inline(always)]
     fn add(&mut self, pattern: &[u8]) -> Result<(), DuplicatedPatternError> {
         let mut node_id = 0;
         for &c in pattern {
@@ -98,6 +99,7 @@ impl SparseTrie {
         Ok(())
     }
 
+    #[inline(always)]
     fn get(&self, node_id: usize, c: u8) -> Option<usize> {
         for trans in &self.nodes[node_id] {
             if c == trans.0 {
@@ -109,7 +111,7 @@ impl SparseTrie {
 }
 
 /// Match result.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Match {
     start: usize,
     end: usize,
@@ -118,16 +120,19 @@ pub struct Match {
 
 impl Match {
     /// Starting position of the match.
+    #[inline(always)]
     pub const fn start(&self) -> usize {
         self.start
     }
 
     /// Ending position of the match.
+    #[inline(always)]
     pub const fn end(&self) -> usize {
         self.end
     }
 
     /// Pattern ID.
+    #[inline(always)]
     pub const fn pattern(&self) -> usize {
         self.pattern
     }
@@ -149,6 +154,7 @@ where
 {
     type Item = Match;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         let mut state_id = 0;
         let haystack = self.haystack.as_ref();
@@ -187,6 +193,7 @@ where
 {
     type Item = Match;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(cs_pattern_ids) = self.cs_pattern_ids.as_mut() {
             if let Some(&pattern) = cs_pattern_ids.next() {
@@ -361,6 +368,7 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(Some(2), pma.find_pattern_id("a"));
     /// assert_eq!(None, pma.find_pattern_id("abc"));
     /// ```
+    #[inline(always)]
     pub fn find_pattern_id<P>(&self, pattern: P) -> Option<usize>
     where
         P: AsRef<[u8]>,
@@ -381,6 +389,7 @@ impl DoubleArrayAhoCorasick {
         }
     }
 
+    #[inline(always)]
     fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
         let child_idx = self.base[state_id] + c as isize;
         if child_idx >= 0 {
@@ -393,6 +402,7 @@ impl DoubleArrayAhoCorasick {
         None
     }
 
+    #[inline(always)]
     fn get_next_state_id(&self, state_id: usize, c: u8) -> usize {
         let mut state_id = state_id;
         loop {
@@ -550,6 +560,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
+    #[inline(always)]
     pub fn build<I, P>(mut self, patterns: I) -> Result<DoubleArrayAhoCorasick, DuplicatedPatternError>
     where
         I: IntoIterator<Item = P>,
@@ -578,6 +589,7 @@ impl DoubleArrayAhoCorasickBuilder {
         })
     }
 
+    #[inline(always)]
     fn build_sparse_trie<I, P>(&mut self, patterns: I) -> Result<SparseTrie, DuplicatedPatternError>
     where
         I: IntoIterator<Item = P>,
@@ -595,6 +607,7 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(trie)
     }
 
+    #[inline(always)]
     fn build_double_array(&mut self, sparse_trie: &SparseTrie) {
         let mut node_id_map = vec![std::usize::MAX; sparse_trie.nodes.len()];
         let mut min_idx = 1;
@@ -605,17 +618,12 @@ impl DoubleArrayAhoCorasickBuilder {
             if node.is_empty() {
                 continue;
             }
-            /*
             let mut min_c = std::u8::MAX;
             for (c, _) in node {
                 if *c < min_c {
                     min_c = *c;
                 }
             }
-            */
-            // NOTE(vbkaisetsu): patterns are lexicographically ordered, so the first item is the
-            // smallest value.
-            let min_c = node[0].0;
             let mut base = min_idx - min_c as isize;
             'outer: loop {
                 for &(c, _) in node {
@@ -645,6 +653,7 @@ impl DoubleArrayAhoCorasickBuilder {
         self.truncate_arrays(act_size);
     }
 
+    #[inline(always)]
     fn add_fails(&mut self, sparse_trie: &SparseTrie) {
         let mut queue = VecDeque::new();
         self.fail[0] = 0;
@@ -686,6 +695,7 @@ impl DoubleArrayAhoCorasickBuilder {
         }
     }
 
+    #[inline(always)]
     fn extend_arrays(&mut self, min_size: usize) {
         if min_size > self.base.len() {
             let new_len = ((min_size - self.base.len() - 1) / self.step_size + 1) * self.step_size
@@ -704,6 +714,7 @@ impl DoubleArrayAhoCorasickBuilder {
         self.fail.truncate(size);
     }
 
+    #[inline(always)]
     fn get_child_index(&self, idx: usize, c: u8) -> Option<usize> {
         let child_idx = self.base[idx] + c as isize;
         if child_idx >= 0 {
