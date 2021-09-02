@@ -792,8 +792,8 @@ mod tests {
             let mut expected = HashSet::new();
             let mut pos = 0;
             while pos <= haystack.len() - 4 {
-                if patterns.contains(&haystack[pos..pos+4]) {
-                    expected.insert((pos, pos+4, haystack[pos..pos+4].to_string()));
+                if patterns.contains(&haystack[pos..pos + 4]) {
+                    expected.insert((pos, pos + 4, haystack[pos..pos + 4].to_string()));
                     pos += 3;
                 }
                 pos += 1;
@@ -824,8 +824,8 @@ mod tests {
             let mut expected = HashSet::new();
             let mut pos = 0;
             while pos <= haystack.len() - 4 {
-                if patterns.contains(&haystack[pos..pos+4]) {
-                    expected.insert((pos, pos+4, haystack[pos..pos+4].to_string()));
+                if patterns.contains(&haystack[pos..pos + 4]) {
+                    expected.insert((pos, pos + 4, haystack[pos..pos + 4].to_string()));
                 }
                 pos += 1;
             }
