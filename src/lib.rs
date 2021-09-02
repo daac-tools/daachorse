@@ -271,7 +271,9 @@ impl DoubleArrayAhoCorasick {
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
     {
-        DoubleArrayAhoCorasickBuilder::new(65536, 65536).unwrap().build(patterns)
+        DoubleArrayAhoCorasickBuilder::new(65536, 65536)
+            .unwrap()
+            .build(patterns)
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack.
@@ -557,7 +559,10 @@ impl DoubleArrayAhoCorasickBuilder {
     /// assert_eq!(None, it.next());
     /// ```
     #[inline(always)]
-    pub fn build<I, P>(mut self, patterns: I) -> Result<DoubleArrayAhoCorasick, DuplicatedPatternError>
+    pub fn build<I, P>(
+        mut self,
+        patterns: I,
+    ) -> Result<DoubleArrayAhoCorasick, DuplicatedPatternError>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
@@ -721,5 +726,119 @@ impl DoubleArrayAhoCorasickBuilder {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::collections::HashSet;
+    use std::isize::MIN;
+
+    use rand::Rng;
+
+    fn generate_random_string(size: usize) -> String {
+        const CHARSET: &[u8] = b"random";
+        let mut rng = rand::thread_rng();
+
+        (0..size)
+            .map(|_| {
+                let idx = rng.gen_range(0..CHARSET.len());
+                CHARSET[idx] as char
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_double_array() {
+        /*
+         *          a--> 4
+         *         /
+         *   a--> 1 --c--> 5
+         *  /
+         * 0 --b--> 2 --c--> 6
+         *  \
+         *   c--> 3
+         *
+         *   a = 0
+         *   b = 1
+         *   c = 2
+         */
+        let patterns = vec![vec![0, 0], vec![0, 2], vec![1, 2], vec![2]];
+        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+
+        let base_expected = vec![1, 4, 3, MIN, MIN, MIN, MIN];
+        let check_expected = vec![0, 0, 0, 0, 1, 2, 1];
+        //                        ^  ^  ^  ^  ^  ^  ^
+        //              node_id=  0  1  2  3  4  6  5
+        let fail_expected = vec![0, 0, 0, 0, 1, 3, 3];
+
+        assert_eq!(base_expected, pma.base);
+        assert_eq!(check_expected, pma.check);
+        assert_eq!(fail_expected, pma.fail);
+    }
+
+    #[test]
+    fn test_find_iter_random() {
+        for _ in 0..100 {
+            let mut patterns = HashSet::new();
+            for _ in 0..100 {
+                patterns.insert(generate_random_string(4));
+            }
+            let haystack = generate_random_string(100);
+
+            // naive pattern match
+            let mut expected = HashSet::new();
+            let mut pos = 0;
+            while pos <= haystack.len() - 4 {
+                if patterns.contains(&haystack[pos..pos+4]) {
+                    expected.insert((pos, pos+4, haystack[pos..pos+4].to_string()));
+                    pos += 3;
+                }
+                pos += 1;
+            }
+
+            // daachorse
+            let mut actual = HashSet::new();
+            let patterns_vec: Vec<_> = patterns.iter().cloned().collect();
+            let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
+            for m in pma.find_iter(&haystack) {
+                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
+            }
+            eprintln!("{}", haystack);
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_find_overlapping_iter_random() {
+        for _ in 0..100 {
+            let mut patterns = HashSet::new();
+            for _ in 0..100 {
+                patterns.insert(generate_random_string(4));
+            }
+            let haystack = generate_random_string(100);
+
+            // naive pattern match
+            let mut expected = HashSet::new();
+            let mut pos = 0;
+            while pos <= haystack.len() - 4 {
+                if patterns.contains(&haystack[pos..pos+4]) {
+                    expected.insert((pos, pos+4, haystack[pos..pos+4].to_string()));
+                }
+                pos += 1;
+            }
+
+            // daachorse
+            let mut actual = HashSet::new();
+            let patterns_vec: Vec<_> = patterns.iter().cloned().collect();
+            let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
+            for m in pma.find_overlapping_iter(&haystack) {
+                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
+            }
+            eprintln!("{}", haystack);
+            assert_eq!(expected, actual);
+        }
     }
 }

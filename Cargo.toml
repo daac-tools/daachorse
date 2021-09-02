@@ -11,3 +11,6 @@ readme = "README.md"
 keywords = ["string", "search", "text", "aho", "multi"]
 categories = ["text-processing"]
 autotests = false
+
+[dev-dependencies]
+rand = "0.8.4"
