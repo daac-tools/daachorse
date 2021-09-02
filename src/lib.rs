@@ -406,12 +406,11 @@ impl DoubleArrayAhoCorasick {
         loop {
             if let Some(state_id) = self.get_child_index(state_id, c) {
                 return state_id;
-            } else {
-                if state_id == 0 {
-                    return 0;
-                }
-                state_id = self.fail[state_id];
             }
+            if state_id == 0 {
+                return 0;
+            }
+            state_id = self.fail[state_id];
         }
     }
 }
@@ -597,7 +596,7 @@ impl DoubleArrayAhoCorasickBuilder {
         P: AsRef<[u8]>,
     {
         let mut trie = SparseTrie::new();
-        for pattern in patterns.into_iter() {
+        for pattern in patterns {
             let pattern = pattern.as_ref();
             trie.add(pattern)?;
             if let Some(cs_pattern_ids) = self.cs_pattern_ids.as_mut() {
@@ -682,14 +681,13 @@ impl DoubleArrayAhoCorasickBuilder {
                             }
                         }
                         break;
-                    } else {
-                        let next_fail_idx = self.fail[fail_idx];
-                        if fail_idx == 0 && next_fail_idx == 0 {
-                            self.fail[child_idx] = 0;
-                            break;
-                        }
-                        fail_idx = next_fail_idx;
                     }
+                    let next_fail_idx = self.fail[fail_idx];
+                    if fail_idx == 0 && next_fail_idx == 0 {
+                        self.fail[child_idx] = 0;
+                        break;
+                    }
+                    fail_idx = next_fail_idx;
                 }
                 queue.push_back((child_idx, orig_child_idx));
             }
