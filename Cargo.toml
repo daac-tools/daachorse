@@ -1,0 +1,13 @@
+[package]
+name = "daachorse"
+version = "0.1.0"
+edition = "2018"
+authors = ["Koichi Akabe <vbkaisetsu@gmail.com>"]
+description = "Daac Horse: Double-Array Aho-Corasick"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/legalforce-research/daachorse"
+repository = "https://github.com/legalforce-research/daachorse"
+readme = "README.md"
+keywords = ["string", "search", "text", "aho", "multi"]
+categories = ["text-processing"]
+autotests = false
