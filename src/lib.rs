@@ -375,11 +375,7 @@ impl DoubleArrayAhoCorasick {
     {
         let mut state_id = 0;
         for &c in pattern.as_ref() {
-            state_id = if let Some(state_id) = self.get_child_index(state_id, c) {
-                state_id
-            } else {
-                return None
-            };
+            state_id = self.get_child_index(state_id, c)?;
         }
         let pattern_id = self.pattern_ids[state_id];
         if pattern_id == std::usize::MAX {
