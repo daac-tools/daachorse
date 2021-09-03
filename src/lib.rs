@@ -390,11 +390,11 @@ impl DoubleArrayAhoCorasick {
     #[inline(always)]
     fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
         let child_idx = self.base[state_id] + c as isize;
-        if child_idx >= 0 {
-            if let Some(&check) = self.check.get(child_idx as usize) {
-                if check == state_id {
-                    return Some(child_idx as usize);
-                }
+        // When child_idx < 0, the following .get() may return None since `child_idx as usize` is
+        // too large number.
+        if let Some(&check) = self.check.get(child_idx as usize) {
+            if check == state_id {
+                return Some(child_idx as usize);
             }
         }
         None
@@ -557,7 +557,6 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    #[inline(always)]
     pub fn build<I, P>(
         mut self,
         patterns: I,
@@ -589,7 +588,6 @@ impl DoubleArrayAhoCorasickBuilder {
         })
     }
 
-    #[inline(always)]
     fn build_sparse_trie<I, P>(&mut self, patterns: I) -> Result<SparseTrie, DuplicatedPatternError>
     where
         I: IntoIterator<Item = P>,
@@ -607,7 +605,6 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(trie)
     }
 
-    #[inline(always)]
     fn build_double_array(&mut self, sparse_trie: &SparseTrie) {
         let mut node_id_map = vec![std::usize::MAX; sparse_trie.nodes.len()];
         let mut min_idx = 1;
@@ -653,7 +650,6 @@ impl DoubleArrayAhoCorasickBuilder {
         self.truncate_arrays(act_size);
     }
 
-    #[inline(always)]
     fn add_fails(&mut self, sparse_trie: &SparseTrie) {
         let mut queue = VecDeque::new();
         self.fail[0] = 0;
@@ -716,11 +712,11 @@ impl DoubleArrayAhoCorasickBuilder {
     #[inline(always)]
     fn get_child_index(&self, idx: usize, c: u8) -> Option<usize> {
         let child_idx = self.base[idx] + c as isize;
-        if child_idx >= 0 {
-            if let Some(&check) = self.check.get(child_idx as usize) {
-                if check == idx {
-                    return Some(child_idx as usize);
-                }
+        // When child_idx < 0, the following .get() may return None, since `child_idx as usize` is
+        // too large number.
+        if let Some(&check) = self.check.get(child_idx as usize) {
+            if check == idx {
+                return Some(child_idx as usize);
             }
         }
         None
