@@ -1,6 +1,6 @@
 //! # 🐎 Daac Horse: Double-Array Aho-Corasick
 //!
-//! The fast implementation of Aho-Corasick algorithm using Double-Array Trie.
+//! A fast implementation of the Aho-Corasick algorithm using Double-Array Trie.
 //!
 //! ## Examples
 //!
@@ -48,18 +48,18 @@ impl Error for InvalidArgumentError {}
 
 /// Error used when some patterns are duplicated.
 #[derive(Debug)]
-pub struct DuplicatedPatternError {
-    /// A duplicated pattern.
+pub struct DuplicatePatternError {
+    /// A duplicate pattern.
     pub pattern: Vec<u8>,
 }
 
-impl fmt::Display for DuplicatedPatternError {
+impl fmt::Display for DuplicatePatternError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "DuplicatedPatternError: {:?}", self.pattern)
     }
 }
 
-impl Error for DuplicatedPatternError {}
+impl Error for DuplicatePatternError {}
 
 struct SparseTrie {
     nodes: Vec<Vec<(u8, usize)>>,
@@ -77,7 +77,7 @@ impl SparseTrie {
     }
 
     #[inline(always)]
-    fn add(&mut self, pattern: &[u8]) -> Result<(), DuplicatedPatternError> {
+    fn add(&mut self, pattern: &[u8]) -> Result<(), DuplicatePatternError> {
         let mut node_id = 0;
         for &c in pattern {
             node_id = self.get(node_id, c).unwrap_or_else(|| {
@@ -90,7 +90,7 @@ impl SparseTrie {
         }
         let pattern_id = self.pattern_id.get_mut(node_id).unwrap();
         if *pattern_id != std::usize::MAX {
-            return Err(DuplicatedPatternError {
+            return Err(DuplicatePatternError {
                 pattern: pattern.to_vec(),
             });
         }
@@ -258,7 +258,7 @@ where
     }
 }
 
-/// Pattern match automaton implemented with Aho-Corasick algorithm and Double-Array.
+/// Pattern match automaton implemented with the Aho-Corasick algorithm and Double-Array.
 pub struct DoubleArrayAhoCorasick {
     base: Vec<isize>,
     check: Vec<usize>,
@@ -277,7 +277,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Errors
     ///
-    /// [`DuplicatedPatternError`] is returned when `patterns` contains duplicated items.
+    /// [`DuplicatePatternError`] is returned when `patterns` contains duplicate entries.
     ///
     /// # Examples
     ///
@@ -297,7 +297,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn new<I, P>(patterns: I) -> Result<Self, DuplicatedPatternError>
+    pub fn new<I, P>(patterns: I) -> Result<Self, DuplicatePatternError>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
@@ -412,7 +412,10 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_overlapping_no_suffix_iter<P>(&self, haystack: P) -> FindOverlappingNoSuffixIterator<P>
+    pub fn find_overlapping_no_suffix_iter<P>(
+        &self,
+        haystack: P,
+    ) -> FindOverlappingNoSuffixIterator<P>
     where
         P: AsRef<[u8]>,
     {
@@ -424,7 +427,7 @@ impl DoubleArrayAhoCorasick {
         }
     }
 
-    /// Returns a pattern ID of the given pattern if exists. Otherwise, None.
+    /// Returns a pattern ID of the given pattern if it exists. Otherwise, None.
     ///
     /// # Arguments
     ///
@@ -565,7 +568,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// # Errors
     ///
-    /// [`DuplicatedPatternError`] is returned when `patterns` contains duplicated items.
+    /// [`DuplicatePatternError`] is returned when the `patterns` contains duplicate entries.
     ///
     /// # Examples
     ///
@@ -590,7 +593,7 @@ impl DoubleArrayAhoCorasickBuilder {
     pub fn build<I, P>(
         mut self,
         patterns: I,
-    ) -> Result<DoubleArrayAhoCorasick, DuplicatedPatternError>
+    ) -> Result<DoubleArrayAhoCorasick, DuplicatePatternError>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
@@ -618,7 +621,7 @@ impl DoubleArrayAhoCorasickBuilder {
         })
     }
 
-    fn build_sparse_trie<I, P>(&mut self, patterns: I) -> Result<SparseTrie, DuplicatedPatternError>
+    fn build_sparse_trie<I, P>(&mut self, patterns: I) -> Result<SparseTrie, DuplicatePatternError>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,

@@ -4,7 +4,7 @@ Daac Horse: Double-Array Aho-Corasick
 
 ## Overview
 
-The fast implementation of Aho-Corasick algorithm using Double-Array Trie.
+A fast implementation of the Aho-Corasick algorithm using Double-Array Trie.
 
 ### Examples
 
