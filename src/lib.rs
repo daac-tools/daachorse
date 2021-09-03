@@ -184,7 +184,7 @@ where
     haystack: P,
     state_id: usize,
     pos: usize,
-    cs_pattern_ids: Option<std::slice::Iter<'a, usize>>,
+    cs_pattern_ids: std::slice::Iter<'a, usize>,
 }
 
 impl<'a, P> Iterator for FindOverlappingIterator<'a, P>
@@ -195,14 +195,12 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(cs_pattern_ids) = self.cs_pattern_ids.as_mut() {
-            if let Some(&pattern) = cs_pattern_ids.next() {
-                return Some(Match {
-                    start: self.pos - self.pma.pattern_len[pattern],
-                    end: self.pos,
-                    pattern,
-                });
-            }
+        if let Some(&pattern) = self.cs_pattern_ids.next() {
+            return Some(Match {
+                start: self.pos - self.pma.pattern_len[pattern],
+                end: self.pos,
+                pattern,
+            });
         }
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
@@ -210,11 +208,44 @@ where
             if self.pma.pattern_ids[self.state_id] != std::usize::MAX {
                 self.pos = pos + 1;
                 let pattern = self.pma.pattern_ids[self.state_id];
-                self.cs_pattern_ids = self
-                    .pma
-                    .cs_pattern_ids
-                    .as_ref()
-                    .map(|cs_pattern_ids| cs_pattern_ids[pattern].iter());
+                self.cs_pattern_ids = self.pma.cs_pattern_ids[pattern].iter();
+                return Some(Match {
+                    start: self.pos - self.pma.pattern_len[pattern],
+                    end: self.pos,
+                    pattern,
+                });
+            }
+        }
+        self.pos = haystack.len();
+        None
+    }
+}
+
+/// Iterator created by [`DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`].
+pub struct FindOverlappingNoSuffixIterator<'a, P>
+where
+    P: AsRef<[u8]>,
+{
+    pma: &'a DoubleArrayAhoCorasick,
+    haystack: P,
+    state_id: usize,
+    pos: usize,
+}
+
+impl<'a, P> Iterator for FindOverlappingNoSuffixIterator<'a, P>
+where
+    P: AsRef<[u8]>,
+{
+    type Item = Match;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        let haystack = self.haystack.as_ref();
+        for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
+            self.state_id = self.pma.get_next_state_id(self.state_id, c);
+            if self.pma.pattern_ids[self.state_id] != std::usize::MAX {
+                self.pos = pos + 1;
+                let pattern = self.pma.pattern_ids[self.state_id];
                 return Some(Match {
                     start: self.pos - self.pma.pattern_len[pattern],
                     end: self.pos,
@@ -234,7 +265,7 @@ pub struct DoubleArrayAhoCorasick {
     fail: Vec<usize>,
     pattern_ids: Vec<usize>,
     pattern_len: Vec<usize>,
-    cs_pattern_ids: Option<Vec<Vec<usize>>>,
+    cs_pattern_ids: Vec<Vec<usize>>,
 }
 
 impl DoubleArrayAhoCorasick {
@@ -347,7 +378,49 @@ impl DoubleArrayAhoCorasick {
             haystack,
             state_id: 0,
             pos: 0,
-            cs_pattern_ids: None,
+            cs_pattern_ids: [].iter(),
+        }
+    }
+
+    /// Returns an iterator of overlapping matches without suffixes in the given haystack.
+    ///
+    /// The Aho-Corasick algorithm reads through the haystack from left to right and reports
+    /// matches when it reaches the end of each pattern. In the overlapping match, more than one
+    /// pattern can be returned per report.
+    ///
+    /// This iterator returns the first match on each report.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - String to search for.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "cd", "abc"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut it = pma.find_overlapping_no_suffix_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.pattern()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn find_overlapping_no_suffix_iter<P>(&self, haystack: P) -> FindOverlappingNoSuffixIterator<P>
+    where
+        P: AsRef<[u8]>,
+    {
+        FindOverlappingNoSuffixIterator {
+            pma: self,
+            haystack,
+            state_id: 0,
+            pos: 0,
         }
     }
 
@@ -401,8 +474,7 @@ impl DoubleArrayAhoCorasick {
     }
 
     #[inline(always)]
-    fn get_next_state_id(&self, state_id: usize, c: u8) -> usize {
-        let mut state_id = state_id;
+    fn get_next_state_id(&self, mut state_id: usize, c: u8) -> usize {
         loop {
             if let Some(state_id) = self.get_child_index(state_id, c) {
                 return state_id;
@@ -422,7 +494,7 @@ pub struct DoubleArrayAhoCorasickBuilder {
     fail: Vec<usize>,
     pattern_ids: Vec<usize>,
     pattern_len: Vec<usize>,
-    cs_pattern_ids: Option<Vec<Vec<usize>>>,
+    cs_pattern_ids: Vec<Vec<usize>>,
     step_size: usize,
 }
 
@@ -478,53 +550,11 @@ impl DoubleArrayAhoCorasickBuilder {
             base: vec![std::isize::MIN; init_size],
             check: vec![std::usize::MAX; init_size],
             pattern_ids: vec![std::usize::MAX; init_size],
-            cs_pattern_ids: Some(vec![]),
+            cs_pattern_ids: vec![],
             pattern_len: vec![],
             fail: vec![std::usize::MAX; init_size],
             step_size,
         })
-    }
-
-    /// Whether or not to return multiple patterns in a single match report.
-    ///
-    /// The Aho-Corasick algorithm reads through the haystack from front to back and reports
-    /// matche when it reaches the end of each pattern. In the overlapping match, more than one
-    /// pattern can be returned per report.
-    ///
-    /// Setting this to `false` will limit the number of patterns returned per report to one.
-    ///
-    /// # Arguments
-    ///
-    /// * `flag` - Boolean flag..
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use daachorse::DoubleArrayAhoCorasickBuilder;
-    ///
-    /// let builder = DoubleArrayAhoCorasickBuilder::new(16, 16).unwrap()
-    ///     .match_shorter_suffix(false);
-    ///
-    /// let patterns = vec!["bcd", "cd", "abc"];
-    /// let pma = builder.build(patterns).unwrap();
-    ///
-    /// let mut it = pma.find_overlapping_iter("abcd");
-    ///
-    /// let m = it.next().unwrap();
-    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.pattern()));
-    ///
-    /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
-    ///
-    /// assert_eq!(None, it.next());
-    /// ```
-    pub fn match_shorter_suffix(mut self, flag: bool) -> Self {
-        if flag {
-            self.cs_pattern_ids.replace(vec![]);
-        } else {
-            self.cs_pattern_ids.take();
-        };
-        self
     }
 
     /// Builds and returns a new [`DoubleArrayAhoCorasick`].
@@ -597,9 +627,7 @@ impl DoubleArrayAhoCorasickBuilder {
         for pattern in patterns {
             let pattern = pattern.as_ref();
             trie.add(pattern)?;
-            if let Some(cs_pattern_ids) = self.cs_pattern_ids.as_mut() {
-                cs_pattern_ids.push(vec![]);
-            };
+            self.cs_pattern_ids.push(vec![]);
             self.pattern_len.push(pattern.len());
         }
         Ok(trie)
@@ -668,12 +696,12 @@ impl DoubleArrayAhoCorasickBuilder {
                         if self.pattern_ids[child_fail_idx] != std::usize::MAX {
                             if self.pattern_ids[child_idx] == std::usize::MAX {
                                 self.pattern_ids[child_idx] = self.pattern_ids[child_fail_idx];
-                            } else if let Some(cs_pattern_ids) = self.cs_pattern_ids.as_mut() {
+                            } else {
                                 let child_pattern_id = self.pattern_ids[child_idx];
                                 let fail_pattern_id = self.pattern_ids[child_fail_idx];
-                                let mut fail_ids = cs_pattern_ids[fail_pattern_id].clone();
-                                cs_pattern_ids[child_pattern_id].push(fail_pattern_id);
-                                cs_pattern_ids[child_pattern_id].append(&mut fail_ids);
+                                let mut fail_ids = self.cs_pattern_ids[fail_pattern_id].clone();
+                                self.cs_pattern_ids[child_pattern_id].push(fail_pattern_id);
+                                self.cs_pattern_ids[child_pattern_id].append(&mut fail_ids);
                             }
                         }
                         break;
