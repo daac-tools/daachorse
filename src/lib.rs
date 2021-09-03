@@ -113,7 +113,7 @@ impl SparseTrie {
 /// Match result.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Match {
-    start: usize,
+    length: usize,
     end: usize,
     pattern: usize,
 }
@@ -122,7 +122,7 @@ impl Match {
     /// Starting position of the match.
     #[inline(always)]
     pub const fn start(&self) -> usize {
-        self.start
+        self.end - self.length
     }
 
     /// Ending position of the match.
@@ -164,7 +164,7 @@ where
                 self.pos = pos + 1;
                 let pattern = self.pma.pattern_ids[state_id];
                 return Some(Match {
-                    start: self.pos - self.pma.pattern_len[pattern],
+                    length: self.pma.pattern_len[pattern],
                     end: self.pos,
                     pattern,
                 });
@@ -197,7 +197,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(&pattern) = self.cs_pattern_ids.next() {
             return Some(Match {
-                start: self.pos - self.pma.pattern_len[pattern],
+                length: self.pma.pattern_len[pattern],
                 end: self.pos,
                 pattern,
             });
@@ -210,7 +210,7 @@ where
                 let pattern = self.pma.pattern_ids[self.state_id];
                 self.cs_pattern_ids = self.pma.cs_pattern_ids[pattern].iter();
                 return Some(Match {
-                    start: self.pos - self.pma.pattern_len[pattern],
+                    length: self.pma.pattern_len[pattern],
                     end: self.pos,
                     pattern,
                 });
@@ -247,7 +247,7 @@ where
                 self.pos = pos + 1;
                 let pattern = self.pma.pattern_ids[self.state_id];
                 return Some(Match {
-                    start: self.pos - self.pma.pattern_len[pattern],
+                    length: self.pma.pattern_len[pattern],
                     end: self.pos,
                     pattern,
                 });
