@@ -160,9 +160,9 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             state_id = self.pma.get_next_state_id(state_id, c);
-            if self.pma.pattern_ids[state_id] != std::usize::MAX {
+            let pattern = self.pma.pattern_ids[state_id];
+            if pattern != std::usize::MAX {
                 self.pos = pos + 1;
-                let pattern = self.pma.pattern_ids[state_id];
                 return Some(Match {
                     length: self.pma.pattern_len[pattern],
                     end: self.pos,
@@ -205,9 +205,9 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = self.pma.get_next_state_id(self.state_id, c);
-            if self.pma.pattern_ids[self.state_id] != std::usize::MAX {
+            let pattern = self.pma.pattern_ids[self.state_id];
+            if pattern != std::usize::MAX {
                 self.pos = pos + 1;
-                let pattern = self.pma.pattern_ids[self.state_id];
                 self.cs_pattern_ids = self.pma.cs_pattern_ids[pattern].iter();
                 return Some(Match {
                     length: self.pma.pattern_len[pattern],
@@ -243,9 +243,9 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = self.pma.get_next_state_id(self.state_id, c);
-            if self.pma.pattern_ids[self.state_id] != std::usize::MAX {
+            let pattern = self.pma.pattern_ids[self.state_id];
+            if pattern != std::usize::MAX {
                 self.pos = pos + 1;
-                let pattern = self.pma.pattern_ids[self.state_id];
                 return Some(Match {
                     length: self.pma.pattern_len[pattern],
                     end: self.pos,
@@ -465,12 +465,12 @@ impl DoubleArrayAhoCorasick {
 
     #[inline(always)]
     fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
-        let child_idx = self.base[state_id] + c as isize;
-        // When child_idx < 0, the following .get() may return None since `child_idx as usize` is
-        // too large number.
-        if let Some(&check) = self.check.get(child_idx as usize) {
+        let child_idx = (self.base[state_id] + c as isize) as usize;
+        // When base + c < 0, the following .get() may return None since `child_idx` is too large
+        // number.
+        if let Some(&check) = self.check.get(child_idx) {
             if check == state_id {
-                return Some(child_idx as usize);
+                return Some(child_idx);
             }
         }
         None
@@ -647,9 +647,9 @@ impl DoubleArrayAhoCorasickBuilder {
                 continue;
             }
             let mut min_c = std::u8::MAX;
-            for (c, _) in node {
-                if *c < min_c {
-                    min_c = *c;
+            for &(c, _) in node {
+                if c < min_c {
+                    min_c = c;
                 }
             }
             let mut base = min_idx - min_c as isize;
@@ -742,12 +742,12 @@ impl DoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn get_child_index(&self, idx: usize, c: u8) -> Option<usize> {
-        let child_idx = self.base[idx] + c as isize;
-        // When child_idx < 0, the following .get() may return None, since `child_idx as usize` is
-        // too large number.
-        if let Some(&check) = self.check.get(child_idx as usize) {
+        let child_idx = (self.base[idx] + c as isize) as usize;
+        // When base + c < 0, the following .get() may return None, since `child_idx` is too large
+        // number.
+        if let Some(&check) = self.check.get(child_idx) {
             if check == idx {
-                return Some(child_idx as usize);
+                return Some(child_idx);
             }
         }
         None
