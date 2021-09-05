@@ -693,9 +693,8 @@ impl DoubleArrayAhoCorasickBuilder {
             for &(c, orig_child_idx) in &sparse_trie.nodes[orig_node_idx] {
                 let child_idx = self.get_child_index(node_idx, c).unwrap();
                 let mut fail_idx = self.fail[node_idx];
-                loop {
+                self.fail[child_idx] = loop {
                     if let Some(child_fail_idx) = self.get_child_index(fail_idx, c) {
-                        self.fail[child_idx] = child_fail_idx;
                         if self.pattern_ids[child_fail_idx] != std::usize::MAX {
                             if self.pattern_ids[child_idx] == std::usize::MAX {
                                 self.pattern_ids[child_idx] = self.pattern_ids[child_fail_idx];
@@ -707,15 +706,14 @@ impl DoubleArrayAhoCorasickBuilder {
                                 self.cs_pattern_ids[child_pattern_id].append(&mut fail_ids);
                             }
                         }
-                        break;
+                        break child_fail_idx;
                     }
                     let next_fail_idx = self.fail[fail_idx];
                     if fail_idx == 0 && next_fail_idx == 0 {
-                        self.fail[child_idx] = 0;
-                        break;
+                        break 0;
                     }
                     fail_idx = next_fail_idx;
-                }
+                };
                 queue.push_back((child_idx, orig_child_idx));
             }
         }
@@ -826,7 +824,7 @@ mod tests {
 
             // daachorse
             let mut actual = HashSet::new();
-            let patterns_vec: Vec<_> = patterns.iter().cloned().collect();
+            let patterns_vec: Vec<_> = patterns.into_iter().collect();
             let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
             for m in pma.find_iter(&haystack) {
                 actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
@@ -857,7 +855,7 @@ mod tests {
 
             // daachorse
             let mut actual = HashSet::new();
-            let patterns_vec: Vec<_> = patterns.iter().cloned().collect();
+            let patterns_vec: Vec<_> = patterns.into_iter().collect();
             let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
             for m in pma.find_overlapping_iter(&haystack) {
                 actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
