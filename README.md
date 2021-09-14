@@ -2,6 +2,9 @@
 
 Daac Horse: Double-Array Aho-Corasick
 
+[![Crates.io](https://img.shields.io/crates/v/daachorse)](https://crates.io/crates/daachorse)
+[![Documentation](https://docs.rs/daachorse/badge.svg)](https://docs.rs/daachorse)
+
 ## Overview
 
 A fast implementation of the Aho-Corasick algorithm using Double-Array Trie.
