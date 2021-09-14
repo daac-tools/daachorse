@@ -55,7 +55,7 @@ pub struct DuplicatePatternError {
 
 impl fmt::Display for DuplicatePatternError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DuplicatedPatternError: {:?}", self.pattern)
+        write!(f, "DuplicatePatternError: {:?}", self.pattern)
     }
 }
 
