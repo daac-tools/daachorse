@@ -1,0 +1,17 @@
+[package]
+name = "daachorse-bench"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+
+[dev-dependencies]
+aho-corasick = "0.7"
+criterion = { version = "0.3", features = ["html_reports"] }
+daachorse = { path = ".." }
+yada = "0.4"
+fst = "0.4"
+
+[[bench]]
+name = "benchmark"
+harness = false
