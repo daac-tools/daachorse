@@ -696,11 +696,11 @@ impl DoubleArrayAhoCorasickBuilder {
                 self.fail[child_idx] = loop {
                     if let Some(child_fail_idx) = self.get_child_index(fail_idx, c) {
                         if self.pattern_ids[child_fail_idx] != std::usize::MAX {
-                            if self.pattern_ids[child_idx] == std::usize::MAX {
-                                self.pattern_ids[child_idx] = self.pattern_ids[child_fail_idx];
+                            let fail_pattern_id = self.pattern_ids[child_fail_idx];
+                            let child_pattern_id = self.pattern_ids[child_idx];
+                            if child_pattern_id == std::usize::MAX {
+                                self.pattern_ids[child_idx] = fail_pattern_id;
                             } else {
-                                let child_pattern_id = self.pattern_ids[child_idx];
-                                let fail_pattern_id = self.pattern_ids[child_fail_idx];
                                 let mut fail_ids = self.cs_pattern_ids[fail_pattern_id].clone();
                                 self.cs_pattern_ids[child_pattern_id].push(fail_pattern_id);
                                 self.cs_pattern_ids[child_pattern_id].append(&mut fail_ids);
@@ -838,6 +838,15 @@ mod tests {
     fn test_find_overlapping_iter_random() {
         for _ in 0..100 {
             let mut patterns = HashSet::new();
+            for _ in 0..6 {
+                patterns.insert(generate_random_string(1));
+            }
+            for _ in 0..20 {
+                patterns.insert(generate_random_string(2));
+            }
+            for _ in 0..50 {
+                patterns.insert(generate_random_string(3));
+            }
             for _ in 0..100 {
                 patterns.insert(generate_random_string(4));
             }
@@ -845,12 +854,12 @@ mod tests {
 
             // naive pattern match
             let mut expected = HashSet::new();
-            let mut pos = 0;
-            while pos <= haystack.len() - 4 {
-                if patterns.contains(&haystack[pos..pos + 4]) {
-                    expected.insert((pos, pos + 4, haystack[pos..pos + 4].to_string()));
+            for i in 0..4 {
+                for pos in 0..haystack.len() - i {
+                    if patterns.contains(&haystack[pos..pos + i + 1]) {
+                        expected.insert((pos, pos + i + 1, haystack[pos..pos + i + 1].to_string()));
+                    }
                 }
-                pos += 1;
             }
 
             // daachorse
