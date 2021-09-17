@@ -160,11 +160,11 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             state_id = self.pma.get_next_state_id(state_id, c);
-            let pattern = self.pma.pattern_ids[state_id];
+            let pattern = unsafe { *self.pma.pattern_ids.get_unchecked(state_id) };
             if pattern != std::usize::MAX {
                 self.pos = pos + 1;
                 return Some(Match {
-                    length: self.pma.pattern_len[pattern],
+                    length: unsafe { *self.pma.pattern_len.get_unchecked(pattern) },
                     end: self.pos,
                     pattern,
                 });
@@ -197,7 +197,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(&pattern) = self.cs_pattern_ids.next() {
             return Some(Match {
-                length: self.pma.pattern_len[pattern],
+                length: unsafe { *self.pma.pattern_len.get_unchecked(pattern) },
                 end: self.pos,
                 pattern,
             });
@@ -205,12 +205,13 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = self.pma.get_next_state_id(self.state_id, c);
-            let pattern = self.pma.pattern_ids[self.state_id];
+            let pattern = unsafe { *self.pma.pattern_ids.get_unchecked(self.state_id) };
             if pattern != std::usize::MAX {
                 self.pos = pos + 1;
-                self.cs_pattern_ids = self.pma.cs_pattern_ids[pattern].iter();
+                self.cs_pattern_ids =
+                    unsafe { self.pma.cs_pattern_ids.get_unchecked(pattern) }.iter();
                 return Some(Match {
-                    length: self.pma.pattern_len[pattern],
+                    length: unsafe { *self.pma.pattern_len.get_unchecked(pattern) },
                     end: self.pos,
                     pattern,
                 });
@@ -243,11 +244,11 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = self.pma.get_next_state_id(self.state_id, c);
-            let pattern = self.pma.pattern_ids[self.state_id];
+            let pattern = unsafe { *self.pma.pattern_ids.get_unchecked(self.state_id) };
             if pattern != std::usize::MAX {
                 self.pos = pos + 1;
                 return Some(Match {
-                    length: self.pma.pattern_len[pattern],
+                    length: unsafe { *self.pma.pattern_len.get_unchecked(pattern) },
                     end: self.pos,
                     pattern,
                 });
@@ -455,7 +456,7 @@ impl DoubleArrayAhoCorasick {
         for &c in pattern.as_ref() {
             state_id = self.get_child_index(state_id, c)?;
         }
-        let pattern_id = self.pattern_ids[state_id];
+        let pattern_id = unsafe { *self.pattern_ids.get_unchecked(state_id) };
         if pattern_id == std::usize::MAX {
             None
         } else {
@@ -465,8 +466,8 @@ impl DoubleArrayAhoCorasick {
 
     #[inline(always)]
     fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
-        let child_idx = (self.base[state_id] + c as isize) as usize;
-        // When base + c < 0, the following .get() may return None since `child_idx` is too large
+        let child_idx = (unsafe { self.base.get_unchecked(state_id) } + c as isize) as usize;
+        // When base + c < 0, the following .get() returns None since `child_idx` is too large
         // number.
         if let Some(&check) = self.check.get(child_idx) {
             if check == state_id {
@@ -485,7 +486,7 @@ impl DoubleArrayAhoCorasick {
             if state_id == 0 {
                 return 0;
             }
-            state_id = self.fail[state_id];
+            state_id = unsafe { *self.fail.get_unchecked(state_id) };
         }
     }
 }
@@ -740,8 +741,8 @@ impl DoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn get_child_index(&self, idx: usize, c: u8) -> Option<usize> {
-        let child_idx = (self.base[idx] + c as isize) as usize;
-        // When base + c < 0, the following .get() may return None, since `child_idx` is too large
+        let child_idx = (unsafe { self.base.get_unchecked(idx) } + c as isize) as usize;
+        // When base + c < 0, the following .get() returns None, since `child_idx` is too large
         // number.
         if let Some(&check) = self.check.get(child_idx) {
             if check == idx {
