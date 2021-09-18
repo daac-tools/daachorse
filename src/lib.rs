@@ -110,6 +110,24 @@ impl SparseTrie {
     }
 }
 
+#[derive(Clone, Copy)]
+struct State {
+    base: isize,
+    check: usize,
+    fail: usize,
+    pattern_id: usize,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            base: std::isize::MIN,
+            check: std::usize::MAX,
+            fail: std::usize::MAX,
+            pattern_id: std::usize::MAX,
+        }
+    }
+}
 /// Match result.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Match {
@@ -160,11 +178,11 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             state_id = self.pma.get_next_state_id(state_id, c);
-            let pattern = unsafe { *self.pma.pattern_ids.get_unchecked(state_id) };
-            if pattern != std::usize::MAX {
+            let pattern = unsafe { self.pma.states.get_unchecked(state_id).pattern_id };
+            if let Some(&length) = self.pma.pattern_len.get(pattern) {
                 self.pos = pos + 1;
                 return Some(Match {
-                    length: unsafe { *self.pma.pattern_len.get_unchecked(pattern) },
+                    length,
                     end: self.pos,
                     pattern,
                 });
@@ -205,13 +223,13 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = self.pma.get_next_state_id(self.state_id, c);
-            let pattern = unsafe { *self.pma.pattern_ids.get_unchecked(self.state_id) };
-            if pattern != std::usize::MAX {
+            let pattern = unsafe { self.pma.states.get_unchecked(self.state_id).pattern_id };
+            if let Some(&length) = self.pma.pattern_len.get(pattern) {
                 self.pos = pos + 1;
                 self.cs_pattern_ids =
                     unsafe { self.pma.cs_pattern_ids.get_unchecked(pattern) }.iter();
                 return Some(Match {
-                    length: unsafe { *self.pma.pattern_len.get_unchecked(pattern) },
+                    length,
                     end: self.pos,
                     pattern,
                 });
@@ -244,11 +262,11 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = self.pma.get_next_state_id(self.state_id, c);
-            let pattern = unsafe { *self.pma.pattern_ids.get_unchecked(self.state_id) };
-            if pattern != std::usize::MAX {
+            let pattern = unsafe { self.pma.states.get_unchecked(self.state_id).pattern_id };
+            if let Some(&length) = self.pma.pattern_len.get(pattern) {
                 self.pos = pos + 1;
                 return Some(Match {
-                    length: unsafe { *self.pma.pattern_len.get_unchecked(pattern) },
+                    length,
                     end: self.pos,
                     pattern,
                 });
@@ -261,10 +279,7 @@ where
 
 /// Pattern match automaton implemented with the Aho-Corasick algorithm and Double-Array.
 pub struct DoubleArrayAhoCorasick {
-    base: Vec<isize>,
-    check: Vec<usize>,
-    fail: Vec<usize>,
-    pattern_ids: Vec<usize>,
+    states: Vec<State>,
     pattern_len: Vec<usize>,
     cs_pattern_ids: Vec<Vec<usize>>,
 }
@@ -456,7 +471,7 @@ impl DoubleArrayAhoCorasick {
         for &c in pattern.as_ref() {
             state_id = self.get_child_index(state_id, c)?;
         }
-        let pattern_id = unsafe { *self.pattern_ids.get_unchecked(state_id) };
+        let pattern_id = unsafe { self.states.get_unchecked(state_id).pattern_id };
         if pattern_id == std::usize::MAX {
             None
         } else {
@@ -466,11 +481,11 @@ impl DoubleArrayAhoCorasick {
 
     #[inline(always)]
     fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
-        let child_idx = (unsafe { self.base.get_unchecked(state_id) } + c as isize) as usize;
+        let child_idx = (unsafe { self.states.get_unchecked(state_id).base } + c as isize) as usize;
         // When base + c < 0, the following .get() returns None since `child_idx` is too large
         // number.
-        if let Some(&check) = self.check.get(child_idx) {
-            if check == state_id {
+        if let Some(state) = self.states.get(child_idx) {
+            if state.check == state_id {
                 return Some(child_idx);
             }
         }
@@ -486,17 +501,14 @@ impl DoubleArrayAhoCorasick {
             if state_id == 0 {
                 return 0;
             }
-            state_id = unsafe { *self.fail.get_unchecked(state_id) };
+            state_id = unsafe { self.states.get_unchecked(state_id).fail };
         }
     }
 }
 
 /// Builder of [`DoubleArrayAhoCorasick`].
 pub struct DoubleArrayAhoCorasickBuilder {
-    base: Vec<isize>,
-    check: Vec<usize>,
-    fail: Vec<usize>,
-    pattern_ids: Vec<usize>,
+    states: Vec<State>,
     pattern_len: Vec<usize>,
     cs_pattern_ids: Vec<Vec<usize>>,
     step_size: usize,
@@ -551,12 +563,9 @@ impl DoubleArrayAhoCorasickBuilder {
             });
         }
         Ok(Self {
-            base: vec![std::isize::MIN; init_size],
-            check: vec![std::usize::MAX; init_size],
-            pattern_ids: vec![std::usize::MAX; init_size],
+            states: vec![State::default(); init_size],
             cs_pattern_ids: vec![],
             pattern_len: vec![],
-            fail: vec![std::usize::MAX; init_size],
             step_size,
         })
     }
@@ -604,19 +613,13 @@ impl DoubleArrayAhoCorasickBuilder {
         self.add_fails(&sparse_trie);
 
         let DoubleArrayAhoCorasickBuilder {
-            base,
-            check,
-            fail,
-            pattern_ids,
+            states,
             pattern_len,
             cs_pattern_ids,
             ..
         } = self;
         Ok(DoubleArrayAhoCorasick {
-            base,
-            check,
-            fail,
-            pattern_ids,
+            states,
             pattern_len,
             cs_pattern_ids,
         })
@@ -642,7 +645,7 @@ impl DoubleArrayAhoCorasickBuilder {
         let mut min_idx = 1;
         let mut act_size = 1;
         node_id_map[0] = 0;
-        self.check[0] = 0;
+        self.states[0].check = 0;
         for (i, node) in sparse_trie.nodes.iter().enumerate() {
             if node.is_empty() {
                 continue;
@@ -661,7 +664,7 @@ impl DoubleArrayAhoCorasickBuilder {
                         act_size = idx + 1;
                     }
                     self.extend_arrays(idx + 1);
-                    if self.check[idx] != std::usize::MAX {
+                    if self.states[idx].check != std::usize::MAX {
                         if c == min_c {
                             min_idx += 1;
                         }
@@ -673,34 +676,34 @@ impl DoubleArrayAhoCorasickBuilder {
             }
             for &(c, child_id) in node {
                 let idx = (base + c as isize) as usize;
-                self.check[idx] = node_id_map[i];
-                self.pattern_ids[idx] = sparse_trie.pattern_id[child_id];
+                self.states[idx].check = node_id_map[i];
+                self.states[idx].pattern_id = sparse_trie.pattern_id[child_id];
                 node_id_map[child_id] = idx;
             }
-            self.base[node_id_map[i]] = base;
+            self.states[node_id_map[i]].base = base;
         }
         self.truncate_arrays(act_size);
     }
 
     fn add_fails(&mut self, sparse_trie: &SparseTrie) {
         let mut queue = VecDeque::new();
-        self.fail[0] = 0;
+        self.states[0].fail = 0;
         for &(c, orig_child_idx) in &sparse_trie.nodes[0] {
             let child_idx = self.get_child_index(0, c).unwrap();
-            self.fail[child_idx] = 0;
+            self.states[child_idx].fail = 0;
             queue.push_back((child_idx, orig_child_idx));
         }
         while let Some((node_idx, orig_node_idx)) = queue.pop_front() {
             for &(c, orig_child_idx) in &sparse_trie.nodes[orig_node_idx] {
                 let child_idx = self.get_child_index(node_idx, c).unwrap();
-                let mut fail_idx = self.fail[node_idx];
-                self.fail[child_idx] = loop {
+                let mut fail_idx = self.states[node_idx].fail;
+                self.states[child_idx].fail = loop {
                     if let Some(child_fail_idx) = self.get_child_index(fail_idx, c) {
-                        if self.pattern_ids[child_fail_idx] != std::usize::MAX {
-                            let fail_pattern_id = self.pattern_ids[child_fail_idx];
-                            let child_pattern_id = self.pattern_ids[child_idx];
+                        if self.states[child_fail_idx].pattern_id != std::usize::MAX {
+                            let fail_pattern_id = self.states[child_fail_idx].pattern_id;
+                            let child_pattern_id = self.states[child_idx].pattern_id;
                             if child_pattern_id == std::usize::MAX {
-                                self.pattern_ids[child_idx] = fail_pattern_id;
+                                self.states[child_idx].pattern_id = fail_pattern_id;
                             } else {
                                 let mut fail_ids = self.cs_pattern_ids[fail_pattern_id].clone();
                                 self.cs_pattern_ids[child_pattern_id].push(fail_pattern_id);
@@ -709,7 +712,7 @@ impl DoubleArrayAhoCorasickBuilder {
                         }
                         break child_fail_idx;
                     }
-                    let next_fail_idx = self.fail[fail_idx];
+                    let next_fail_idx = self.states[fail_idx].fail;
                     if fail_idx == 0 && next_fail_idx == 0 {
                         break 0;
                     }
@@ -722,30 +725,25 @@ impl DoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn extend_arrays(&mut self, min_size: usize) {
-        if min_size > self.base.len() {
-            let new_len = ((min_size - self.base.len() - 1) / self.step_size + 1) * self.step_size
-                + self.base.len();
-            self.base.resize(new_len, std::isize::MIN);
-            self.check.resize(new_len, std::usize::MAX);
-            self.pattern_ids.resize(new_len, std::usize::MAX);
-            self.fail.resize(new_len, std::usize::MAX);
+        if min_size > self.states.len() {
+            let new_len = ((min_size - self.states.len() - 1) / self.step_size + 1)
+                * self.step_size
+                + self.states.len();
+            self.states.resize(new_len, State::default());
         }
     }
 
     fn truncate_arrays(&mut self, size: usize) {
-        self.base.truncate(size);
-        self.check.truncate(size);
-        self.pattern_ids.truncate(size);
-        self.fail.truncate(size);
+        self.states.truncate(size);
     }
 
     #[inline(always)]
     fn get_child_index(&self, idx: usize, c: u8) -> Option<usize> {
-        let child_idx = (unsafe { self.base.get_unchecked(idx) } + c as isize) as usize;
+        let child_idx = (unsafe { self.states.get_unchecked(idx).base } + c as isize) as usize;
         // When base + c < 0, the following .get() returns None, since `child_idx` is too large
         // number.
-        if let Some(&check) = self.check.get(child_idx) {
-            if check == idx {
+        if let Some(state) = self.states.get(child_idx) {
+            if state.check == idx {
                 return Some(child_idx);
             }
         }
@@ -798,9 +796,13 @@ mod tests {
         //              node_id=  0  1  2  3  4  6  5
         let fail_expected = vec![0, 0, 0, 0, 1, 3, 3];
 
-        assert_eq!(base_expected, pma.base);
-        assert_eq!(check_expected, pma.check);
-        assert_eq!(fail_expected, pma.fail);
+        let pma_base: Vec<_> = pma.states.iter().map(|state| state.base).collect();
+        let pma_check: Vec<_> = pma.states.iter().map(|state| state.check).collect();
+        let pma_fail: Vec<_> = pma.states.iter().map(|state| state.fail).collect();
+
+        assert_eq!(base_expected, pma_base);
+        assert_eq!(check_expected, pma_check);
+        assert_eq!(fail_expected, pma_fail);
     }
 
     #[test]
