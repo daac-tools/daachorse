@@ -544,10 +544,6 @@ impl DoubleArrayAhoCorasick {
     /// pma.serialize(&mut buffer).unwrap();
     ///
     /// let other = DoubleArrayAhoCorasick::deserialize(&buffer[..]).unwrap();
-    /// assert_eq!(Some(0), other.find_pattern_id("bcd"));
-    /// assert_eq!(Some(1), other.find_pattern_id("ab"));
-    /// assert_eq!(Some(2), other.find_pattern_id("a"));
-    /// assert_eq!(None, other.find_pattern_id("abc"));
     /// ```
     #[doc(hidden)]
     pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
