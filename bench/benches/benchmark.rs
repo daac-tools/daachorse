@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -26,6 +27,30 @@ fn criterion_words100000_build(c: &mut Criterion) {
     patterns.sort_unstable();
 
     add_build_benches(&mut group, &patterns);
+}
+
+fn criterion_unidic_exact_match(c: &mut Criterion) {
+    let mut group = c.benchmark_group("unidic/exact_match");
+    group.sample_size(SEARCH_SAMPLE_SIZE);
+    group.warm_up_time(SEARCH_WARM_UP_TIME);
+    group.measurement_time(SEARCH_MEASURE_TIME);
+    group.sampling_mode(SamplingMode::Flat);
+    let mut patterns = load_file("data/unidic/unidic");
+    patterns.sort_unstable();
+
+    add_exact_match_benches(&mut group, &patterns);
+}
+
+fn criterion_words100000_exact_match(c: &mut Criterion) {
+    let mut group = c.benchmark_group("words_100000/exact_match");
+    group.sample_size(SEARCH_SAMPLE_SIZE);
+    group.warm_up_time(SEARCH_WARM_UP_TIME);
+    group.measurement_time(SEARCH_MEASURE_TIME);
+    group.sampling_mode(SamplingMode::Flat);
+    let mut patterns = load_file("data/words_100000");
+    patterns.sort_unstable();
+
+    add_exact_match_benches(&mut group, &patterns);
 }
 
 fn criterion_unidic_find(c: &mut Criterion) {
@@ -85,6 +110,33 @@ fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) 
         b.iter(|| daachorse::DoubleArrayAhoCorasick::new(patterns).unwrap());
     });
 
+    group.bench_function("fst/map", |b| {
+        b.iter(|| {
+            fst::Map::from_iter(
+                patterns
+                    .iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(i, pattern)| (pattern, i as u64)),
+            )
+            .unwrap()
+        });
+    });
+
+    group.bench_function("yada", |b| {
+        b.iter(|| {
+            yada::builder::DoubleArrayBuilder::build(
+                &patterns
+                    .iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(i, pattern)| (pattern, i as u32))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap()
+        });
+    });
+
     group.bench_function("aho_corasick/nfa", |b| {
         b.iter(|| aho_corasick::AhoCorasick::new(patterns));
     });
@@ -94,6 +146,75 @@ fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) 
             aho_corasick::AhoCorasickBuilder::new()
                 .dfa(true)
                 .build(patterns)
+        });
+    });
+}
+
+fn add_exact_match_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) {
+    group.bench_function("daachorse", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasick::new(patterns).unwrap();
+        b.iter(|| {
+            for pattern in patterns {
+                let result = pma.find_pattern_id(pattern);
+                if result.is_none() {
+                    panic!();
+                }
+            }
+        });
+    });
+
+    group.bench_function("hashmap", |b| {
+        let mut m = HashMap::new();
+        for (i, pattern) in patterns.iter().cloned().enumerate() {
+            m.insert(pattern, i);
+        }
+        b.iter(|| {
+            for pattern in patterns {
+                let result = m.get(pattern);
+                if result.is_none() {
+                    panic!();
+                }
+            }
+        });
+    });
+
+    group.bench_function("fst/map", |b| {
+        let m = fst::Map::from_iter(
+            patterns
+                .iter()
+                .cloned()
+                .enumerate()
+                .map(|(i, pattern)| (pattern, i as u64)),
+        )
+        .unwrap();
+        b.iter(|| {
+            for pattern in patterns {
+                let result = m.get(pattern);
+                if result.is_none() {
+                    panic!();
+                }
+            }
+        });
+    });
+
+    group.bench_function("yada", |b| {
+        let data = yada::builder::DoubleArrayBuilder::build(
+            &patterns
+                .iter()
+                .cloned()
+                .enumerate()
+                .map(|(i, pattern)| (pattern, i as u32))
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let da = yada::DoubleArray::new(data);
+        b.iter(|| {
+            for pattern in patterns {
+                let result = da.exact_match_search(pattern);
+                if result.is_none() {
+                    panic!();
+                }
+            }
         });
     });
 }
@@ -230,8 +351,10 @@ where
 
 criterion_group!(
     benches,
+    criterion_unidic_exact_match,
     criterion_unidic_find,
     criterion_unidic_find_overlapping,
+    criterion_words100000_exact_match,
     criterion_words100000_find,
     criterion_words100000_find_overlapping,
     criterion_words100000_build,

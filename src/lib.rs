@@ -471,6 +471,42 @@ impl DoubleArrayAhoCorasick {
         }
     }
 
+    /// Returns a pattern ID of the given pattern if it exists. Otherwise, None.
+    ///
+    /// # Arguments
+    ///
+    /// * `pattern` - Pattern to search for.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// assert_eq!(Some(0), pma.find_pattern_id("bcd"));
+    /// assert_eq!(Some(1), pma.find_pattern_id("ab"));
+    /// assert_eq!(Some(2), pma.find_pattern_id("a"));
+    /// assert_eq!(None, pma.find_pattern_id("abc"));
+    /// ```
+    #[inline(always)]
+    pub fn find_pattern_id<P>(&self, pattern: P) -> Option<usize>
+    where
+        P: AsRef<[u8]>,
+    {
+        let mut state_id = 0;
+        for &c in pattern.as_ref() {
+            state_id = self.get_child_index(state_id, c)?;
+        }
+        let pattern_id = unsafe { self.states.get_unchecked(state_id).pattern_id };
+        if pattern_id == std::usize::MAX {
+            None
+        } else {
+            Some(pattern_id)
+        }
+    }
+
     /// Serializes the automaton into the output stream.
     ///
     /// # Arguments
@@ -533,6 +569,10 @@ impl DoubleArrayAhoCorasick {
     /// pma.serialize_into(&mut buffer).unwrap();
     ///
     /// let other = DoubleArrayAhoCorasick::deserialize_from(&buffer[..]).unwrap();
+    /// assert_eq!(Some(0), other.find_pattern_id("bcd"));
+    /// assert_eq!(Some(1), other.find_pattern_id("ab"));
+    /// assert_eq!(Some(2), other.find_pattern_id("a"));
+    /// assert_eq!(None, other.find_pattern_id("abc"));
     /// ```
     pub fn deserialize_from<R: io::Read>(mut reader: R) -> io::Result<DoubleArrayAhoCorasick> {
         let states = {
