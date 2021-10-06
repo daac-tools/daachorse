@@ -25,6 +25,7 @@
 //! ```
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+
 use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt;
@@ -133,7 +134,10 @@ impl Default for State {
 
 impl State {
     /// Serializes the state.
-    pub fn serialize_into<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
+    pub fn serialize<W>(&self, mut writer: W) -> io::Result<()>
+    where
+        W: io::Write,
+    {
         writer.write_i64::<LittleEndian>(self.base as i64)?;
         writer.write_u64::<LittleEndian>(self.check as u64)?;
         writer.write_u64::<LittleEndian>(self.fail as u64)?;
@@ -142,16 +146,19 @@ impl State {
     }
 
     /// Deserializes the state.
-    pub fn deserialize_from<R: io::Read>(mut reader: R) -> io::Result<State> {
+    pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
+    where
+        R: io::Read,
+    {
         let base = reader.read_i64::<LittleEndian>()? as isize;
         let check = reader.read_u64::<LittleEndian>()? as usize;
         let fail = reader.read_u64::<LittleEndian>()? as usize;
         let pattern_id = reader.read_u64::<LittleEndian>()? as usize;
-        Ok(State {
-            base: base,
-            check: check,
-            fail: fail,
-            pattern_id: pattern_id,
+        Ok(Self {
+            base,
+            check,
+            fail,
+            pattern_id,
         })
     }
 }
@@ -571,6 +578,118 @@ impl DoubleArrayAhoCorasick {
         })
     }
 
+    /// Serializes the automaton into the output stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `writer` - Output stream.
+    ///
+    /// # Errors
+    ///
+    /// `std::io::Error` is returned if it fails to write the data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut buffer = vec![];
+    /// pma.serialize(&mut buffer).unwrap();
+    /// ```
+    #[doc(hidden)]
+    pub fn serialize<W>(&self, mut writer: W) -> io::Result<()>
+    where
+        W: io::Write,
+    {
+        writer.write_u64::<LittleEndian>(self.states.len() as u64)?;
+        for &s in &self.states {
+            s.serialize(&mut writer)?;
+        }
+        writer.write_u64::<LittleEndian>(self.pattern_len.len() as u64)?;
+        for &x in &self.pattern_len {
+            writer.write_u64::<LittleEndian>(x as u64)?;
+        }
+        writer.write_u64::<LittleEndian>(self.cs_pattern_ids.len() as u64)?;
+        for ids in &self.cs_pattern_ids {
+            writer.write_u64::<LittleEndian>(ids.len() as u64)?;
+            for &id in ids {
+                writer.write_u64::<LittleEndian>(id as u64)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Deserializes the automaton from the input stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `reader` - Input stream.
+    ///
+    /// # Errors
+    ///
+    /// `std::io::Error` is returned if it fails to read the data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut buffer = vec![];
+    /// pma.serialize(&mut buffer).unwrap();
+    ///
+    /// let other = DoubleArrayAhoCorasick::deserialize(&buffer[..]).unwrap();
+    /// assert_eq!(Some(0), other.find_pattern_id("bcd"));
+    /// assert_eq!(Some(1), other.find_pattern_id("ab"));
+    /// assert_eq!(Some(2), other.find_pattern_id("a"));
+    /// assert_eq!(None, other.find_pattern_id("abc"));
+    /// ```
+    #[doc(hidden)]
+    pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
+    where
+        R: io::Read,
+    {
+        let states = {
+            let len = reader.read_u64::<LittleEndian>()? as usize;
+            let mut states = Vec::with_capacity(len);
+            for _ in 0..len {
+                states.push(State::deserialize(&mut reader)?);
+            }
+            states
+        };
+        let pattern_len = {
+            let len = reader.read_u64::<LittleEndian>()? as usize;
+            let mut pattern_len = Vec::with_capacity(len);
+            for _ in 0..len {
+                pattern_len.push(reader.read_u64::<LittleEndian>()? as usize);
+            }
+            pattern_len
+        };
+        let cs_pattern_ids = {
+            let len = reader.read_u64::<LittleEndian>()? as usize;
+            let mut cs_pattern_ids = Vec::with_capacity(len);
+            for _ in 0..len {
+                let num_ids = reader.read_u64::<LittleEndian>()? as usize;
+                let mut ids = Vec::with_capacity(num_ids);
+                for _ in 0..num_ids {
+                    ids.push(reader.read_u64::<LittleEndian>()? as usize);
+                }
+                cs_pattern_ids.push(ids);
+            }
+            cs_pattern_ids
+        };
+        Ok(Self {
+            states,
+            pattern_len,
+            cs_pattern_ids,
+        })
+    }
+
     #[inline(always)]
     fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
         let child_idx = (unsafe { self.states.get_unchecked(state_id).base } + c as isize) as usize;
@@ -982,10 +1101,10 @@ mod tests {
 
         // Serialize
         let mut buffer = vec![];
-        pma.serialize_into(&mut buffer).unwrap();
+        pma.serialize(&mut buffer).unwrap();
 
         // Deserialize
-        let other = DoubleArrayAhoCorasick::deserialize_from(&buffer[..]).unwrap();
+        let other = DoubleArrayAhoCorasick::deserialize(&buffer[..]).unwrap();
 
         assert_eq!(pma.states.len(), other.states.len());
         for (a, b) in pma.states.iter().zip(other.states.iter()) {
