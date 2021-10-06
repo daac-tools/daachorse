@@ -133,7 +133,7 @@ impl Default for State {
 
 impl State {
     /// Serializes the state.
-    pub fn serialize_into<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
+    pub fn serialize<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
         writer.write_i64::<LittleEndian>(self.base as i64)?;
         writer.write_u64::<LittleEndian>(self.check as u64)?;
         writer.write_u64::<LittleEndian>(self.fail as u64)?;
@@ -142,7 +142,7 @@ impl State {
     }
 
     /// Deserializes the state.
-    pub fn deserialize_from<R: io::Read>(mut reader: R) -> io::Result<Self> {
+    pub fn deserialize<R: io::Read>(mut reader: R) -> io::Result<Self> {
         let base = reader.read_i64::<LittleEndian>()? as isize;
         let check = reader.read_u64::<LittleEndian>()? as usize;
         let fail = reader.read_u64::<LittleEndian>()? as usize;
@@ -526,12 +526,12 @@ impl DoubleArrayAhoCorasick {
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
     /// let mut buffer = vec![];
-    /// pma.serialize_into(&mut buffer).unwrap();
+    /// pma.serialize(&mut buffer).unwrap();
     /// ```
-    pub fn serialize_into<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
+    pub fn serialize<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
         writer.write_u64::<LittleEndian>(self.states.len() as u64)?;
         for &s in &self.states {
-            s.serialize_into(&mut writer)?;
+            s.serialize(&mut writer)?;
         }
         writer.write_u64::<LittleEndian>(self.pattern_len.len() as u64)?;
         for &x in &self.pattern_len {
@@ -566,20 +566,20 @@ impl DoubleArrayAhoCorasick {
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
     /// let mut buffer = vec![];
-    /// pma.serialize_into(&mut buffer).unwrap();
+    /// pma.serialize(&mut buffer).unwrap();
     ///
-    /// let other = DoubleArrayAhoCorasick::deserialize_from(&buffer[..]).unwrap();
+    /// let other = DoubleArrayAhoCorasick::deserialize(&buffer[..]).unwrap();
     /// assert_eq!(Some(0), other.find_pattern_id("bcd"));
     /// assert_eq!(Some(1), other.find_pattern_id("ab"));
     /// assert_eq!(Some(2), other.find_pattern_id("a"));
     /// assert_eq!(None, other.find_pattern_id("abc"));
     /// ```
-    pub fn deserialize_from<R: io::Read>(mut reader: R) -> io::Result<Self> {
+    pub fn deserialize<R: io::Read>(mut reader: R) -> io::Result<Self> {
         let states = {
             let len = reader.read_u64::<LittleEndian>()? as usize;
             let mut states = Vec::with_capacity(len);
             for _ in 0..len {
-                states.push(State::deserialize_from(&mut reader)?);
+                states.push(State::deserialize(&mut reader)?);
             }
             states
         };
@@ -1022,10 +1022,10 @@ mod tests {
 
         // Serialize
         let mut buffer = vec![];
-        pma.serialize_into(&mut buffer).unwrap();
+        pma.serialize(&mut buffer).unwrap();
 
         // Deserialize
-        let other = DoubleArrayAhoCorasick::deserialize_from(&buffer[..]).unwrap();
+        let other = DoubleArrayAhoCorasick::deserialize(&buffer[..]).unwrap();
 
         assert_eq!(pma.states.len(), other.states.len());
         for (a, b) in pma.states.iter().zip(other.states.iter()) {
