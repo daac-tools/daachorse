@@ -25,6 +25,7 @@
 //! ```
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+
 use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt;
