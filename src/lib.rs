@@ -134,7 +134,10 @@ impl Default for State {
 
 impl State {
     /// Serializes the state.
-    pub fn serialize<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
+    pub fn serialize<W>(&self, mut writer: W) -> io::Result<()>
+    where
+        W: io::Write,
+    {
         writer.write_i64::<LittleEndian>(self.base as i64)?;
         writer.write_u64::<LittleEndian>(self.check as u64)?;
         writer.write_u64::<LittleEndian>(self.fail as u64)?;
@@ -143,7 +146,10 @@ impl State {
     }
 
     /// Deserializes the state.
-    pub fn deserialize<R: io::Read>(mut reader: R) -> io::Result<Self> {
+    pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
+    where
+        R: io::Read,
+    {
         let base = reader.read_i64::<LittleEndian>()? as isize;
         let check = reader.read_u64::<LittleEndian>()? as usize;
         let fail = reader.read_u64::<LittleEndian>()? as usize;
@@ -530,7 +536,10 @@ impl DoubleArrayAhoCorasick {
     /// pma.serialize(&mut buffer).unwrap();
     /// ```
     #[doc(hidden)]
-    pub fn serialize<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
+    pub fn serialize<W>(&self, mut writer: W) -> io::Result<()>
+    where
+        W: io::Write,
+    {
         writer.write_u64::<LittleEndian>(self.states.len() as u64)?;
         for &s in &self.states {
             s.serialize(&mut writer)?;
@@ -577,7 +586,10 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(None, other.find_pattern_id("abc"));
     /// ```
     #[doc(hidden)]
-    pub fn deserialize<R: io::Read>(mut reader: R) -> io::Result<Self> {
+    pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
+    where
+        R: io::Read,
+    {
         let states = {
             let len = reader.read_u64::<LittleEndian>()? as usize;
             let mut states = Vec::with_capacity(len);
