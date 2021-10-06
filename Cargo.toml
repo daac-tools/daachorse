@@ -13,6 +13,9 @@ categories = ["text-processing"]
 autotests = false
 exclude = [".*"]
 
+[dependencies]
+byteorder = "1.4.3"
+
 [dev-dependencies]
 rand = "0.8.4"
 
