@@ -529,6 +529,7 @@ impl DoubleArrayAhoCorasick {
     /// let mut buffer = vec![];
     /// pma.serialize(&mut buffer).unwrap();
     /// ```
+    #[doc(hidden)]
     pub fn serialize<W: io::Write>(&self, mut writer: W) -> io::Result<()> {
         writer.write_u64::<LittleEndian>(self.states.len() as u64)?;
         for &s in &self.states {
@@ -575,6 +576,7 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(Some(2), other.find_pattern_id("a"));
     /// assert_eq!(None, other.find_pattern_id("abc"));
     /// ```
+    #[doc(hidden)]
     pub fn deserialize<R: io::Read>(mut reader: R) -> io::Result<Self> {
         let states = {
             let len = reader.read_u64::<LittleEndian>()? as usize;
