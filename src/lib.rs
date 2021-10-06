@@ -142,16 +142,16 @@ impl State {
     }
 
     /// Deserializes the state.
-    pub fn deserialize_from<R: io::Read>(mut reader: R) -> io::Result<State> {
+    pub fn deserialize_from<R: io::Read>(mut reader: R) -> io::Result<Self> {
         let base = reader.read_i64::<LittleEndian>()? as isize;
         let check = reader.read_u64::<LittleEndian>()? as usize;
         let fail = reader.read_u64::<LittleEndian>()? as usize;
         let pattern_id = reader.read_u64::<LittleEndian>()? as usize;
-        Ok(State {
-            base: base,
-            check: check,
-            fail: fail,
-            pattern_id: pattern_id,
+        Ok(Self {
+            base,
+            check,
+            fail,
+            pattern_id,
         })
     }
 }
@@ -574,7 +574,7 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(Some(2), other.find_pattern_id("a"));
     /// assert_eq!(None, other.find_pattern_id("abc"));
     /// ```
-    pub fn deserialize_from<R: io::Read>(mut reader: R) -> io::Result<DoubleArrayAhoCorasick> {
+    pub fn deserialize_from<R: io::Read>(mut reader: R) -> io::Result<Self> {
         let states = {
             let len = reader.read_u64::<LittleEndian>()? as usize;
             let mut states = Vec::with_capacity(len);
@@ -604,10 +604,10 @@ impl DoubleArrayAhoCorasick {
             }
             cs_pattern_ids
         };
-        Ok(DoubleArrayAhoCorasick {
-            states: states,
-            pattern_len: pattern_len,
-            cs_pattern_ids: cs_pattern_ids,
+        Ok(Self {
+            states,
+            pattern_len,
+            cs_pattern_ids,
         })
     }
 
