@@ -14,10 +14,10 @@ autotests = false
 exclude = [".*"]
 
 [dependencies]
-byteorder = "1.4.3"
+byteorder = "1.4.3"  # Unlicense or MIT
 
 [dev-dependencies]
-rand = "0.8.4"
+rand = "0.8.4"  # MIT or Apache-2.0
 
 [workspace]
 members = [

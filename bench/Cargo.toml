@@ -6,9 +6,9 @@ edition = "2018"
 [dependencies]
 
 [dev-dependencies]
-aho-corasick = "0.7"
-criterion = { version = "0.3", features = ["html_reports"] }
-daachorse = { path = ".." }
+aho-corasick = "0.7"  # Unlicense or MIT
+criterion = { version = "0.3", features = ["html_reports"] }  # Apache-2.0 or MIT
+daachorse = { path = ".." }  # Apache-2.0 or MIT
 
 [[bench]]
 name = "benchmark"
