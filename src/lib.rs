@@ -277,12 +277,12 @@ impl Output {
     }
 
     #[inline]
-    pub fn from_u64(x: u64) -> Self {
+    pub const fn from_u64(x: u64) -> Self {
         Self(x)
     }
 
     #[inline]
-    pub fn as_u64(&self) -> u64 {
+    pub const fn as_u64(&self) -> u64 {
         self.0
     }
 }
