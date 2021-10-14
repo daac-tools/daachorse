@@ -30,14 +30,23 @@ use std::error::Error;
 use std::fmt;
 use std::io;
 
+/// The maximum ID of a pattern used as an invalid value.
 const MAX_PATTERN_ID: u32 = std::u32::MAX;
+/// The maximum length of a pattern used as an invalid value.
 const MAX_PATTERN_LEN: u32 = std::u32::MAX >> 1;
+/// The maximum BASE value used as an invalid value.
 const MAX_BASE: u32 = std::u32::MAX;
+/// The maximum FAIL value used as an invalid value.
 const MAX_FAIL: u32 = std::u32::MAX >> 8;
+/// The maximum output position value used as an invalid value.
 const MAX_OUTPOS: u32 = std::u32::MAX;
+/// The maximum state index used as an invalid value.
 const MAX_STATE_IDX: u32 = std::u32::MAX;
+/// The length of each double-array block.
 const BLOCK_LEN: usize = 256;
+/// The number of last blocks to be searched in `DoubleArrayAhoCorasickBuilder::find_base`.
 const FREE_BLOCKS: usize = 16;
+/// The number of last states (or elements) to be searched in `DoubleArrayAhoCorasickBuilder::find_base`.
 const FREE_STATES: usize = BLOCK_LEN * FREE_BLOCKS;
 
 /// Errors in daachorse.
@@ -53,10 +62,10 @@ pub enum DaachorseError {
 #[derive(Debug)]
 pub struct InvalidArgumentError {
     /// Name of the argument.
-    pub arg: &'static str,
+    arg: &'static str,
 
     /// Error message.
-    pub msg: String,
+    msg: String,
 }
 
 impl fmt::Display for InvalidArgumentError {
@@ -71,7 +80,7 @@ impl Error for InvalidArgumentError {}
 #[derive(Debug)]
 pub struct DuplicatePatternError {
     /// A duplicate pattern.
-    pub pattern: Vec<u8>,
+    pattern: Vec<u8>,
 }
 
 impl fmt::Display for DuplicatePatternError {
@@ -85,7 +94,7 @@ impl Error for DuplicatePatternError {}
 /// Error used when the scale of input patterns exceeds the expected one.
 #[derive(Debug)]
 pub struct PatternScaleError {
-    pub msg: String,
+    msg: String,
 }
 
 impl fmt::Display for PatternScaleError {
@@ -99,7 +108,7 @@ impl Error for PatternScaleError {}
 /// Error used when the scale of the automaton exceeds the expected one.
 #[derive(Debug)]
 pub struct AutomatonScaleError {
-    pub msg: String,
+    msg: String,
 }
 
 impl fmt::Display for AutomatonScaleError {
@@ -1258,6 +1267,39 @@ mod tests {
                 CHARSET[idx] as char
             })
             .collect()
+    }
+
+    #[test]
+    fn test_double_array() {
+        /*
+         *          a--> 4
+         *         /
+         *   a--> 1 --c--> 5
+         *  /
+         * 0 --b--> 2 --c--> 6
+         *  \
+         *   c--> 3
+         *
+         *   a = 0
+         *   b = 1
+         *   c = 2
+         */
+        let patterns = vec![vec![0, 0], vec![0, 2], vec![1, 2], vec![2]];
+        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+
+        let base_expected = vec![3, MAX_BASE, 7, 4, MAX_BASE, MAX_BASE, MAX_BASE];
+        let check_expected = vec![0, 2, 1, 0, 0, 2, 2];
+        //                        ^  ^  ^  ^  ^  ^  ^
+        //              node_id=  0  1  2  3  4  6  5
+        let fail_expected = vec![0, 0, 0, 0, 3, 1, 1];
+
+        let pma_base: Vec<_> = pma.states[0..7].iter().map(|state| state.base()).collect();
+        let pma_check: Vec<_> = pma.states[0..7].iter().map(|state| state.check()).collect();
+        let pma_fail: Vec<_> = pma.states[0..7].iter().map(|state| state.fail()).collect();
+
+        assert_eq!(base_expected, pma_base);
+        assert_eq!(check_expected, pma_check);
+        assert_eq!(fail_expected, pma_fail);
     }
 
     #[test]
