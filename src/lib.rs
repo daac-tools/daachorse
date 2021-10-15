@@ -1290,7 +1290,7 @@ mod tests {
         let base_expected = vec![3, MAX_BASE, 7, 4, MAX_BASE, MAX_BASE, MAX_BASE];
         let check_expected = vec![0, 2, 1, 0, 0, 2, 2];
         //                        ^  ^  ^  ^  ^  ^  ^
-        //              node_id=  0  1  2  3  4  6  5
+        //              node_id=  0  3  2  1  4  6  5
         let fail_expected = vec![0, 0, 0, 0, 3, 1, 1];
 
         let pma_base: Vec<_> = pma.states[0..7].iter().map(|state| state.base()).collect();
