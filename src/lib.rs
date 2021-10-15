@@ -31,17 +31,17 @@ use std::fmt;
 use std::io;
 
 /// The maximum ID of a pattern used as an invalid value.
-const MAX_PATTERN_ID: u32 = std::u32::MAX;
+const PATTERN_ID_INVALID: u32 = std::u32::MAX;
 /// The maximum length of a pattern used as an invalid value.
-const MAX_PATTERN_LEN: u32 = std::u32::MAX >> 1;
+const PATTERN_LEN_INVALID: u32 = std::u32::MAX >> 1;
 /// The maximum BASE value used as an invalid value.
-const MAX_BASE: u32 = std::u32::MAX;
+const BASE_INVALID: u32 = std::u32::MAX;
 /// The maximum FAIL value used as an invalid value.
-const MAX_FAIL: u32 = std::u32::MAX >> 8;
+const FAIL_INVALID: u32 = std::u32::MAX >> 8;
 /// The maximum output position value used as an invalid value.
-const MAX_OUTPOS: u32 = std::u32::MAX;
+const OUTPOS_INVALID: u32 = std::u32::MAX;
 /// The maximum state index used as an invalid value.
-const MAX_STATE_IDX: u32 = std::u32::MAX;
+const STATE_IDX_INVALID: u32 = std::u32::MAX;
 /// The length of each double-array block.
 const BLOCK_LEN: usize = 256;
 /// The number of last blocks to be searched in `DoubleArrayAhoCorasickBuilder::find_base`.
@@ -153,9 +153,9 @@ impl SparseTrie {
             };
             return Err(DaachorseError::DuplicatePattern(e));
         }
-        if self.len > MAX_PATTERN_ID as usize {
+        if self.len > PATTERN_ID_INVALID as usize {
             let e = PatternScaleError {
-                msg: format!("Number of patterns must be <= {}", MAX_PATTERN_ID),
+                msg: format!("Number of patterns must be <= {}", PATTERN_ID_INVALID),
             };
             return Err(DaachorseError::PatternScale(e));
         }
@@ -185,9 +185,9 @@ struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            base: MAX_BASE,
-            fach: MAX_FAIL << 8,
-            output_pos: MAX_OUTPOS,
+            base: BASE_INVALID,
+            fach: FAIL_INVALID << 8,
+            output_pos: OUTPOS_INVALID,
         }
     }
 }
@@ -266,7 +266,7 @@ struct Output(u64);
 impl Output {
     #[inline(always)]
     pub fn new(pattern_id: u32, pattern_len: u32, is_begin: bool) -> Self {
-        debug_assert!(pattern_len <= MAX_PATTERN_LEN);
+        debug_assert!(pattern_len <= PATTERN_LEN_INVALID);
         Self((pattern_id as u64) << 32 | (pattern_len as u64) << 1 | is_begin as u64)
     }
 
@@ -277,7 +277,7 @@ impl Output {
 
     #[inline(always)]
     pub const fn pattern_len(&self) -> u32 {
-        ((self.0 >> 1) as u32) & MAX_PATTERN_LEN
+        ((self.0 >> 1) as u32) & PATTERN_LEN_INVALID
     }
 
     #[inline(always)]
@@ -394,7 +394,7 @@ where
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = self.pma.get_next_state_id(self.state_id, c);
             let out_pos = unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() };
-            if out_pos != MAX_OUTPOS {
+            if out_pos != OUTPOS_INVALID {
                 self.pos = pos + 1;
                 self.out_pos = out_pos as usize + 1;
                 let out = unsafe { self.pma.outputs.get_unchecked(out_pos as usize) };
@@ -433,7 +433,7 @@ where
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = self.pma.get_next_state_id(self.state_id, c);
             let out_pos = unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() };
-            if out_pos != MAX_OUTPOS {
+            if out_pos != OUTPOS_INVALID {
                 self.pos = pos + 1;
                 let out = unsafe { self.pma.outputs.get_unchecked(out_pos as usize) };
                 return Some(Match {
@@ -698,7 +698,7 @@ impl DoubleArrayAhoCorasick {
     #[inline(always)]
     fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
         let base = unsafe { self.states.get_unchecked(state_id).base() };
-        if base == MAX_BASE {
+        if base == BASE_INVALID {
             return None;
         }
         let child_idx = (base ^ c as u32) as usize;
@@ -743,7 +743,7 @@ impl Default for Extra {
             used_index: false,
             next: std::usize::MAX,
             prev: std::usize::MAX,
-            pattern_id: MAX_PATTERN_ID,
+            pattern_id: PATTERN_ID_INVALID,
             processed: false,
         }
     }
@@ -797,10 +797,10 @@ impl DoubleArrayAhoCorasickBuilder {
     /// assert_eq!(None, it.next());
     /// ```
     pub fn new(init_size: usize) -> Result<Self, DaachorseError> {
-        if init_size > MAX_STATE_IDX as usize {
+        if init_size > STATE_IDX_INVALID as usize {
             let e = InvalidArgumentError {
                 arg: "init_size",
-                msg: format!("must be <= {}", MAX_STATE_IDX),
+                msg: format!("must be <= {}", STATE_IDX_INVALID),
             };
             return Err(DaachorseError::InvalidArgument(e));
         }
@@ -880,9 +880,9 @@ impl DoubleArrayAhoCorasickBuilder {
         let mut trie = SparseTrie::new();
         for pattern in patterns {
             let pattern = pattern.as_ref();
-            if pattern.len() >= MAX_PATTERN_LEN as usize {
+            if pattern.len() >= PATTERN_LEN_INVALID as usize {
                 let e = PatternScaleError {
-                    msg: format!("pattern.len() must be < {}", MAX_PATTERN_LEN),
+                    msg: format!("pattern.len() must be < {}", PATTERN_LEN_INVALID),
                 };
                 return Err(DaachorseError::PatternScale(e));
             }
@@ -1010,9 +1010,9 @@ impl DoubleArrayAhoCorasickBuilder {
         let old_len = self.states.len();
         let new_len = old_len + BLOCK_LEN;
 
-        if new_len > MAX_STATE_IDX as usize {
+        if new_len > STATE_IDX_INVALID as usize {
             let e = AutomatonScaleError {
-                msg: format!("states.len() must be <= {}", MAX_STATE_IDX),
+                msg: format!("states.len() must be <= {}", STATE_IDX_INVALID),
             };
             return Err(DaachorseError::AutomatonScale(e));
         }
@@ -1111,9 +1111,9 @@ impl DoubleArrayAhoCorasickBuilder {
                     }
                     fail_idx = next_fail_idx;
                 };
-                if new_fail_idx >= MAX_FAIL as usize {
+                if new_fail_idx >= FAIL_INVALID as usize {
                     let e = AutomatonScaleError {
-                        msg: format!("fail_idx must be < {}", MAX_FAIL),
+                        msg: format!("fail_idx must be < {}", FAIL_INVALID),
                     };
                     return Err(DaachorseError::AutomatonScale(e));
                 }
@@ -1131,9 +1131,9 @@ impl DoubleArrayAhoCorasickBuilder {
 
     fn build_outputs(&mut self) -> Result<(), DaachorseError> {
         let error_checker = |outputs: &Vec<Output>| {
-            if outputs.len() > MAX_OUTPOS as usize {
+            if outputs.len() > OUTPOS_INVALID as usize {
                 let e = AutomatonScaleError {
-                    msg: format!("outputs.len() must be <= {}", MAX_OUTPOS),
+                    msg: format!("outputs.len() must be <= {}", OUTPOS_INVALID),
                 };
                 Err(DaachorseError::AutomatonScale(e))
             } else {
@@ -1150,11 +1150,11 @@ impl DoubleArrayAhoCorasickBuilder {
                 ..
             } = self.extras[da_node_idx];
 
-            if pattern_id == MAX_PATTERN_ID {
+            if pattern_id == PATTERN_ID_INVALID {
                 continue;
             }
             if processed {
-                debug_assert_ne!(self.states[da_node_idx].output_pos(), MAX_PATTERN_ID);
+                debug_assert_ne!(self.states[da_node_idx].output_pos(), PATTERN_ID_INVALID);
                 continue;
             }
 
@@ -1180,7 +1180,7 @@ impl DoubleArrayAhoCorasickBuilder {
                     ..
                 } = self.extras[da_node_idx];
 
-                if pattern_id == MAX_PATTERN_ID {
+                if pattern_id == PATTERN_ID_INVALID {
                     continue;
                 }
 
@@ -1207,7 +1207,7 @@ impl DoubleArrayAhoCorasickBuilder {
 
         // sentinel
         self.outputs
-            .push(Output::new(MAX_PATTERN_ID, MAX_PATTERN_LEN, true));
+            .push(Output::new(PATTERN_ID_INVALID, PATTERN_LEN_INVALID, true));
         error_checker(&self.outputs)?;
 
         Ok(())
@@ -1224,10 +1224,10 @@ impl DoubleArrayAhoCorasickBuilder {
             } = self.extras[da_node_idx];
 
             if processed {
-                debug_assert_ne!(self.states[da_node_idx].output_pos(), MAX_PATTERN_ID);
+                debug_assert_ne!(self.states[da_node_idx].output_pos(), PATTERN_ID_INVALID);
                 continue;
             }
-            debug_assert_eq!(pattern_id, MAX_PATTERN_ID);
+            debug_assert_eq!(pattern_id, PATTERN_ID_INVALID);
 
             let fail_idx = self.states[da_node_idx].fail() as usize;
             let output_pos = self.states[fail_idx].output_pos();
@@ -1237,7 +1237,7 @@ impl DoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn get_child_index(&self, idx: usize, c: u8) -> Option<usize> {
-        if self.states[idx].base() == MAX_BASE {
+        if self.states[idx].base() == BASE_INVALID {
             return None;
         }
         let child_idx = (self.states[idx].base() ^ c as u32) as usize;
@@ -1287,7 +1287,15 @@ mod tests {
         let patterns = vec![vec![0, 0], vec![0, 2], vec![1, 2], vec![2]];
         let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
 
-        let base_expected = vec![3, MAX_BASE, 7, 4, MAX_BASE, MAX_BASE, MAX_BASE];
+        let base_expected = vec![
+            3,
+            BASE_INVALID,
+            7,
+            4,
+            BASE_INVALID,
+            BASE_INVALID,
+            BASE_INVALID,
+        ];
         let check_expected = vec![0, 2, 1, 0, 0, 2, 2];
         //                        ^  ^  ^  ^  ^  ^  ^
         //              node_id=  0  3  2  1  4  6  5
