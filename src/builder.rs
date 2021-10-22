@@ -266,6 +266,11 @@ impl DoubleArrayAhoCorasickBuilder {
             self.extras[base].used_base = true;
         }
 
+        // If the root block has not been closed, it has to be closed for setting CHECK[0] to a valid value.
+        if self.states.len() <= FREE_STATES {
+            self.close_block(0);
+        }
+
         while self.head_idx != std::usize::MAX {
             let block_idx = self.head_idx / BLOCK_LEN;
             self.close_block(block_idx);
@@ -388,10 +393,17 @@ impl DoubleArrayAhoCorasickBuilder {
         let beg_idx = block_idx * BLOCK_LEN;
         let end_idx = beg_idx + BLOCK_LEN;
 
-        // Already closed?
-        if self.head_idx >= end_idx {
-            return;
+        if block_idx == 0 || self.head_idx < end_idx {
+            self.remove_invalid_checks(block_idx);
         }
+        while self.head_idx < end_idx && self.head_idx != std::usize::MAX {
+            self.fix_state(self.head_idx);
+        }
+    }
+
+    fn remove_invalid_checks(&mut self, block_idx: usize) {
+        let beg_idx = block_idx * BLOCK_LEN;
+        let end_idx = beg_idx + BLOCK_LEN;
 
         let unused_base = {
             let mut i = beg_idx;
@@ -410,10 +422,6 @@ impl DoubleArrayAhoCorasickBuilder {
             if idx == 0 || !self.extras[idx].used_index {
                 self.states[idx].set_check(c as u8);
             }
-        }
-
-        while self.head_idx < end_idx && self.head_idx != std::usize::MAX {
-            self.fix_state(self.head_idx);
         }
     }
 
