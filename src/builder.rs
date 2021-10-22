@@ -266,6 +266,11 @@ impl DoubleArrayAhoCorasickBuilder {
             self.extras[base].used_base = true;
         }
 
+        // If the root block has not been closed, it has to be closed for setting CHECK[0] to a valid value.
+        if self.states.len() <= FREE_STATES {
+            self.close_block(0);
+        }
+
         while self.head_idx != std::usize::MAX {
             let block_idx = self.head_idx / BLOCK_LEN;
             self.close_block(block_idx);

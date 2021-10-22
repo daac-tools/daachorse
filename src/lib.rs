@@ -810,6 +810,45 @@ mod tests {
     }
 
     #[test]
+    fn test_dump_root_state() {
+        let patterns: Vec<Vec<u8>> = (1..=255).map(|c| vec![c]).collect();
+        let pma = DoubleArrayAhoCorasick::new(&patterns).unwrap();
+        assert!(pma.get_child_index(0, 0).is_none());
+        for c in 1..=255 {
+            assert_eq!(pma.get_child_index(0, c).unwrap(), c as usize);
+        }
+    }
+
+    #[test]
+    fn test_dump_states_random() {
+        for _ in 0..100 {
+            let mut patterns = HashSet::new();
+            for _ in 0..100 {
+                patterns.insert(generate_random_string(8));
+            }
+            let patterns_vec: Vec<_> = patterns.into_iter().collect();
+            let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
+
+            let mut visitor = vec![0 as usize];
+            let mut visited = vec![false; pma.states.len()];
+
+            while let Some(idx) = visitor.pop() {
+                assert!(!visited[idx]);
+                assert!(
+                    pma.states[idx].base() != BASE_INVALID
+                        || pma.states[idx].output_pos() != OUTPOS_INVALID
+                );
+                visited[idx] = true;
+                for c in 0..=255 {
+                    if let Some(child_idx) = pma.get_child_index(idx, c) {
+                        visitor.push(child_idx);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn test_serialization() {
         let patterns: Vec<String> = {
             let mut patterns = HashSet::new();
