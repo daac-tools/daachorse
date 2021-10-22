@@ -623,12 +623,7 @@ mod tests {
 
     fn generate_random_binary_string(size: usize) -> Vec<u8> {
         let mut rng = rand::thread_rng();
-        (0..size)
-            .map(|_| {
-                let c = rng.gen_range(0..256);
-                c as u8
-            })
-            .collect()
+        (0..size).map(|_| rng.gen_range(0..=255)).collect()
     }
 
     #[test]
