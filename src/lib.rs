@@ -621,6 +621,16 @@ mod tests {
             .collect()
     }
 
+    fn generate_random_binary_string(size: usize) -> Vec<u8> {
+        let mut rng = rand::thread_rng();
+        (0..size)
+            .map(|_| {
+                let c = rng.gen_range(0..256);
+                c as u8
+            })
+            .collect()
+    }
+
     #[test]
     fn test_double_array() {
         /*
@@ -695,6 +705,37 @@ mod tests {
     }
 
     #[test]
+    fn test_find_iter_binary_random() {
+        for _ in 0..100 {
+            let mut patterns = HashSet::new();
+            for _ in 0..100 {
+                patterns.insert(generate_random_binary_string(4));
+            }
+            let haystack = generate_random_binary_string(100);
+
+            // naive pattern match
+            let mut expected = HashSet::new();
+            let mut pos = 0;
+            while pos <= haystack.len() - 4 {
+                if patterns.contains(&haystack[pos..pos + 4]) {
+                    expected.insert((pos, pos + 4, haystack[pos..pos + 4].to_vec()));
+                    pos += 3;
+                }
+                pos += 1;
+            }
+
+            // daachorse
+            let mut actual = HashSet::new();
+            let patterns_vec: Vec<_> = patterns.into_iter().collect();
+            let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
+            for m in pma.find_iter(&haystack) {
+                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
+            }
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
     fn test_find_overlapping_iter_random() {
         for _ in 0..100 {
             let mut patterns = HashSet::new();
@@ -730,6 +771,45 @@ mod tests {
                 actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
             }
             eprintln!("{}", haystack);
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_find_overlapping_iter_binary_random() {
+        for _ in 0..100 {
+            let mut patterns = HashSet::new();
+            for _ in 0..6 {
+                patterns.insert(generate_random_binary_string(1));
+            }
+            for _ in 0..20 {
+                patterns.insert(generate_random_binary_string(2));
+            }
+            for _ in 0..50 {
+                patterns.insert(generate_random_binary_string(3));
+            }
+            for _ in 0..100 {
+                patterns.insert(generate_random_binary_string(4));
+            }
+            let haystack = generate_random_binary_string(100);
+
+            // naive pattern match
+            let mut expected = HashSet::new();
+            for i in 0..4 {
+                for pos in 0..haystack.len() - i {
+                    if patterns.contains(&haystack[pos..pos + i + 1]) {
+                        expected.insert((pos, pos + i + 1, haystack[pos..pos + i + 1].to_vec()));
+                    }
+                }
+            }
+
+            // daachorse
+            let mut actual = HashSet::new();
+            let patterns_vec: Vec<_> = patterns.into_iter().collect();
+            let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
+            for m in pma.find_overlapping_iter(&haystack) {
+                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
+            }
             assert_eq!(expected, actual);
         }
     }
