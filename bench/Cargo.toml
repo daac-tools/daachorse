@@ -9,6 +9,8 @@ edition = "2018"
 aho-corasick = "0.7"  # Unlicense or MIT
 criterion = { version = "0.3", features = ["html_reports"] }  # Apache-2.0 or MIT
 daachorse = { path = ".." }  # Apache-2.0 or MIT
+yada = "0.4"
+fst = "0.4"
 
 [[bench]]
 name = "benchmark"
