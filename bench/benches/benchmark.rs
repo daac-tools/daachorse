@@ -96,6 +96,33 @@ fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) 
                 .build(patterns)
         });
     });
+
+    group.bench_function("yada", |b| {
+        b.iter(|| {
+            yada::builder::DoubleArrayBuilder::build(
+                &patterns
+                    .iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(i, pattern)| (pattern, i as u32))
+                    .collect::<Vec<_>>(),
+            )
+            .unwrap()
+        });
+    });
+
+    group.bench_function("fst/map", |b| {
+        b.iter(|| {
+            fst::raw::Fst::from_iter_map(
+                patterns
+                    .iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(i, pattern)| (pattern, i as u64)),
+            )
+            .unwrap()
+        });
+    });
 }
 
 fn add_find_benches(
@@ -217,6 +244,58 @@ fn add_find_overlapping_benches(
             }
         });
     });
+
+    group.bench_function("yada", |b| {
+        let data = yada::builder::DoubleArrayBuilder::build(
+            &patterns
+                .iter()
+                .cloned()
+                .enumerate()
+                .map(|(i, pattern)| (pattern, i as u32))
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let da = yada::DoubleArray::new(data);
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                let haystack_bytes = haystack.as_bytes();
+                for i in 0..haystack_bytes.len() {
+                    for (id, length) in da.common_prefix_search(&haystack_bytes[i..]) {
+                        sum += i + length + id as usize;
+                    }
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+
+    group.bench_function("fst/map", |b| {
+        let fst = fst::raw::Fst::from_iter_map(
+            patterns
+                .iter()
+                .cloned()
+                .enumerate()
+                .map(|(i, pattern)| (pattern, i as u64)),
+        )
+        .unwrap();
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                let haystack_bytes = haystack.as_bytes();
+                for i in 0..haystack_bytes.len() {
+                    for (id, length) in fst_common_prefix_search(&fst, &haystack_bytes[i..]) {
+                        sum += i + length as usize + id as usize;
+                    }
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
 }
 
 fn load_file<P>(path: P) -> Vec<String>
@@ -226,6 +305,33 @@ where
     let file = File::open(path).unwrap();
     let buf = BufReader::new(file);
     buf.lines().map(|line| line.unwrap()).collect()
+}
+
+fn fst_common_prefix_search<'a>(
+    fst: &'a fst::raw::Fst<Vec<u8>>,
+    s: &'a [u8],
+) -> impl Iterator<Item = (u64, u64)> + 'a {
+    s.iter()
+        .scan(
+            (0, fst.root(), fst::raw::Output::zero()),
+            move |(pattern_len, node, output), &byte| {
+                if let Some(b_index) = node.find_input(byte) {
+                    let transition = node.transition(b_index);
+                    *pattern_len += 1;
+                    *output = output.cat(transition.out);
+                    *node = fst.node(transition.addr);
+                    return Some((node.is_final(), *pattern_len, output.value()));
+                }
+                None
+            },
+        )
+        .filter_map(|(is_final, pattern_len, pattern_id)| {
+            if is_final {
+                Some((pattern_id, pattern_len))
+            } else {
+                None
+            }
+        })
 }
 
 criterion_group!(
