@@ -4,6 +4,7 @@ Daac Horse: Double-Array Aho-Corasick
 
 [![Crates.io](https://img.shields.io/crates/v/daachorse)](https://crates.io/crates/daachorse)
 [![Documentation](https://docs.rs/daachorse/badge.svg)](https://docs.rs/daachorse)
+![Build Status](https://github.com/legalforce-research/daachorse/actions/workflows/rust.yml/badge.svg)
 
 ## Overview
 
