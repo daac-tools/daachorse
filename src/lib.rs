@@ -143,8 +143,7 @@ struct Output(u64);
 
 impl Output {
     #[inline(always)]
-    pub fn new(pattern_id: u32, pattern_len: u32, is_begin: bool) -> Self {
-        debug_assert!(pattern_len <= PATTERN_LEN_INVALID);
+    pub const fn new(pattern_id: u32, pattern_len: u32, is_begin: bool) -> Self {
         Self((pattern_id as u64) << 32 | (pattern_len as u64) << 1 | is_begin as u64)
     }
 
