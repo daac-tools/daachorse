@@ -72,12 +72,8 @@ impl Default for State {
 
 impl State {
     #[inline(always)]
-    pub const fn base(&self) -> Option<u32> {
-        if self.base == BASE_INVALID {
-            None
-        } else {
-            Some(self.base)
-        }
+    pub fn base(&self) -> Option<u32> {
+        Some(self.base).filter(|&x| x != BASE_INVALID)
     }
 
     #[inline(always)]
@@ -91,12 +87,8 @@ impl State {
     }
 
     #[inline(always)]
-    pub const fn output_pos(&self) -> Option<u32> {
-        if self.output_pos == OUTPOS_INVALID {
-            None
-        } else {
-            Some(self.output_pos)
-        }
+    pub fn output_pos(&self) -> Option<u32> {
+        Some(self.output_pos).filter(|&x| x != OUTPOS_INVALID)
     }
 
     #[inline(always)]
@@ -230,7 +222,7 @@ where
         let mut state_id = 0;
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-            state_id = self.pma.get_next_state_id(state_id, c);
+            state_id = unsafe { self.pma.get_next_state_id(state_id, c) };
             if let Some(out_pos) = unsafe { self.pma.states.get_unchecked(state_id).output_pos() } {
                 let out = unsafe { self.pma.outputs.get_unchecked(out_pos as usize) };
                 self.pos = pos + 1;
@@ -277,7 +269,7 @@ where
         }
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-            self.state_id = self.pma.get_next_state_id(self.state_id, c);
+            self.state_id = unsafe { self.pma.get_next_state_id(self.state_id, c) };
             if let Some(out_pos) =
                 unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
             {
@@ -317,7 +309,7 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-            self.state_id = self.pma.get_next_state_id(self.state_id, c);
+            self.state_id = unsafe { self.pma.get_next_state_id(self.state_id, c) };
             if let Some(out_pos) =
                 unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
             {
@@ -582,20 +574,22 @@ impl DoubleArrayAhoCorasick {
         Ok(Self { states, outputs })
     }
 
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
-        unsafe { self.states.get_unchecked(state_id).base() }.and_then(|base| {
+    unsafe fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
+        self.states.get_unchecked(state_id).base().and_then(|base| {
             let child_idx = (base ^ c as u32) as usize;
-            if unsafe { self.states.get_unchecked(child_idx).check() } == c {
-                Some(child_idx)
-            } else {
-                None
-            }
+            Some(child_idx).filter(|&x| self.states.get_unchecked(x).check() == c)
         })
     }
 
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    fn get_next_state_id(&self, mut state_id: usize, c: u8) -> usize {
+    unsafe fn get_next_state_id(&self, mut state_id: usize, c: u8) -> usize {
         loop {
             if let Some(state_id) = self.get_child_index(state_id, c) {
                 return state_id;
@@ -603,7 +597,7 @@ impl DoubleArrayAhoCorasick {
             if state_id == 0 {
                 return 0;
             }
-            state_id = unsafe { self.states.get_unchecked(state_id).fail() } as usize;
+            state_id = self.states.get_unchecked(state_id).fail() as usize;
         }
     }
 }
@@ -823,9 +817,9 @@ mod tests {
     fn test_dump_root_state() {
         let patterns: Vec<Vec<u8>> = (1..=255).map(|c| vec![c]).collect();
         let pma = DoubleArrayAhoCorasick::new(&patterns).unwrap();
-        assert!(pma.get_child_index(0, 0).is_none());
+        assert!(unsafe { pma.get_child_index(0, 0) }.is_none());
         for c in 1..=255 {
-            assert_eq!(pma.get_child_index(0, c).unwrap(), c as usize);
+            assert_eq!(unsafe { pma.get_child_index(0, c) }.unwrap(), c as usize);
         }
     }
 
@@ -847,7 +841,7 @@ mod tests {
                 assert!(pma.states[idx].base().is_some() || pma.states[idx].output_pos().is_some());
                 visited[idx] = true;
                 for c in 0..=255 {
-                    if let Some(child_idx) = pma.get_child_index(idx, c) {
+                    if let Some(child_idx) = unsafe { pma.get_child_index(idx, c) } {
                         visitor.push(child_idx);
                     }
                 }
