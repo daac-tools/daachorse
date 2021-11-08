@@ -3,8 +3,8 @@ use crate::errors::{
     PatternScaleError,
 };
 use crate::{
-    DoubleArrayAhoCorasick, Output, State, BASE_INVALID, BLOCK_LEN, FAIL_INVALID, FREE_STATES,
-    OUTPOS_INVALID, PATTERN_ID_INVALID, PATTERN_LEN_INVALID, STATE_IDX_INVALID,
+    DoubleArrayAhoCorasick, Output, State, BLOCK_LEN, FAIL_INVALID, FREE_STATES, OUTPOS_INVALID,
+    PATTERN_ID_INVALID, PATTERN_LEN_INVALID, STATE_IDX_INVALID,
 };
 
 struct SparseTrie {
@@ -585,12 +585,13 @@ impl DoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn get_child_index(&self, idx: usize, c: u8) -> Option<usize> {
-        if self.states[idx].base() == BASE_INVALID {
-            return None;
-        }
-        let child_idx = (self.states[idx].base() ^ c as u32) as usize;
-        if self.states[child_idx].check() == c {
-            Some(child_idx)
+        if let Some(base) = self.states[idx].base() {
+            let child_idx = (base ^ c as u32) as usize;
+            if self.states[child_idx].check() == c {
+                Some(child_idx)
+            } else {
+                None
+            }
         } else {
             None
         }

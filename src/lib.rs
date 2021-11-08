@@ -72,8 +72,12 @@ impl Default for State {
 
 impl State {
     #[inline(always)]
-    pub const fn base(&self) -> u32 {
-        self.base
+    pub const fn base(&self) -> Option<u32> {
+        if self.base == BASE_INVALID {
+            None
+        } else {
+            Some(self.base)
+        }
     }
 
     #[inline(always)]
@@ -574,13 +578,13 @@ impl DoubleArrayAhoCorasick {
 
     #[inline(always)]
     fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
-        let base = unsafe { self.states.get_unchecked(state_id).base() };
-        if base == BASE_INVALID {
-            return None;
-        }
-        let child_idx = (base ^ c as u32) as usize;
-        if unsafe { self.states.get_unchecked(child_idx).check() } == c {
-            Some(child_idx)
+        if let Some(base) = unsafe { self.states.get_unchecked(state_id).base() } {
+            let child_idx = (base ^ c as u32) as usize;
+            if unsafe { self.states.get_unchecked(child_idx).check() } == c {
+                Some(child_idx)
+            } else {
+                None
+            }
         } else {
             None
         }
@@ -657,7 +661,16 @@ mod tests {
         //              node_id=  0  3  2  1  4  6  5
         let fail_expected = vec![0, 0, 0, 0, 3, 1, 1];
 
-        let pma_base: Vec<_> = pma.states[0..7].iter().map(|state| state.base()).collect();
+        let pma_base: Vec<_> = pma.states[0..7]
+            .iter()
+            .map(|state| {
+                if let Some(base) = state.base() {
+                    base
+                } else {
+                    BASE_INVALID
+                }
+            })
+            .collect();
         let pma_check: Vec<_> = pma.states[0..7].iter().map(|state| state.check()).collect();
         let pma_fail: Vec<_> = pma.states[0..7].iter().map(|state| state.fail()).collect();
 
@@ -834,7 +847,7 @@ mod tests {
             while let Some(idx) = visitor.pop() {
                 assert!(!visited[idx]);
                 assert!(
-                    pma.states[idx].base() != BASE_INVALID
+                    pma.states[idx].base().is_some()
                         || pma.states[idx].output_pos() != OUTPOS_INVALID
                 );
                 visited[idx] = true;
