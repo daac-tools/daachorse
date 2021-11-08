@@ -3,8 +3,8 @@ use crate::errors::{
     PatternScaleError,
 };
 use crate::{
-    DoubleArrayAhoCorasick, Output, State, BASE_INVALID, BLOCK_LEN, FAIL_INVALID, FREE_STATES,
-    OUTPOS_INVALID, PATTERN_ID_INVALID, PATTERN_LEN_INVALID, STATE_IDX_INVALID,
+    DoubleArrayAhoCorasick, Output, State, BLOCK_LEN, FAIL_INVALID, FREE_STATES, OUTPOS_INVALID,
+    PATTERN_ID_INVALID, PATTERN_LEN_INVALID, STATE_IDX_INVALID,
 };
 
 struct SparseTrie {
@@ -502,9 +502,10 @@ impl DoubleArrayAhoCorasickBuilder {
                 continue;
             }
             if processed {
-                debug_assert_ne!(self.states[da_node_idx].output_pos(), PATTERN_ID_INVALID);
+                debug_assert!(self.states[da_node_idx].output_pos().is_some());
                 continue;
             }
+            debug_assert!(self.states[da_node_idx].output_pos().is_none());
 
             self.extras[da_node_idx].processed = true;
             self.states[da_node_idx].set_output_pos(self.outputs.len() as u32);
@@ -533,7 +534,7 @@ impl DoubleArrayAhoCorasickBuilder {
                 }
 
                 if processed {
-                    let mut clone_pos = self.states[da_node_idx].output_pos() as usize;
+                    let mut clone_pos = self.states[da_node_idx].output_pos().unwrap() as usize;
                     debug_assert!(!self.outputs[clone_pos].is_begin());
                     while !self.outputs[clone_pos].is_begin() {
                         self.outputs.push(self.outputs[clone_pos]);
@@ -572,27 +573,28 @@ impl DoubleArrayAhoCorasickBuilder {
             } = self.extras[da_node_idx];
 
             if processed {
-                debug_assert_ne!(self.states[da_node_idx].output_pos(), PATTERN_ID_INVALID);
+                debug_assert!(self.states[da_node_idx].output_pos().is_some());
                 continue;
             }
+            debug_assert!(self.states[da_node_idx].output_pos().is_none());
             debug_assert_eq!(pattern_id, PATTERN_ID_INVALID);
 
             let fail_idx = self.states[da_node_idx].fail() as usize;
-            let output_pos = self.states[fail_idx].output_pos();
-            self.states[da_node_idx].set_output_pos(output_pos);
+            if let Some(output_pos) = self.states[fail_idx].output_pos() {
+                self.states[da_node_idx].set_output_pos(output_pos);
+            }
         }
     }
 
     #[inline(always)]
     fn get_child_index(&self, idx: usize, c: u8) -> Option<usize> {
-        if self.states[idx].base() == BASE_INVALID {
-            return None;
-        }
-        let child_idx = (self.states[idx].base() ^ c as u32) as usize;
-        if self.states[child_idx].check() == c {
-            Some(child_idx)
-        } else {
-            None
-        }
+        self.states[idx].base().and_then(|base| {
+            let child_idx = (base ^ c as u32) as usize;
+            if self.states[child_idx].check() == c {
+                Some(child_idx)
+            } else {
+                None
+            }
+        })
     }
 }

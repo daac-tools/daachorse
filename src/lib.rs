@@ -72,8 +72,12 @@ impl Default for State {
 
 impl State {
     #[inline(always)]
-    pub const fn base(&self) -> u32 {
-        self.base
+    pub const fn base(&self) -> Option<u32> {
+        if self.base == BASE_INVALID {
+            None
+        } else {
+            Some(self.base)
+        }
     }
 
     #[inline(always)]
@@ -87,8 +91,12 @@ impl State {
     }
 
     #[inline(always)]
-    pub const fn output_pos(&self) -> u32 {
-        self.output_pos
+    pub const fn output_pos(&self) -> Option<u32> {
+        if self.output_pos == OUTPOS_INVALID {
+            None
+        } else {
+            Some(self.output_pos)
+        }
     }
 
     #[inline(always)]
@@ -98,7 +106,7 @@ impl State {
 
     #[inline(always)]
     pub fn set_check(&mut self, x: u8) {
-        self.fach = (self.base() << 8) | x as u32;
+        self.fach = (self.fail() << 8) | x as u32;
     }
 
     #[inline(always)]
@@ -223,8 +231,8 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             state_id = self.pma.get_next_state_id(state_id, c);
-            let out_pos = unsafe { self.pma.states.get_unchecked(state_id).output_pos() } as usize;
-            if let Some(out) = self.pma.outputs.get(out_pos) {
+            if let Some(out_pos) = unsafe { self.pma.states.get_unchecked(state_id).output_pos() } {
+                let out = unsafe { self.pma.outputs.get_unchecked(out_pos as usize) };
                 self.pos = pos + 1;
                 return Some(Match {
                     length: out.pattern_len() as usize,
@@ -270,8 +278,9 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = self.pma.get_next_state_id(self.state_id, c);
-            let out_pos = unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() };
-            if out_pos != OUTPOS_INVALID {
+            if let Some(out_pos) =
+                unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
+            {
                 self.pos = pos + 1;
                 self.out_pos = out_pos as usize + 1;
                 let out = unsafe { self.pma.outputs.get_unchecked(out_pos as usize) };
@@ -309,8 +318,9 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = self.pma.get_next_state_id(self.state_id, c);
-            let out_pos = unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() };
-            if out_pos != OUTPOS_INVALID {
+            if let Some(out_pos) =
+                unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
+            {
                 self.pos = pos + 1;
                 let out = unsafe { self.pma.outputs.get_unchecked(out_pos as usize) };
                 return Some(Match {
@@ -574,16 +584,14 @@ impl DoubleArrayAhoCorasick {
 
     #[inline(always)]
     fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
-        let base = unsafe { self.states.get_unchecked(state_id).base() };
-        if base == BASE_INVALID {
-            return None;
-        }
-        let child_idx = (base ^ c as u32) as usize;
-        if unsafe { self.states.get_unchecked(child_idx).check() } == c {
-            Some(child_idx)
-        } else {
-            None
-        }
+        unsafe { self.states.get_unchecked(state_id).base() }.and_then(|base| {
+            let child_idx = (base ^ c as u32) as usize;
+            if unsafe { self.states.get_unchecked(child_idx).check() } == c {
+                Some(child_idx)
+            } else {
+                None
+            }
+        })
     }
 
     #[inline(always)]
@@ -657,7 +665,10 @@ mod tests {
         //              node_id=  0  3  2  1  4  6  5
         let fail_expected = vec![0, 0, 0, 0, 3, 1, 1];
 
-        let pma_base: Vec<_> = pma.states[0..7].iter().map(|state| state.base()).collect();
+        let pma_base: Vec<_> = pma.states[0..7]
+            .iter()
+            .map(|state| state.base().unwrap_or(BASE_INVALID))
+            .collect();
         let pma_check: Vec<_> = pma.states[0..7].iter().map(|state| state.check()).collect();
         let pma_fail: Vec<_> = pma.states[0..7].iter().map(|state| state.fail()).collect();
 
@@ -833,10 +844,7 @@ mod tests {
 
             while let Some(idx) = visitor.pop() {
                 assert!(!visited[idx]);
-                assert!(
-                    pma.states[idx].base() != BASE_INVALID
-                        || pma.states[idx].output_pos() != OUTPOS_INVALID
-                );
+                assert!(pma.states[idx].base().is_some() || pma.states[idx].output_pos().is_some());
                 visited[idx] = true;
                 for c in 0..=255 {
                     if let Some(child_idx) = pma.get_child_index(idx, c) {
