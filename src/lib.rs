@@ -584,16 +584,14 @@ impl DoubleArrayAhoCorasick {
 
     #[inline(always)]
     fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
-        if let Some(base) = unsafe { self.states.get_unchecked(state_id).base() } {
+        unsafe { self.states.get_unchecked(state_id).base() }.and_then(|base| {
             let child_idx = (base ^ c as u32) as usize;
             if unsafe { self.states.get_unchecked(child_idx).check() } == c {
                 Some(child_idx)
             } else {
                 None
             }
-        } else {
-            None
-        }
+        })
     }
 
     #[inline(always)]
