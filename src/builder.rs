@@ -590,11 +590,7 @@ impl DoubleArrayAhoCorasickBuilder {
     fn get_child_index(&self, idx: usize, c: u8) -> Option<usize> {
         self.states[idx].base().and_then(|base| {
             let child_idx = (base ^ c as u32) as usize;
-            if self.states[child_idx].check() == c {
-                Some(child_idx)
-            } else {
-                None
-            }
+            Some(child_idx).filter(|&x| self.states[x].check() == c)
         })
     }
 }
