@@ -668,11 +668,7 @@ mod tests {
         let pma_base: Vec<_> = pma.states[0..7]
             .iter()
             .map(|state| {
-                if let Some(base) = state.base() {
-                    base
-                } else {
-                    BASE_INVALID
-                }
+                state.base().unwrap_or(BASE_INVALID)
             })
             .collect();
         let pma_check: Vec<_> = pma.states[0..7].iter().map(|state| state.check()).collect();
