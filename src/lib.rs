@@ -98,7 +98,7 @@ impl State {
 
     #[inline(always)]
     pub fn set_check(&mut self, x: u8) {
-        self.fach = (self.base() << 8) | x as u32;
+        self.fach = (self.fail() << 8) | x as u32;
     }
 
     #[inline(always)]
