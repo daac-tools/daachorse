@@ -502,9 +502,10 @@ impl DoubleArrayAhoCorasickBuilder {
                 continue;
             }
             if processed {
-                debug_assert_ne!(self.states[da_node_idx].output_pos(), PATTERN_ID_INVALID);
+                debug_assert!(self.states[da_node_idx].output_pos().is_some());
                 continue;
             }
+            debug_assert!(self.states[da_node_idx].output_pos().is_none());
 
             self.extras[da_node_idx].processed = true;
             self.states[da_node_idx].set_output_pos(self.outputs.len() as u32);
@@ -533,7 +534,7 @@ impl DoubleArrayAhoCorasickBuilder {
                 }
 
                 if processed {
-                    let mut clone_pos = self.states[da_node_idx].output_pos() as usize;
+                    let mut clone_pos = self.states[da_node_idx].output_pos().unwrap() as usize;
                     debug_assert!(!self.outputs[clone_pos].is_begin());
                     while !self.outputs[clone_pos].is_begin() {
                         self.outputs.push(self.outputs[clone_pos]);
@@ -572,14 +573,16 @@ impl DoubleArrayAhoCorasickBuilder {
             } = self.extras[da_node_idx];
 
             if processed {
-                debug_assert_ne!(self.states[da_node_idx].output_pos(), PATTERN_ID_INVALID);
+                debug_assert!(self.states[da_node_idx].output_pos().is_some());
                 continue;
             }
+            debug_assert!(self.states[da_node_idx].output_pos().is_none());
             debug_assert_eq!(pattern_id, PATTERN_ID_INVALID);
 
             let fail_idx = self.states[da_node_idx].fail() as usize;
-            let output_pos = self.states[fail_idx].output_pos();
-            self.states[da_node_idx].set_output_pos(output_pos);
+            if let Some(output_pos) = self.states[fail_idx].output_pos() {
+                self.states[da_node_idx].set_output_pos(output_pos);
+            }
         }
     }
 
