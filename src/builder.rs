@@ -2,9 +2,7 @@ use crate::errors::{
     AutomatonScaleError, DaachorseError, DuplicatePatternError, InvalidArgumentError,
     PatternScaleError,
 };
-use crate::{
-    DoubleArrayAhoCorasick, Output, State, FAIL_INVALID, OUTPOS_INVALID, PATTERN_LEN_INVALID,
-};
+use crate::{DoubleArrayAhoCorasick, Output, State, OUTPOS_INVALID, PATTERN_LEN_INVALID};
 
 // The length of each double-array block.
 const BLOCK_LEN: usize = 256;
@@ -16,6 +14,8 @@ const FREE_STATES: usize = BLOCK_LEN * FREE_BLOCKS;
 const STATE_IDX_INVALID: u32 = std::u32::MAX;
 // The maximum ID of a pattern used as an invalid value.
 const PATTERN_ID_INVALID: u32 = std::u32::MAX;
+// The maximum FAIL value.
+const FAIL_MAX: usize = std::u32::MAX as usize >> 8;
 
 struct SparseTrie {
     nodes: Vec<Vec<(u8, usize)>>,
@@ -469,9 +469,9 @@ impl DoubleArrayAhoCorasickBuilder {
                     }
                     fail_idx = next_fail_idx;
                 };
-                if new_fail_idx >= FAIL_INVALID as usize {
+                if new_fail_idx > FAIL_MAX {
                     let e = AutomatonScaleError {
-                        msg: format!("fail_idx must be < {}", FAIL_INVALID),
+                        msg: format!("fail_idx must be < {}", FAIL_MAX),
                     };
                     return Err(DaachorseError::AutomatonScale(e));
                 }

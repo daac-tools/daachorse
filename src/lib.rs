@@ -38,8 +38,6 @@ use errors::DaachorseError;
 pub(crate) const PATTERN_LEN_INVALID: u32 = std::u32::MAX >> 1;
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: u32 = std::u32::MAX;
-// The maximum FAIL value used as an invalid value.
-pub(crate) const FAIL_INVALID: u32 = std::u32::MAX >> 8;
 // The maximum output position value used as an invalid value.
 pub(crate) const OUTPOS_INVALID: u32 = std::u32::MAX;
 
@@ -54,7 +52,7 @@ impl Default for State {
     fn default() -> Self {
         Self {
             base: BASE_INVALID,
-            fach: FAIL_INVALID << 8,
+            fach: 0,
             output_pos: OUTPOS_INVALID,
         }
     }
