@@ -34,8 +34,6 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::DaachorseError;
 
-// The maximum ID of a pattern used as an invalid value.
-pub(crate) const PATTERN_ID_INVALID: u32 = std::u32::MAX;
 // The maximum length of a pattern used as an invalid value.
 pub(crate) const PATTERN_LEN_INVALID: u32 = std::u32::MAX >> 1;
 // The maximum BASE value used as an invalid value.
@@ -44,14 +42,6 @@ pub(crate) const BASE_INVALID: u32 = std::u32::MAX;
 pub(crate) const FAIL_INVALID: u32 = std::u32::MAX >> 8;
 // The maximum output position value used as an invalid value.
 pub(crate) const OUTPOS_INVALID: u32 = std::u32::MAX;
-// The maximum state index used as an invalid value.
-pub(crate) const STATE_IDX_INVALID: u32 = std::u32::MAX;
-// The length of each double-array block.
-pub(crate) const BLOCK_LEN: usize = 256;
-// The number of last blocks to be searched in `DoubleArrayAhoCorasickBuilder::find_base`.
-pub(crate) const FREE_BLOCKS: usize = 16;
-// The number of last states (or elements) to be searched in `DoubleArrayAhoCorasickBuilder::find_base`.
-pub(crate) const FREE_STATES: usize = BLOCK_LEN * FREE_BLOCKS;
 
 #[derive(Clone, Copy)]
 struct State {
