@@ -15,7 +15,7 @@ const STATE_IDX_INVALID: u32 = std::u32::MAX;
 // The maximum ID of a pattern used as an invalid value.
 const PATTERN_ID_INVALID: u32 = std::u32::MAX;
 // The maximum FAIL value.
-const FAIL_MAX: usize = std::u32::MAX as usize >> 8;
+const FAIL_MAX: usize = 0x00ffffff;
 
 struct SparseTrie {
     nodes: Vec<Vec<(u8, usize)>>,
