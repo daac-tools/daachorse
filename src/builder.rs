@@ -471,7 +471,7 @@ impl DoubleArrayAhoCorasickBuilder {
                 };
                 if new_fail_idx > FAIL_MAX {
                     let e = AutomatonScaleError {
-                        msg: format!("fail_idx must be < {}", FAIL_MAX),
+                        msg: format!("fail_idx must be <= {}", FAIL_MAX),
                     };
                     return Err(DaachorseError::AutomatonScale(e));
                 }
