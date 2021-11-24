@@ -18,33 +18,33 @@ const PATTERN_ID_INVALID: u32 = std::u32::MAX;
 const FAIL_MAX: usize = 0x00ffffff;
 
 struct SparseTrie {
-    nodes: Vec<Vec<(u8, usize)>>,
-    pattern_id: Vec<usize>,
+    states: Vec<Vec<(u8, usize)>>,
+    pattern_ids: Vec<usize>,
     len: usize,
 }
 
 impl SparseTrie {
     fn new() -> Self {
         Self {
-            nodes: vec![vec![]],
-            pattern_id: vec![std::usize::MAX],
+            states: vec![vec![]],
+            pattern_ids: vec![std::usize::MAX],
             len: 0,
         }
     }
 
     #[inline(always)]
     fn add(&mut self, pattern: &[u8]) -> Result<(), DaachorseError> {
-        let mut node_id = 0;
+        let mut state_id = 0;
         for &c in pattern {
-            node_id = self.get(node_id, c).unwrap_or_else(|| {
-                let next_node_id = self.nodes.len();
-                self.nodes.push(vec![]);
-                self.nodes[node_id].push((c, next_node_id));
-                self.pattern_id.push(std::usize::MAX);
-                next_node_id
+            state_id = self.get(state_id, c).unwrap_or_else(|| {
+                let next_state_id = self.states.len();
+                self.states.push(vec![]);
+                self.states[state_id].push((c, next_state_id));
+                self.pattern_ids.push(std::usize::MAX);
+                next_state_id
             });
         }
-        let pattern_id = self.pattern_id.get_mut(node_id).unwrap();
+        let pattern_id = self.pattern_ids.get_mut(state_id).unwrap();
         if *pattern_id != std::usize::MAX {
             let e = DuplicatePatternError {
                 pattern: pattern.to_vec(),
@@ -63,10 +63,10 @@ impl SparseTrie {
     }
 
     #[inline(always)]
-    fn get(&self, node_id: usize, c: u8) -> Option<usize> {
-        for trans in &self.nodes[node_id] {
-            if c == trans.0 {
-                return Some(trans.1);
+    fn get(&self, state_id: usize, c: u8) -> Option<usize> {
+        for &(cc, child_id) in &self.states[state_id] {
+            if c == cc {
+                return Some(child_id);
             }
         }
         None
@@ -243,34 +243,34 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     fn build_double_array(&mut self, sparse_trie: &SparseTrie) -> Result<(), DaachorseError> {
-        let mut node_id_map = vec![std::usize::MAX; sparse_trie.nodes.len()];
-        node_id_map[0] = 0;
+        let mut state_id_map = vec![std::usize::MAX; sparse_trie.states.len()];
+        state_id_map[0] = 0;
 
         self.init_array();
 
-        for (i, node) in sparse_trie.nodes.iter().enumerate() {
-            let idx = node_id_map[i];
+        for (i, edges) in sparse_trie.states.iter().enumerate() {
+            let idx = state_id_map[i];
             {
-                let pattern_id = sparse_trie.pattern_id[i];
+                let pattern_id = sparse_trie.pattern_ids[i];
                 if pattern_id != std::usize::MAX {
                     self.extras[idx].pattern_id = pattern_id as u32;
                 }
             }
 
-            if node.is_empty() {
+            if edges.is_empty() {
                 continue;
             }
 
-            let base = self.find_base(node);
+            let base = self.find_base(edges);
             if base >= self.states.len() {
                 self.extend_array()?;
             }
 
-            for &(c, child_id) in node {
+            for &(c, child_id) in edges {
                 let child_idx = base ^ c as usize;
                 self.fix_state(child_idx);
                 self.states[child_idx].set_check(c);
-                node_id_map[child_id] = child_idx;
+                state_id_map[child_id] = child_idx;
             }
             self.states[idx].set_base(base as u32);
             self.extras[base].used_base = true;
@@ -329,15 +329,15 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn find_base(&self, node: &[(u8, usize)]) -> usize {
+    fn find_base(&self, edges: &[(u8, usize)]) -> usize {
         if self.head_idx == std::usize::MAX {
             return self.states.len();
         }
         let mut idx = self.head_idx;
         loop {
             debug_assert!(!self.extras[idx].used_index);
-            let base = idx ^ node[0].0 as usize;
-            if self.check_valid_base(base, node) {
+            let base = idx ^ edges[0].0 as usize;
+            if self.check_valid_base(base, edges) {
                 return base;
             }
             idx = self.extras[idx].next;
@@ -348,11 +348,11 @@ impl DoubleArrayAhoCorasickBuilder {
         self.states.len()
     }
 
-    fn check_valid_base(&self, base: usize, node: &[(u8, usize)]) -> bool {
+    fn check_valid_base(&self, base: usize, edges: &[(u8, usize)]) -> bool {
         if self.extras[base].used_base {
             return false;
         }
-        for &(c, _) in node {
+        for &(c, _) in edges {
             let idx = base ^ c as usize;
             if self.extras[idx].used_index {
                 return false;
@@ -437,9 +437,9 @@ impl DoubleArrayAhoCorasickBuilder {
 
     fn add_fails(&mut self, sparse_trie: &SparseTrie) -> Result<(), DaachorseError> {
         self.states[0].set_fail(0);
-        self.visits.reserve(sparse_trie.nodes.len());
+        self.visits.reserve(sparse_trie.states.len());
 
-        for &(c, st_child_idx) in &sparse_trie.nodes[0] {
+        for &(c, st_child_idx) in &sparse_trie.states[0] {
             let da_child_idx = self.get_child_index(0, c).unwrap();
             self.states[da_child_idx].set_fail(0);
             self.visits.push(StatePair {
@@ -451,14 +451,14 @@ impl DoubleArrayAhoCorasickBuilder {
         let mut vi = 0;
         while vi < self.visits.len() {
             let StatePair {
-                da_idx: da_node_idx,
-                st_idx: st_node_idx,
+                da_idx: da_state_idx,
+                st_idx: st_state_idx,
             } = self.visits[vi];
             vi += 1;
 
-            for &(c, st_child_idx) in &sparse_trie.nodes[st_node_idx] {
-                let da_child_idx = self.get_child_index(da_node_idx, c).unwrap();
-                let mut fail_idx = self.states[da_node_idx].fail() as usize;
+            for &(c, st_child_idx) in &sparse_trie.states[st_state_idx] {
+                let da_child_idx = self.get_child_index(da_state_idx, c).unwrap();
+                let mut fail_idx = self.states[da_state_idx].fail() as usize;
                 let new_fail_idx = loop {
                     if let Some(child_fail_idx) = self.get_child_index(fail_idx, c) {
                         break child_fail_idx;
@@ -500,25 +500,25 @@ impl DoubleArrayAhoCorasickBuilder {
         };
 
         for sp in self.visits.iter().rev() {
-            let mut da_node_idx = sp.da_idx;
+            let mut da_state_idx = sp.da_idx;
 
             let Extra {
                 pattern_id,
                 processed,
                 ..
-            } = self.extras[da_node_idx];
+            } = self.extras[da_state_idx];
 
             if pattern_id == PATTERN_ID_INVALID {
                 continue;
             }
             if processed {
-                debug_assert!(self.states[da_node_idx].output_pos().is_some());
+                debug_assert!(self.states[da_state_idx].output_pos().is_some());
                 continue;
             }
-            debug_assert!(self.states[da_node_idx].output_pos().is_none());
+            debug_assert!(self.states[da_state_idx].output_pos().is_none());
 
-            self.extras[da_node_idx].processed = true;
-            self.states[da_node_idx].set_output_pos(self.outputs.len() as u32);
+            self.extras[da_state_idx].processed = true;
+            self.states[da_state_idx].set_output_pos(self.outputs.len() as u32);
             self.outputs.push(Output::new(
                 pattern_id,
                 self.pattern_lens[pattern_id as usize] as u32,
@@ -528,8 +528,8 @@ impl DoubleArrayAhoCorasickBuilder {
             error_checker(&self.outputs)?;
 
             loop {
-                da_node_idx = self.states[da_node_idx].fail() as usize;
-                if da_node_idx == 0 {
+                da_state_idx = self.states[da_state_idx].fail() as usize;
+                if da_state_idx == 0 {
                     break;
                 }
 
@@ -537,14 +537,14 @@ impl DoubleArrayAhoCorasickBuilder {
                     pattern_id,
                     processed,
                     ..
-                } = self.extras[da_node_idx];
+                } = self.extras[da_state_idx];
 
                 if pattern_id == PATTERN_ID_INVALID {
                     continue;
                 }
 
                 if processed {
-                    let mut clone_pos = self.states[da_node_idx].output_pos().unwrap() as usize;
+                    let mut clone_pos = self.states[da_state_idx].output_pos().unwrap() as usize;
                     debug_assert!(!self.outputs[clone_pos].is_begin());
                     while !self.outputs[clone_pos].is_begin() {
                         self.outputs.push(self.outputs[clone_pos]);
@@ -554,8 +554,8 @@ impl DoubleArrayAhoCorasickBuilder {
                     break;
                 }
 
-                self.extras[da_node_idx].processed = true;
-                self.states[da_node_idx].set_output_pos(self.outputs.len() as u32);
+                self.extras[da_state_idx].processed = true;
+                self.states[da_state_idx].set_output_pos(self.outputs.len() as u32);
                 self.outputs.push(Output::new(
                     pattern_id,
                     self.pattern_lens[pattern_id as usize] as u32,
@@ -574,24 +574,24 @@ impl DoubleArrayAhoCorasickBuilder {
 
     fn set_dummy_outputs(&mut self) {
         for sp in self.visits.iter() {
-            let da_node_idx = sp.da_idx;
+            let da_state_idx = sp.da_idx;
 
             let Extra {
                 pattern_id,
                 processed,
                 ..
-            } = self.extras[da_node_idx];
+            } = self.extras[da_state_idx];
 
             if processed {
-                debug_assert!(self.states[da_node_idx].output_pos().is_some());
+                debug_assert!(self.states[da_state_idx].output_pos().is_some());
                 continue;
             }
-            debug_assert!(self.states[da_node_idx].output_pos().is_none());
+            debug_assert!(self.states[da_state_idx].output_pos().is_none());
             debug_assert_eq!(pattern_id, PATTERN_ID_INVALID);
 
-            let fail_idx = self.states[da_node_idx].fail() as usize;
+            let fail_idx = self.states[da_state_idx].fail() as usize;
             if let Some(output_pos) = self.states[fail_idx].output_pos() {
-                self.states[da_node_idx].set_output_pos(output_pos);
+                self.states[da_state_idx].set_output_pos(output_pos);
             }
         }
     }
