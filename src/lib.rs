@@ -166,7 +166,7 @@ impl Output {
 pub struct Match {
     length: usize,
     end: usize,
-    pattern: usize,
+    pattern_id: usize,
 }
 
 impl Match {
@@ -185,7 +185,7 @@ impl Match {
     /// Pattern ID.
     #[inline(always)]
     pub const fn pattern(&self) -> usize {
-        self.pattern
+        self.pattern_id
     }
 }
 
@@ -211,13 +211,15 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             state_id = unsafe { self.pma.get_next_state_id(state_id, c) };
-            if let Some(out_pos) = unsafe { self.pma.states.get_unchecked(state_id).output_pos() } {
-                let out = unsafe { self.pma.outputs.get_unchecked(out_pos as usize) };
+            if let Some(output_pos) =
+                unsafe { self.pma.states.get_unchecked(state_id).output_pos() }
+            {
+                let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 self.pos = pos + 1;
                 return Some(Match {
                     length: out.pattern_len() as usize,
                     end: self.pos,
-                    pattern: out.pattern_id() as usize,
+                    pattern_id: out.pattern_id() as usize,
                 });
             }
         }
@@ -235,7 +237,7 @@ where
     haystack: P,
     state_id: usize,
     pos: usize,
-    out_pos: usize,
+    output_pos: usize,
 }
 
 impl<'a, P> Iterator for FindOverlappingIterator<'a, P>
@@ -246,28 +248,28 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        let out = unsafe { self.pma.outputs.get_unchecked(self.out_pos) };
+        let out = unsafe { self.pma.outputs.get_unchecked(self.output_pos) };
         if !out.is_begin() {
-            self.out_pos += 1;
+            self.output_pos += 1;
             return Some(Match {
                 length: out.pattern_len() as usize,
                 end: self.pos,
-                pattern: out.pattern_id() as usize,
+                pattern_id: out.pattern_id() as usize,
             });
         }
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = unsafe { self.pma.get_next_state_id(self.state_id, c) };
-            if let Some(out_pos) =
+            if let Some(output_pos) =
                 unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
             {
                 self.pos = pos + 1;
-                self.out_pos = out_pos as usize + 1;
-                let out = unsafe { self.pma.outputs.get_unchecked(out_pos as usize) };
+                self.output_pos = output_pos as usize + 1;
+                let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 return Some(Match {
                     length: out.pattern_len() as usize,
                     end: self.pos,
-                    pattern: out.pattern_id() as usize,
+                    pattern_id: out.pattern_id() as usize,
                 });
             }
         }
@@ -298,15 +300,15 @@ where
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             self.state_id = unsafe { self.pma.get_next_state_id(self.state_id, c) };
-            if let Some(out_pos) =
+            if let Some(output_pos) =
                 unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
             {
                 self.pos = pos + 1;
-                let out = unsafe { self.pma.outputs.get_unchecked(out_pos as usize) };
+                let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 return Some(Match {
                     length: out.pattern_len() as usize,
                     end: self.pos,
-                    pattern: out.pattern_id() as usize,
+                    pattern_id: out.pattern_id() as usize,
                 });
             }
         }
@@ -429,7 +431,7 @@ impl DoubleArrayAhoCorasick {
             haystack,
             state_id: 0,
             pos: 0,
-            out_pos: 0,
+            output_pos: 0,
         }
     }
 
@@ -644,7 +646,7 @@ mod tests {
         ];
         let check_expected = vec![0, 2, 1, 0, 0, 2, 2];
         //                        ^  ^  ^  ^  ^  ^  ^
-        //              node_id=  0  3  2  1  4  6  5
+        //             state_id=  0  3  2  1  4  6  5
         let fail_expected = vec![0, 0, 0, 0, 3, 1, 1];
 
         let pma_base: Vec<_> = pma.states[0..7]
