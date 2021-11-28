@@ -2,7 +2,7 @@ use crate::errors::{
     AutomatonScaleError, DaachorseError, DuplicatePatternError, InvalidArgumentError,
     PatternScaleError,
 };
-use crate::{DoubleArrayAhoCorasick, Output, State, OUTPOS_INVALID, PATTERN_LEN_INVALID};
+use crate::{DoubleArrayAhoCorasick, Output, State, OUTPOS_INVALID};
 
 // The length of each double-array block.
 const BLOCK_LEN: usize = 256;
@@ -12,14 +12,16 @@ const FREE_BLOCKS: usize = 16;
 const FREE_STATES: usize = BLOCK_LEN * FREE_BLOCKS;
 // The maximum state index used as an invalid value.
 const STATE_IDX_INVALID: u32 = std::u32::MAX;
-// The maximum ID of a pattern used as an invalid value.
-const PATTERN_ID_INVALID: u32 = std::u32::MAX;
+// The maximum value of a pattern used as an invalid value.
+const VALUE_INVALID: u32 = std::u32::MAX;
+// The maximum length of a pattern used as an invalid value.
+const LENGTH_INVALID: u32 = std::u32::MAX >> 1;
 // The maximum FAIL value.
 const FAIL_MAX: usize = 0x00ffffff;
 
 struct SparseTrie {
     states: Vec<Vec<(u8, usize)>>,
-    pattern_ids: Vec<usize>,
+    outputs: Vec<(u32, u32)>,
     len: usize,
 }
 
@@ -27,37 +29,45 @@ impl SparseTrie {
     fn new() -> Self {
         Self {
             states: vec![vec![]],
-            pattern_ids: vec![std::usize::MAX],
+            outputs: vec![(VALUE_INVALID, LENGTH_INVALID)],
             len: 0,
         }
     }
 
     #[inline(always)]
-    fn add(&mut self, pattern: &[u8]) -> Result<(), DaachorseError> {
+    fn add(&mut self, pattern: &[u8], value: u32) -> Result<(), DaachorseError> {
+        if value == VALUE_INVALID {
+            let e = PatternScaleError {
+                msg: format!("Input value must be < {}", VALUE_INVALID),
+            };
+            return Err(DaachorseError::PatternScale(e));
+        }
+        if pattern.len() >= LENGTH_INVALID as usize {
+            let e = PatternScaleError {
+                msg: format!("Pattern length must be < {}", LENGTH_INVALID),
+            };
+            return Err(DaachorseError::PatternScale(e));
+        }
+
         let mut state_id = 0;
         for &c in pattern {
             state_id = self.get(state_id, c).unwrap_or_else(|| {
                 let next_state_id = self.states.len();
                 self.states.push(vec![]);
                 self.states[state_id].push((c, next_state_id));
-                self.pattern_ids.push(std::usize::MAX);
+                self.outputs.push((VALUE_INVALID, LENGTH_INVALID));
                 next_state_id
             });
         }
-        let pattern_id = self.pattern_ids.get_mut(state_id).unwrap();
-        if *pattern_id != std::usize::MAX {
+
+        let output = self.outputs.get_mut(state_id).unwrap();
+        if output.0 != VALUE_INVALID {
             let e = DuplicatePatternError {
                 pattern: pattern.to_vec(),
             };
             return Err(DaachorseError::DuplicatePattern(e));
         }
-        if self.len > PATTERN_ID_INVALID as usize {
-            let e = PatternScaleError {
-                msg: format!("Number of patterns must be <= {}", PATTERN_ID_INVALID),
-            };
-            return Err(DaachorseError::PatternScale(e));
-        }
-        *pattern_id = self.len;
+        *output = (value, pattern.len() as u32);
         self.len += 1;
         Ok(())
     }
@@ -82,7 +92,7 @@ struct Extra {
     next: usize,
     prev: usize,
     // For output construction
-    pattern_id: u32,
+    output: (u32, u32),
     processed: bool,
 }
 
@@ -93,7 +103,7 @@ impl Default for Extra {
             used_index: false,
             next: std::usize::MAX,
             prev: std::usize::MAX,
-            pattern_id: PATTERN_ID_INVALID,
+            output: (VALUE_INVALID, LENGTH_INVALID),
             processed: false,
         }
     }
@@ -109,7 +119,6 @@ struct StatePair {
 pub struct DoubleArrayAhoCorasickBuilder {
     states: Vec<State>,
     outputs: Vec<Output>,
-    pattern_lens: Vec<usize>,
     extras: Vec<Extra>,
     visits: Vec<StatePair>,
     head_idx: usize,
@@ -139,10 +148,10 @@ impl DoubleArrayAhoCorasickBuilder {
     /// let mut it = pma.find_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -159,14 +168,14 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(Self {
             states: Vec::with_capacity(init_capa),
             outputs: vec![],
-            pattern_lens: vec![],
             extras: Vec::with_capacity(init_capa),
             visits: vec![],
             head_idx: std::usize::MAX,
         })
     }
 
-    /// Builds and returns a new [`DoubleArrayAhoCorasick`].
+    /// Builds and returns a new [`DoubleArrayAhoCorasick`] from input patterns.
+    /// The value `i` is automatically associated with `patterns[i]`.
     ///
     /// # Arguments
     ///
@@ -192,10 +201,10 @@ impl DoubleArrayAhoCorasickBuilder {
     /// let mut it = pma.find_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -204,7 +213,8 @@ impl DoubleArrayAhoCorasickBuilder {
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
     {
-        let sparse_trie = self.build_sparse_trie(patterns)?;
+        let patvals = patterns.into_iter().enumerate().map(|(i, p)| (p, i as u32));
+        let sparse_trie = self.build_sparse_trie(patvals)?;
         self.build_double_array(&sparse_trie)?;
         self.add_fails(&sparse_trie)?;
         self.build_outputs()?;
@@ -222,22 +232,77 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(DoubleArrayAhoCorasick { states, outputs })
     }
 
-    fn build_sparse_trie<I, P>(&mut self, patterns: I) -> Result<SparseTrie, DaachorseError>
+    /// Builds and returns a new [`DoubleArrayAhoCorasick`] from input pattern-value pairs.
+    ///
+    /// # Arguments
+    ///
+    /// * `patvals` - List of pattern-value pairs, where the value is of type `u32` and less than `u32::MAX`.
+    ///
+    /// # Errors
+    ///
+    /// [`DaachorseError`] is returned when
+    ///   - the `patvals` contains duplicate patterns,
+    ///   - the `patvals` contains invalid values,
+    ///   - the scale of `patvals` exceeds the expected one, or
+    ///   - the scale of the resulting automaton exceeds the expected one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasickBuilder;
+    ///
+    /// let builder = DoubleArrayAhoCorasickBuilder::new(16).unwrap();
+    ///
+    /// let patvals = vec![("bcd", 0), ("ab", 1), ("a", 2), ("e", 1)];
+    /// let pma = builder.build_with_values(patvals).unwrap();
+    ///
+    /// let mut it = pma.find_iter("abcde");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((4, 5, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn build_with_values<I, P>(
+        mut self,
+        patvals: I,
+    ) -> Result<DoubleArrayAhoCorasick, DaachorseError>
     where
-        I: IntoIterator<Item = P>,
+        I: IntoIterator<Item = (P, u32)>,
+        P: AsRef<[u8]>,
+    {
+        let sparse_trie = self.build_sparse_trie(patvals)?;
+        self.build_double_array(&sparse_trie)?;
+        self.add_fails(&sparse_trie)?;
+        self.build_outputs()?;
+        self.set_dummy_outputs();
+
+        let DoubleArrayAhoCorasickBuilder {
+            mut states,
+            mut outputs,
+            ..
+        } = self;
+
+        states.shrink_to_fit();
+        outputs.shrink_to_fit();
+
+        Ok(DoubleArrayAhoCorasick { states, outputs })
+    }
+
+    fn build_sparse_trie<I, P>(&mut self, patvals: I) -> Result<SparseTrie, DaachorseError>
+    where
+        I: IntoIterator<Item = (P, u32)>,
         P: AsRef<[u8]>,
     {
         let mut trie = SparseTrie::new();
-        for pattern in patterns {
-            let pattern = pattern.as_ref();
-            if pattern.len() >= PATTERN_LEN_INVALID as usize {
-                let e = PatternScaleError {
-                    msg: format!("pattern.len() must be < {}", PATTERN_LEN_INVALID),
-                };
-                return Err(DaachorseError::PatternScale(e));
-            }
-            trie.add(pattern)?;
-            self.pattern_lens.push(pattern.len());
+        for (pattern, value) in patvals {
+            trie.add(pattern.as_ref(), value)?;
         }
         Ok(trie)
     }
@@ -250,12 +315,7 @@ impl DoubleArrayAhoCorasickBuilder {
 
         for (i, edges) in sparse_trie.states.iter().enumerate() {
             let idx = state_id_map[i];
-            {
-                let pattern_id = sparse_trie.pattern_ids[i];
-                if pattern_id != std::usize::MAX {
-                    self.extras[idx].pattern_id = pattern_id as u32;
-                }
-            }
+            self.extras[idx].output = sparse_trie.outputs[i];
 
             if edges.is_empty() {
                 continue;
@@ -503,12 +563,10 @@ impl DoubleArrayAhoCorasickBuilder {
             let mut da_state_idx = sp.da_idx;
 
             let Extra {
-                pattern_id,
-                processed,
-                ..
+                output, processed, ..
             } = self.extras[da_state_idx];
 
-            if pattern_id == PATTERN_ID_INVALID {
+            if output.0 == VALUE_INVALID {
                 continue;
             }
             if processed {
@@ -519,11 +577,7 @@ impl DoubleArrayAhoCorasickBuilder {
 
             self.extras[da_state_idx].processed = true;
             self.states[da_state_idx].set_output_pos(self.outputs.len() as u32);
-            self.outputs.push(Output::new(
-                pattern_id,
-                self.pattern_lens[pattern_id as usize] as u32,
-                true,
-            ));
+            self.outputs.push(Output::new(output.0, output.1, true));
 
             error_checker(&self.outputs)?;
 
@@ -534,12 +588,10 @@ impl DoubleArrayAhoCorasickBuilder {
                 }
 
                 let Extra {
-                    pattern_id,
-                    processed,
-                    ..
+                    output, processed, ..
                 } = self.extras[da_state_idx];
 
-                if pattern_id == PATTERN_ID_INVALID {
+                if output.0 == VALUE_INVALID {
                     continue;
                 }
 
@@ -556,17 +608,13 @@ impl DoubleArrayAhoCorasickBuilder {
 
                 self.extras[da_state_idx].processed = true;
                 self.states[da_state_idx].set_output_pos(self.outputs.len() as u32);
-                self.outputs.push(Output::new(
-                    pattern_id,
-                    self.pattern_lens[pattern_id as usize] as u32,
-                    false,
-                ));
+                self.outputs.push(Output::new(output.0, output.1, false));
             }
         }
 
         // sentinel
         self.outputs
-            .push(Output::new(PATTERN_ID_INVALID, PATTERN_LEN_INVALID, true));
+            .push(Output::new(VALUE_INVALID, LENGTH_INVALID, true));
         error_checker(&self.outputs)?;
 
         Ok(())
@@ -577,9 +625,7 @@ impl DoubleArrayAhoCorasickBuilder {
             let da_state_idx = sp.da_idx;
 
             let Extra {
-                pattern_id,
-                processed,
-                ..
+                output, processed, ..
             } = self.extras[da_state_idx];
 
             if processed {
@@ -587,7 +633,7 @@ impl DoubleArrayAhoCorasickBuilder {
                 continue;
             }
             debug_assert!(self.states[da_state_idx].output_pos().is_none());
-            debug_assert_eq!(pattern_id, PATTERN_ID_INVALID);
+            debug_assert_eq!(output.0, VALUE_INVALID);
 
             let fail_idx = self.states[da_state_idx].fail() as usize;
             if let Some(output_pos) = self.states[fail_idx].output_pos() {

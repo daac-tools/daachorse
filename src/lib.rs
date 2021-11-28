@@ -13,13 +13,13 @@
 //! let mut it = pma.find_overlapping_iter("abcd");
 //!
 //! let m = it.next().unwrap();
-//! assert_eq!((0, 1, 2), (m.start(), m.end(), m.pattern()));
+//! assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
 //!
 //! let m = it.next().unwrap();
-//! assert_eq!((0, 2, 1), (m.start(), m.end(), m.pattern()));
+//! assert_eq!((0, 2, 1), (m.start(), m.end(), m.value()));
 //!
 //! let m = it.next().unwrap();
-//! assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+//! assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 //!
 //! assert_eq!(None, it.next());
 //! ```
@@ -27,15 +27,15 @@
 mod builder;
 pub mod errors;
 
+use std::fmt;
 use std::io;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::DaachorseError;
 
-// The maximum length of a pattern used as an invalid value.
-pub(crate) const PATTERN_LEN_INVALID: u32 = std::u32::MAX >> 1;
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: u32 = std::u32::MAX;
 // The maximum output position value used as an invalid value.
@@ -127,37 +127,53 @@ impl State {
 }
 
 #[derive(Copy, Clone)]
-struct Output(u64);
+struct Output {
+    value: u32,
+    length: u32, // 1 bit is borrowed by a beginning flag
+}
 
 impl Output {
     #[inline(always)]
-    pub const fn new(pattern_id: u32, pattern_len: u32, is_begin: bool) -> Self {
-        Self((pattern_id as u64) << 32 | (pattern_len as u64) << 1 | is_begin as u64)
+    pub const fn new(value: u32, length: u32, is_begin: bool) -> Self {
+        Self {
+            value,
+            length: (length << 1) | is_begin as u32,
+        }
     }
 
     #[inline(always)]
-    pub const fn pattern_id(&self) -> u32 {
-        (self.0 >> 32) as u32
+    pub const fn value(&self) -> u32 {
+        self.value
     }
 
     #[inline(always)]
-    pub const fn pattern_len(&self) -> u32 {
-        ((self.0 >> 1) as u32) & PATTERN_LEN_INVALID
+    pub const fn length(&self) -> u32 {
+        self.length >> 1
     }
 
     #[inline(always)]
     pub const fn is_begin(&self) -> bool {
-        self.0 & 1 == 1
+        self.length & 1 == 1
     }
 
-    #[inline]
-    pub const fn from_u64(x: u64) -> Self {
-        Self(x)
+    /// Serializes the state.
+    pub fn serialize<W>(&self, mut writer: W) -> io::Result<()>
+    where
+        W: io::Write,
+    {
+        writer.write_u32::<LittleEndian>(self.value)?;
+        writer.write_u32::<LittleEndian>(self.length)?;
+        Ok(())
     }
 
-    #[inline]
-    pub const fn as_u64(&self) -> u64 {
-        self.0
+    /// Deserializes the state.
+    pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
+    where
+        R: io::Read,
+    {
+        let value = reader.read_u32::<LittleEndian>()?;
+        let length = reader.read_u32::<LittleEndian>()?;
+        Ok(Self { value, length })
     }
 }
 
@@ -166,7 +182,7 @@ impl Output {
 pub struct Match {
     length: usize,
     end: usize,
-    pattern_id: usize,
+    value: usize,
 }
 
 impl Match {
@@ -182,10 +198,10 @@ impl Match {
         self.end
     }
 
-    /// Pattern ID.
+    /// Value associated with the pattern.
     #[inline(always)]
-    pub const fn pattern(&self) -> usize {
-        self.pattern_id
+    pub const fn value(&self) -> usize {
+        self.value
     }
 }
 
@@ -217,9 +233,9 @@ where
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 self.pos = pos + 1;
                 return Some(Match {
-                    length: out.pattern_len() as usize,
+                    length: out.length() as usize,
                     end: self.pos,
-                    pattern_id: out.pattern_id() as usize,
+                    value: out.value() as usize,
                 });
             }
         }
@@ -252,9 +268,9 @@ where
         if !out.is_begin() {
             self.output_pos += 1;
             return Some(Match {
-                length: out.pattern_len() as usize,
+                length: out.length() as usize,
                 end: self.pos,
-                pattern_id: out.pattern_id() as usize,
+                value: out.value() as usize,
             });
         }
         let haystack = self.haystack.as_ref();
@@ -267,9 +283,9 @@ where
                 self.output_pos = output_pos as usize + 1;
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 return Some(Match {
-                    length: out.pattern_len() as usize,
+                    length: out.length() as usize,
                     end: self.pos,
-                    pattern_id: out.pattern_id() as usize,
+                    value: out.value() as usize,
                 });
             }
         }
@@ -306,9 +322,9 @@ where
                 self.pos = pos + 1;
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 return Some(Match {
-                    length: out.pattern_len() as usize,
+                    length: out.length() as usize,
                     end: self.pos,
-                    pattern_id: out.pattern_id() as usize,
+                    value: out.value() as usize,
                 });
             }
         }
@@ -323,8 +339,48 @@ pub struct DoubleArrayAhoCorasick {
     outputs: Vec<Output>,
 }
 
+struct DoubleArrayAhoCorasickVisitor;
+
+impl<'de> Visitor<'de> for DoubleArrayAhoCorasickVisitor {
+    type Value = DoubleArrayAhoCorasick;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a byte array")
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        DoubleArrayAhoCorasick::deserialize(v)
+            .map_err(|err| serde::de::Error::custom(err.to_string()))
+    }
+}
+
+impl<'de> Deserialize<'de> for DoubleArrayAhoCorasick {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_bytes(DoubleArrayAhoCorasickVisitor)
+    }
+}
+
+impl Serialize for DoubleArrayAhoCorasick {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut v = vec![];
+        self.serialize(&mut v)
+            .map_err(|err| serde::ser::Error::custom(err.to_string()))?;
+        serializer.serialize_bytes(&v)
+    }
+}
+
 impl DoubleArrayAhoCorasick {
-    /// Creates a new [`DoubleArrayAhoCorasick`].
+    /// Creates a new [`DoubleArrayAhoCorasick`] from input patterns.
+    /// The value `i` is automatically associated with `patterns[i]`.
     ///
     /// # Arguments
     ///
@@ -345,10 +401,10 @@ impl DoubleArrayAhoCorasick {
     /// let mut it = pma.find_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -358,6 +414,45 @@ impl DoubleArrayAhoCorasick {
         P: AsRef<[u8]>,
     {
         DoubleArrayAhoCorasickBuilder::new(65536)?.build(patterns)
+    }
+
+    /// Creates a new [`DoubleArrayAhoCorasick`] from input pattern-value pairs.
+    ///
+    /// # Arguments
+    ///
+    /// * `patvals` - List of pattern-value pairs, where the value is of type `u32` and less than `u32::MAX`.
+    ///
+    /// # Errors
+    ///
+    /// [`errors::DuplicatePatternError`] is returned when `patvals` contains duplicate patterns or invalid values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patvals = vec![("bcd", 0), ("ab", 1), ("a", 2), ("e", 1)];
+    /// let pma = DoubleArrayAhoCorasick::with_values(patvals).unwrap();
+    ///
+    /// let mut it = pma.find_iter("abcde");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((4, 5, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn with_values<I, P>(patvals: I) -> Result<Self, DaachorseError>
+    where
+        I: IntoIterator<Item = (P, u32)>,
+        P: AsRef<[u8]>,
+    {
+        DoubleArrayAhoCorasickBuilder::new(65536)?.build_with_values(patvals)
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack.
@@ -377,10 +472,10 @@ impl DoubleArrayAhoCorasick {
     /// let mut it = pma.find_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -412,13 +507,13 @@ impl DoubleArrayAhoCorasick {
     /// let mut it = pma.find_overlapping_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -458,10 +553,10 @@ impl DoubleArrayAhoCorasick {
     /// let mut it = pma.find_overlapping_no_suffix_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -512,7 +607,7 @@ impl DoubleArrayAhoCorasick {
         }
         writer.write_u64::<LittleEndian>(self.outputs.len() as u64)?;
         for &x in &self.outputs {
-            writer.write_u64::<LittleEndian>(x.as_u64())?;
+            x.serialize(&mut writer)?;
         }
         Ok(())
     }
@@ -557,7 +652,7 @@ impl DoubleArrayAhoCorasick {
             let len = reader.read_u64::<LittleEndian>()? as usize;
             let mut outputs = Vec::with_capacity(len);
             for _ in 0..len {
-                outputs.push(Output::from_u64(reader.read_u64::<LittleEndian>()?));
+                outputs.push(Output::deserialize(&mut reader)?);
             }
             outputs
         };
@@ -596,7 +691,7 @@ impl DoubleArrayAhoCorasick {
 mod tests {
     use super::*;
 
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
 
     use rand::Rng;
 
@@ -686,7 +781,41 @@ mod tests {
             let patterns_vec: Vec<_> = patterns.into_iter().collect();
             let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
             for m in pma.find_iter(&haystack) {
-                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
+                actual.insert((m.start(), m.end(), patterns_vec[m.value()].clone()));
+            }
+            eprintln!("{}", haystack);
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_find_iter_random_with_values() {
+        let mut value_gen = rand::thread_rng();
+
+        for _ in 0..100 {
+            let mut patvals = HashMap::new();
+            for _ in 0..100 {
+                patvals.insert(generate_random_string(4), value_gen.gen_range(0..100));
+            }
+            let haystack = generate_random_string(100);
+
+            // naive pattern match
+            let mut expected = HashMap::new();
+            let mut pos = 0;
+            while pos <= haystack.len() - 4 {
+                if let Some(&v) = patvals.get(&haystack[pos..pos + 4]) {
+                    expected.insert((pos, pos + 4), v as usize);
+                    pos += 3;
+                }
+                pos += 1;
+            }
+
+            // daachorse
+            let mut actual = HashMap::new();
+            let patvals_vec: Vec<_> = patvals.into_iter().collect();
+            let pma = DoubleArrayAhoCorasick::with_values(patvals_vec).unwrap();
+            for m in pma.find_iter(&haystack) {
+                actual.insert((m.start(), m.end()), m.value());
             }
             eprintln!("{}", haystack);
             assert_eq!(expected, actual);
@@ -718,7 +847,43 @@ mod tests {
             let patterns_vec: Vec<_> = patterns.into_iter().collect();
             let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
             for m in pma.find_iter(&haystack) {
-                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
+                actual.insert((m.start(), m.end(), patterns_vec[m.value()].clone()));
+            }
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_find_iter_binary_random_with_values() {
+        let mut value_gen = rand::thread_rng();
+
+        for _ in 0..100 {
+            let mut patvals = HashMap::new();
+            for _ in 0..100 {
+                patvals.insert(
+                    generate_random_binary_string(4),
+                    value_gen.gen_range(0..100),
+                );
+            }
+            let haystack = generate_random_binary_string(100);
+
+            // naive pattern match
+            let mut expected = HashMap::new();
+            let mut pos = 0;
+            while pos <= haystack.len() - 4 {
+                if let Some(&v) = patvals.get(&haystack[pos..pos + 4]) {
+                    expected.insert((pos, pos + 4), v as usize);
+                    pos += 3;
+                }
+                pos += 1;
+            }
+
+            // daachorse
+            let mut actual = HashMap::new();
+            let patvals_vec: Vec<_> = patvals.into_iter().collect();
+            let pma = DoubleArrayAhoCorasick::with_values(patvals_vec).unwrap();
+            for m in pma.find_iter(&haystack) {
+                actual.insert((m.start(), m.end()), m.value());
             }
             assert_eq!(expected, actual);
         }
@@ -757,7 +922,49 @@ mod tests {
             let patterns_vec: Vec<_> = patterns.into_iter().collect();
             let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
             for m in pma.find_overlapping_iter(&haystack) {
-                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
+                actual.insert((m.start(), m.end(), patterns_vec[m.value()].clone()));
+            }
+            eprintln!("{}", haystack);
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_find_overlapping_iter_random_with_values() {
+        let mut value_gen = rand::thread_rng();
+
+        for _ in 0..100 {
+            let mut patvals = HashMap::new();
+            for _ in 0..6 {
+                patvals.insert(generate_random_string(1), value_gen.gen_range(0..100));
+            }
+            for _ in 0..20 {
+                patvals.insert(generate_random_string(2), value_gen.gen_range(0..100));
+            }
+            for _ in 0..50 {
+                patvals.insert(generate_random_string(3), value_gen.gen_range(0..100));
+            }
+            for _ in 0..100 {
+                patvals.insert(generate_random_string(4), value_gen.gen_range(0..100));
+            }
+            let haystack = generate_random_string(100);
+
+            // naive pattern match
+            let mut expected = HashMap::new();
+            for i in 0..4 {
+                for pos in 0..haystack.len() - i {
+                    if let Some(&v) = patvals.get(&haystack[pos..pos + i + 1]) {
+                        expected.insert((pos, pos + i + 1), v as usize);
+                    }
+                }
+            }
+
+            // daachorse
+            let mut actual = HashMap::new();
+            let patvals_vec: Vec<_> = patvals.into_iter().collect();
+            let pma = DoubleArrayAhoCorasick::with_values(patvals_vec).unwrap();
+            for m in pma.find_overlapping_iter(&haystack) {
+                actual.insert((m.start(), m.end()), m.value());
             }
             eprintln!("{}", haystack);
             assert_eq!(expected, actual);
@@ -797,7 +1004,60 @@ mod tests {
             let patterns_vec: Vec<_> = patterns.into_iter().collect();
             let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
             for m in pma.find_overlapping_iter(&haystack) {
-                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
+                actual.insert((m.start(), m.end(), patterns_vec[m.value()].clone()));
+            }
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_find_overlapping_iter_binary_random_with_values() {
+        let mut value_gen = rand::thread_rng();
+
+        for _ in 0..100 {
+            let mut patvals = HashMap::new();
+            for _ in 0..6 {
+                patvals.insert(
+                    generate_random_binary_string(1),
+                    value_gen.gen_range(0..100),
+                );
+            }
+            for _ in 0..20 {
+                patvals.insert(
+                    generate_random_binary_string(2),
+                    value_gen.gen_range(0..100),
+                );
+            }
+            for _ in 0..50 {
+                patvals.insert(
+                    generate_random_binary_string(3),
+                    value_gen.gen_range(0..100),
+                );
+            }
+            for _ in 0..100 {
+                patvals.insert(
+                    generate_random_binary_string(4),
+                    value_gen.gen_range(0..100),
+                );
+            }
+            let haystack = generate_random_binary_string(100);
+
+            // naive pattern match
+            let mut expected = HashMap::new();
+            for i in 0..4 {
+                for pos in 0..haystack.len() - i {
+                    if let Some(&v) = patvals.get(&haystack[pos..pos + i + 1]) {
+                        expected.insert((pos, pos + i + 1), v as usize);
+                    }
+                }
+            }
+
+            // daachorse
+            let mut actual = HashMap::new();
+            let patvals_vec: Vec<_> = patvals.into_iter().collect();
+            let pma = DoubleArrayAhoCorasick::with_values(patvals_vec).unwrap();
+            for m in pma.find_overlapping_iter(&haystack) {
+                actual.insert((m.start(), m.end()), m.value());
             }
             assert_eq!(expected, actual);
         }
@@ -865,7 +1125,38 @@ mod tests {
         }
         assert_eq!(pma.outputs.len(), other.outputs.len());
         for (a, b) in pma.outputs.iter().zip(other.outputs.iter()) {
-            assert_eq!(a.as_u64(), b.as_u64());
+            assert_eq!(a.value, b.value);
+            assert_eq!(a.length, b.length);
+        }
+    }
+
+    #[test]
+    fn test_serde() {
+        let patterns: Vec<String> = {
+            let mut patterns = HashSet::new();
+            for _ in 0..100 {
+                patterns.insert(generate_random_string(4));
+            }
+            patterns.into_iter().collect()
+        };
+        let pma = DoubleArrayAhoCorasick::new(&patterns).unwrap();
+
+        // Serialize
+        let buffer = bincode::serialize(&pma).unwrap();
+
+        // Deserialize
+        let other: DoubleArrayAhoCorasick = bincode::deserialize(&buffer).unwrap();
+
+        assert_eq!(pma.states.len(), other.states.len());
+        for (a, b) in pma.states.iter().zip(other.states.iter()) {
+            assert_eq!(a.base, b.base);
+            assert_eq!(a.fach, b.fach);
+            assert_eq!(a.output_pos, b.output_pos);
+        }
+        assert_eq!(pma.outputs.len(), other.outputs.len());
+        for (a, b) in pma.outputs.iter().zip(other.outputs.iter()) {
+            assert_eq!(a.value, b.value);
+            assert_eq!(a.length, b.length);
         }
     }
 }
