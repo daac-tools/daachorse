@@ -136,7 +136,7 @@ fn add_find_benches(
             let mut sum = 0;
             for haystack in haystacks {
                 for m in pma.find_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
+                    sum += m.start() + m.end() + m.value();
                 }
             }
             if sum == 0 {
@@ -189,7 +189,7 @@ fn add_find_overlapping_benches(
             let mut sum = 0;
             for haystack in haystacks {
                 for m in pma.find_overlapping_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
+                    sum += m.start() + m.end() + m.value();
                 }
             }
             if sum == 0 {
@@ -204,7 +204,7 @@ fn add_find_overlapping_benches(
             let mut sum = 0;
             for haystack in haystacks {
                 for m in pma.find_overlapping_no_suffix_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
+                    sum += m.start() + m.end() + m.value();
                 }
             }
             if sum == 0 {
