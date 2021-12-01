@@ -19,17 +19,17 @@ const LENGTH_INVALID: u32 = std::u32::MAX >> 1;
 // The maximum FAIL value.
 const FAIL_MAX: usize = 0x00ffffff;
 
-struct SparseTrie {
-    states: Vec<Vec<(u8, usize)>>,
-    outputs: Vec<(u32, u32)>,
+struct SparseNFA {
+    states: Vec<SparseState>,
+    outputs: Vec<Output>, // in which common parts are merged.
     len: usize,
 }
 
-impl SparseTrie {
+impl SparseNFA {
     fn new() -> Self {
         Self {
-            states: vec![vec![]],
-            outputs: vec![(VALUE_INVALID, LENGTH_INVALID)],
+            states: vec![SparseState::default()],
+            outputs: vec![],
             len: 0,
         }
     }
@@ -53,14 +53,13 @@ impl SparseTrie {
         for &c in pattern {
             state_id = self.get(state_id, c).unwrap_or_else(|| {
                 let next_state_id = self.states.len();
-                self.states.push(vec![]);
-                self.states[state_id].push((c, next_state_id));
-                self.outputs.push((VALUE_INVALID, LENGTH_INVALID));
+                self.states[state_id].edges.push((c, next_state_id));
+                self.states.push(Default::default());
                 next_state_id
             });
         }
 
-        let output = self.outputs.get_mut(state_id).unwrap();
+        let output = &mut self.states[state_id].output;
         if output.0 != VALUE_INVALID {
             let e = DuplicatePatternError {
                 pattern: pattern.to_vec(),
@@ -72,9 +71,127 @@ impl SparseTrie {
         Ok(())
     }
 
+    fn build_fails(&mut self) -> Vec<usize> {
+        let mut q = Vec::with_capacity(self.states.len());
+        for &(_, child_id) in &self.states[0].edges {
+            q.push(child_id);
+        }
+
+        let mut qi = 0;
+        while qi < q.len() {
+            let state_id = q[qi];
+            qi += 1;
+            for i in 0..self.states[state_id].edges.len() {
+                let (c, child_id) = self.states[state_id].edges[i];
+                let mut fail_id = self.states[state_id].fail as usize;
+                let new_fail_id = loop {
+                    if let Some(child_fail_id) = self.get(fail_id, c) {
+                        break child_fail_id;
+                    }
+                    let next_fail_id = self.states[fail_id].fail as usize;
+                    if fail_id == 0 && next_fail_id == 0 {
+                        break 0;
+                    }
+                    fail_id = next_fail_id;
+                };
+                self.states[child_id].fail = new_fail_id as u32;
+                q.push(child_id);
+            }
+        }
+        q
+    }
+
+    fn build_outputs(&mut self, q: &[usize]) -> Result<(), DaachorseError> {
+        let mut processed = vec![false; self.states.len()];
+
+        // Builds an output sequence in which common parts are merged.
+        for &state_id in q.iter().rev() {
+            let s = &mut self.states[state_id];
+            if s.output.0 == VALUE_INVALID {
+                continue;
+            }
+
+            if processed[state_id] {
+                debug_assert_ne!(s.output_pos, OUTPOS_INVALID);
+                continue;
+            }
+            debug_assert_eq!(s.output_pos, OUTPOS_INVALID);
+            processed[state_id] = true;
+
+            s.output_pos = self.outputs.len() as u32;
+            self.outputs.push(Output::new(s.output.0, s.output.1, true));
+            Self::check_outputs_error(&self.outputs)?;
+
+            let mut fail_id = state_id;
+            loop {
+                fail_id = self.states[fail_id].fail as usize;
+                if fail_id == 0 {
+                    break;
+                }
+
+                let s = &mut self.states[fail_id];
+                if s.output.0 == VALUE_INVALID {
+                    continue;
+                }
+
+                if processed[fail_id] {
+                    debug_assert_ne!(s.output_pos, OUTPOS_INVALID);
+                    let mut clone_pos = s.output_pos as usize;
+                    debug_assert!(!self.outputs[clone_pos].is_begin());
+                    while !self.outputs[clone_pos].is_begin() {
+                        self.outputs.push(self.outputs[clone_pos]);
+                        clone_pos += 1;
+                    }
+                    Self::check_outputs_error(&self.outputs)?;
+                    break;
+                }
+                processed[fail_id] = true;
+
+                s.output_pos = self.outputs.len() as u32;
+                self.outputs
+                    .push(Output::new(s.output.0, s.output.1, false));
+                Self::check_outputs_error(&self.outputs)?;
+            }
+        }
+
+        // Puts a sentinel
+        self.outputs
+            .push(Output::new(VALUE_INVALID, LENGTH_INVALID, true));
+        self.outputs.shrink_to_fit();
+        Self::check_outputs_error(&self.outputs)?;
+
+        // Sets dummy outputs
+        for &state_id in q {
+            let s = &mut self.states[state_id];
+            if processed[state_id] {
+                debug_assert_ne!(s.output_pos, OUTPOS_INVALID);
+                continue;
+            }
+            debug_assert_eq!(s.output_pos, OUTPOS_INVALID);
+            debug_assert_eq!(s.output.0, VALUE_INVALID);
+
+            let fail_id = self.states[state_id].fail as usize;
+            self.states[state_id].output_pos = self.states[fail_id].output_pos;
+        }
+
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn check_outputs_error(outputs: &[Output]) -> Result<(), DaachorseError> {
+        if outputs.len() > OUTPOS_INVALID as usize {
+            let e = AutomatonScaleError {
+                msg: format!("outputs.len() must be <= {}", OUTPOS_INVALID),
+            };
+            Err(DaachorseError::AutomatonScale(e))
+        } else {
+            Ok(())
+        }
+    }
+
     #[inline(always)]
     fn get(&self, state_id: usize, c: u8) -> Option<usize> {
-        for &(cc, child_id) in &self.states[state_id] {
+        for &(cc, child_id) in &self.states[state_id].edges {
             if c == cc {
                 return Some(child_id);
             }
@@ -83,17 +200,32 @@ impl SparseTrie {
     }
 }
 
+#[derive(Clone)]
+struct SparseState {
+    edges: Vec<(u8, usize)>,
+    fail: u32,
+    output: (u32, u32),
+    output_pos: u32,
+}
+
+impl Default for SparseState {
+    fn default() -> Self {
+        Self {
+            edges: vec![],
+            fail: 0,
+            output: (VALUE_INVALID, LENGTH_INVALID),
+            output_pos: OUTPOS_INVALID,
+        }
+    }
+}
+
 // TODO: Optimize in memory
 #[derive(Clone, Copy)]
 struct Extra {
-    // For double-array construction
     used_base: bool,
     used_index: bool,
     next: usize,
     prev: usize,
-    // For output construction
-    output: (u32, u32),
-    processed: bool,
 }
 
 impl Default for Extra {
@@ -103,24 +235,14 @@ impl Default for Extra {
             used_index: false,
             next: std::usize::MAX,
             prev: std::usize::MAX,
-            output: (VALUE_INVALID, LENGTH_INVALID),
-            processed: false,
         }
     }
-}
-
-#[derive(Clone, Copy)]
-struct StatePair {
-    da_idx: usize,
-    st_idx: usize,
 }
 
 /// Builder of [`DoubleArrayAhoCorasick`].
 pub struct DoubleArrayAhoCorasickBuilder {
     states: Vec<State>,
-    outputs: Vec<Output>,
     extras: Vec<Extra>,
-    visits: Vec<StatePair>,
     head_idx: usize,
 }
 
@@ -167,9 +289,7 @@ impl DoubleArrayAhoCorasickBuilder {
         let init_capa = std::cmp::min(BLOCK_LEN, init_size / BLOCK_LEN * BLOCK_LEN);
         Ok(Self {
             states: Vec::with_capacity(init_capa),
-            outputs: vec![],
             extras: Vec::with_capacity(init_capa),
-            visits: vec![],
             head_idx: std::usize::MAX,
         })
     }
@@ -214,22 +334,13 @@ impl DoubleArrayAhoCorasickBuilder {
         P: AsRef<[u8]>,
     {
         let patvals = patterns.into_iter().enumerate().map(|(i, p)| (p, i as u32));
-        let sparse_trie = self.build_sparse_trie(patvals)?;
-        self.build_double_array(&sparse_trie)?;
-        self.add_fails(&sparse_trie)?;
-        self.build_outputs()?;
-        self.set_dummy_outputs();
+        let nfa = self.build_sparse_nfa(patvals)?;
+        self.build_double_array(&nfa)?;
 
-        let DoubleArrayAhoCorasickBuilder {
-            mut states,
-            mut outputs,
-            ..
-        } = self;
-
-        states.shrink_to_fit();
-        outputs.shrink_to_fit();
-
-        Ok(DoubleArrayAhoCorasick { states, outputs })
+        Ok(DoubleArrayAhoCorasick {
+            states: self.states,
+            outputs: nfa.outputs,
+        })
     }
 
     /// Builds and returns a new [`DoubleArrayAhoCorasick`] from input pattern-value pairs.
@@ -277,56 +388,48 @@ impl DoubleArrayAhoCorasickBuilder {
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<[u8]>,
     {
-        let sparse_trie = self.build_sparse_trie(patvals)?;
-        self.build_double_array(&sparse_trie)?;
-        self.add_fails(&sparse_trie)?;
-        self.build_outputs()?;
-        self.set_dummy_outputs();
+        let nfa = self.build_sparse_nfa(patvals)?;
+        self.build_double_array(&nfa)?;
 
-        let DoubleArrayAhoCorasickBuilder {
-            mut states,
-            mut outputs,
-            ..
-        } = self;
-
-        states.shrink_to_fit();
-        outputs.shrink_to_fit();
-
-        Ok(DoubleArrayAhoCorasick { states, outputs })
+        Ok(DoubleArrayAhoCorasick {
+            states: self.states,
+            outputs: nfa.outputs,
+        })
     }
 
-    fn build_sparse_trie<I, P>(&mut self, patvals: I) -> Result<SparseTrie, DaachorseError>
+    fn build_sparse_nfa<I, P>(&mut self, patvals: I) -> Result<SparseNFA, DaachorseError>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<[u8]>,
     {
-        let mut trie = SparseTrie::new();
+        let mut nfa = SparseNFA::new();
         for (pattern, value) in patvals {
-            trie.add(pattern.as_ref(), value)?;
+            nfa.add(pattern.as_ref(), value)?;
         }
-        Ok(trie)
+        let q = nfa.build_fails();
+        nfa.build_outputs(&q)?;
+        Ok(nfa)
     }
 
-    fn build_double_array(&mut self, sparse_trie: &SparseTrie) -> Result<(), DaachorseError> {
-        let mut state_id_map = vec![std::usize::MAX; sparse_trie.states.len()];
+    fn build_double_array(&mut self, nfa: &SparseNFA) -> Result<(), DaachorseError> {
+        let mut state_id_map = vec![std::usize::MAX; nfa.states.len()];
         state_id_map[0] = 0;
 
         self.init_array();
 
-        for (i, edges) in sparse_trie.states.iter().enumerate() {
+        // Arranges base & check values
+        for (i, state) in nfa.states.iter().enumerate() {
             let idx = state_id_map[i];
-            self.extras[idx].output = sparse_trie.outputs[i];
-
-            if edges.is_empty() {
+            if state.edges.is_empty() {
                 continue;
             }
 
-            let base = self.find_base(edges);
+            let base = self.find_base(&state.edges);
             if base >= self.states.len() {
                 self.extend_array()?;
             }
 
-            for &(c, child_id) in edges {
+            for &(c, child_id) in &state.edges {
                 let child_idx = base ^ c as usize;
                 self.fix_state(child_idx);
                 self.states[child_idx].set_check(c);
@@ -334,6 +437,21 @@ impl DoubleArrayAhoCorasickBuilder {
             }
             self.states[idx].set_base(base as u32);
             self.extras[base].used_base = true;
+        }
+
+        // Sets fail & output_pos values
+        for (i, state) in nfa.states.iter().enumerate() {
+            let idx = state_id_map[i];
+            self.states[idx].set_output_pos(state.output_pos);
+
+            let fail_idx = state_id_map[state.fail as usize];
+            if fail_idx > FAIL_MAX {
+                let e = AutomatonScaleError {
+                    msg: format!("fail_idx must be <= {}", FAIL_MAX),
+                };
+                return Err(DaachorseError::AutomatonScale(e));
+            }
+            self.states[idx].set_fail(fail_idx as u32);
         }
 
         // If the root block has not been closed, it has to be closed for setting CHECK[0] to a valid value.
@@ -345,6 +463,9 @@ impl DoubleArrayAhoCorasickBuilder {
             let block_idx = self.head_idx / BLOCK_LEN;
             self.close_block(block_idx);
         }
+
+        self.states.shrink_to_fit();
+
         Ok(())
     }
 
@@ -493,160 +614,5 @@ impl DoubleArrayAhoCorasickBuilder {
                 self.states[idx].set_check(c as u8);
             }
         }
-    }
-
-    fn add_fails(&mut self, sparse_trie: &SparseTrie) -> Result<(), DaachorseError> {
-        self.states[0].set_fail(0);
-        self.visits.reserve(sparse_trie.states.len());
-
-        for &(c, st_child_idx) in &sparse_trie.states[0] {
-            let da_child_idx = self.get_child_index(0, c).unwrap();
-            self.states[da_child_idx].set_fail(0);
-            self.visits.push(StatePair {
-                da_idx: da_child_idx,
-                st_idx: st_child_idx,
-            });
-        }
-
-        let mut vi = 0;
-        while vi < self.visits.len() {
-            let StatePair {
-                da_idx: da_state_idx,
-                st_idx: st_state_idx,
-            } = self.visits[vi];
-            vi += 1;
-
-            for &(c, st_child_idx) in &sparse_trie.states[st_state_idx] {
-                let da_child_idx = self.get_child_index(da_state_idx, c).unwrap();
-                let mut fail_idx = self.states[da_state_idx].fail() as usize;
-                let new_fail_idx = loop {
-                    if let Some(child_fail_idx) = self.get_child_index(fail_idx, c) {
-                        break child_fail_idx;
-                    }
-                    let next_fail_idx = self.states[fail_idx].fail() as usize;
-                    if fail_idx == 0 && next_fail_idx == 0 {
-                        break 0;
-                    }
-                    fail_idx = next_fail_idx;
-                };
-                if new_fail_idx > FAIL_MAX {
-                    let e = AutomatonScaleError {
-                        msg: format!("fail_idx must be <= {}", FAIL_MAX),
-                    };
-                    return Err(DaachorseError::AutomatonScale(e));
-                }
-
-                self.states[da_child_idx].set_fail(new_fail_idx as u32);
-                self.visits.push(StatePair {
-                    da_idx: da_child_idx,
-                    st_idx: st_child_idx,
-                });
-            }
-        }
-
-        Ok(())
-    }
-
-    fn build_outputs(&mut self) -> Result<(), DaachorseError> {
-        let error_checker = |outputs: &Vec<Output>| {
-            if outputs.len() > OUTPOS_INVALID as usize {
-                let e = AutomatonScaleError {
-                    msg: format!("outputs.len() must be <= {}", OUTPOS_INVALID),
-                };
-                Err(DaachorseError::AutomatonScale(e))
-            } else {
-                Ok(())
-            }
-        };
-
-        for sp in self.visits.iter().rev() {
-            let mut da_state_idx = sp.da_idx;
-
-            let Extra {
-                output, processed, ..
-            } = self.extras[da_state_idx];
-
-            if output.0 == VALUE_INVALID {
-                continue;
-            }
-            if processed {
-                debug_assert!(self.states[da_state_idx].output_pos().is_some());
-                continue;
-            }
-            debug_assert!(self.states[da_state_idx].output_pos().is_none());
-
-            self.extras[da_state_idx].processed = true;
-            self.states[da_state_idx].set_output_pos(self.outputs.len() as u32);
-            self.outputs.push(Output::new(output.0, output.1, true));
-
-            error_checker(&self.outputs)?;
-
-            loop {
-                da_state_idx = self.states[da_state_idx].fail() as usize;
-                if da_state_idx == 0 {
-                    break;
-                }
-
-                let Extra {
-                    output, processed, ..
-                } = self.extras[da_state_idx];
-
-                if output.0 == VALUE_INVALID {
-                    continue;
-                }
-
-                if processed {
-                    let mut clone_pos = self.states[da_state_idx].output_pos().unwrap() as usize;
-                    debug_assert!(!self.outputs[clone_pos].is_begin());
-                    while !self.outputs[clone_pos].is_begin() {
-                        self.outputs.push(self.outputs[clone_pos]);
-                        clone_pos += 1;
-                    }
-                    error_checker(&self.outputs)?;
-                    break;
-                }
-
-                self.extras[da_state_idx].processed = true;
-                self.states[da_state_idx].set_output_pos(self.outputs.len() as u32);
-                self.outputs.push(Output::new(output.0, output.1, false));
-            }
-        }
-
-        // sentinel
-        self.outputs
-            .push(Output::new(VALUE_INVALID, LENGTH_INVALID, true));
-        error_checker(&self.outputs)?;
-
-        Ok(())
-    }
-
-    fn set_dummy_outputs(&mut self) {
-        for sp in self.visits.iter() {
-            let da_state_idx = sp.da_idx;
-
-            let Extra {
-                output, processed, ..
-            } = self.extras[da_state_idx];
-
-            if processed {
-                debug_assert!(self.states[da_state_idx].output_pos().is_some());
-                continue;
-            }
-            debug_assert!(self.states[da_state_idx].output_pos().is_none());
-            debug_assert_eq!(output.0, VALUE_INVALID);
-
-            let fail_idx = self.states[da_state_idx].fail() as usize;
-            if let Some(output_pos) = self.states[fail_idx].output_pos() {
-                self.states[da_state_idx].set_output_pos(output_pos);
-            }
-        }
-    }
-
-    #[inline(always)]
-    fn get_child_index(&self, idx: usize, c: u8) -> Option<usize> {
-        self.states[idx].base().and_then(|base| {
-            let child_idx = (base ^ c as u32) as usize;
-            Some(child_idx).filter(|&x| self.states[x].check() == c)
-        })
     }
 }
