@@ -51,12 +51,20 @@ impl SparseNFA {
 
         let mut state_id = 0;
         for &c in pattern {
-            state_id = self.get(state_id, c).unwrap_or_else(|| {
+            if let Some(next_state_id) = self.get(state_id, c) {
+                state_id = next_state_id;
+            } else {
                 let next_state_id = self.states.len();
-                self.states[state_id].edges.push((c, next_state_id));
+                if next_state_id == STATE_IDX_INVALID as usize {
+                    let e = AutomatonScaleError {
+                        msg: format!("Number of states must be <= {}", STATE_IDX_INVALID),
+                    };
+                    return Err(DaachorseError::AutomatonScale(e));
+                }
+                self.states[state_id].edges.push((c, next_state_id as u32));
                 self.states.push(Default::default());
-                next_state_id
-            });
+                state_id = next_state_id;
+            }
         }
 
         let output = &mut self.states[state_id].output;
@@ -71,7 +79,7 @@ impl SparseNFA {
         Ok(())
     }
 
-    fn build_fails(&mut self) -> Vec<usize> {
+    fn build_fails(&mut self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
         for &(_, child_id) in &self.states[0].edges {
             q.push(child_id);
@@ -79,7 +87,7 @@ impl SparseNFA {
 
         let mut qi = 0;
         while qi < q.len() {
-            let state_id = q[qi];
+            let state_id = q[qi] as usize;
             qi += 1;
             for i in 0..self.states[state_id].edges.len() {
                 let (c, child_id) = self.states[state_id].edges[i];
@@ -94,18 +102,19 @@ impl SparseNFA {
                     }
                     fail_id = next_fail_id;
                 };
-                self.states[child_id].fail = new_fail_id as u32;
+                self.states[child_id as usize].fail = new_fail_id as u32;
                 q.push(child_id);
             }
         }
         q
     }
 
-    fn build_outputs(&mut self, q: &[usize]) -> Result<(), DaachorseError> {
+    fn build_outputs(&mut self, q: &[u32]) -> Result<(), DaachorseError> {
         let mut processed = vec![false; self.states.len()];
 
         // Builds an output sequence in which common parts are merged.
         for &state_id in q.iter().rev() {
+            let state_id = state_id as usize;
             let s = &mut self.states[state_id];
             if s.output.0 == VALUE_INVALID {
                 continue;
@@ -162,6 +171,7 @@ impl SparseNFA {
 
         // Sets dummy outputs
         for &state_id in q {
+            let state_id = state_id as usize;
             let s = &mut self.states[state_id];
             if processed[state_id] {
                 debug_assert_ne!(s.output_pos, OUTPOS_INVALID);
@@ -193,7 +203,7 @@ impl SparseNFA {
     fn get(&self, state_id: usize, c: u8) -> Option<usize> {
         for &(cc, child_id) in &self.states[state_id].edges {
             if c == cc {
-                return Some(child_id);
+                return Some(child_id as usize);
             }
         }
         None
@@ -202,7 +212,7 @@ impl SparseNFA {
 
 #[derive(Clone)]
 struct SparseState {
-    edges: Vec<(u8, usize)>,
+    edges: Vec<(u8, u32)>,
     fail: u32,
     output: (u32, u32),
     output_pos: u32,
@@ -219,13 +229,12 @@ impl Default for SparseState {
     }
 }
 
-// TODO: Optimize in memory
 #[derive(Clone, Copy)]
 struct Extra {
     used_base: bool,
     used_index: bool,
-    next: usize,
-    prev: usize,
+    next: u32,
+    prev: u32,
 }
 
 impl Default for Extra {
@@ -233,9 +242,51 @@ impl Default for Extra {
         Self {
             used_base: false,
             used_index: false,
-            next: std::usize::MAX,
-            prev: std::usize::MAX,
+            next: STATE_IDX_INVALID,
+            prev: STATE_IDX_INVALID,
         }
+    }
+}
+
+impl Extra {
+    #[inline(always)]
+    const fn get_next(&self) -> usize {
+        self.next as usize
+    }
+
+    #[inline(always)]
+    const fn get_prev(&self) -> usize {
+        self.prev as usize
+    }
+
+    #[inline(always)]
+    fn set_next(&mut self, x: usize) {
+        self.next = x as u32
+    }
+
+    #[inline(always)]
+    fn set_prev(&mut self, x: usize) {
+        self.prev = x as u32
+    }
+
+    #[inline(always)]
+    const fn is_used_base(&self) -> bool {
+        self.used_base
+    }
+
+    #[inline(always)]
+    const fn is_used_index(&self) -> bool {
+        self.used_index
+    }
+
+    #[inline(always)]
+    fn use_base(&mut self) {
+        self.used_base = true;
+    }
+
+    #[inline(always)]
+    fn use_index(&mut self) {
+        self.used_index = true;
     }
 }
 
@@ -412,14 +463,14 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     fn build_double_array(&mut self, nfa: &SparseNFA) -> Result<(), DaachorseError> {
-        let mut state_id_map = vec![std::usize::MAX; nfa.states.len()];
+        let mut state_id_map = vec![STATE_IDX_INVALID; nfa.states.len()];
         state_id_map[0] = 0;
 
         self.init_array();
 
         // Arranges base & check values
         for (i, state) in nfa.states.iter().enumerate() {
-            let idx = state_id_map[i];
+            let idx = state_id_map[i] as usize;
             if state.edges.is_empty() {
                 continue;
             }
@@ -433,18 +484,18 @@ impl DoubleArrayAhoCorasickBuilder {
                 let child_idx = base ^ c as usize;
                 self.fix_state(child_idx);
                 self.states[child_idx].set_check(c);
-                state_id_map[child_id] = child_idx;
+                state_id_map[child_id as usize] = child_idx as u32;
             }
             self.states[idx].set_base(base as u32);
-            self.extras[base].used_base = true;
+            self.extras[base].use_base();
         }
 
         // Sets fail & output_pos values
         for (i, state) in nfa.states.iter().enumerate() {
-            let idx = state_id_map[i];
+            let idx = state_id_map[i] as usize;
             self.states[idx].set_output_pos(state.output_pos);
 
-            let fail_idx = state_id_map[state.fail as usize];
+            let fail_idx = state_id_map[state.fail as usize] as usize;
             if fail_idx > FAIL_MAX {
                 let e = AutomatonScaleError {
                     msg: format!("fail_idx must be <= {}", FAIL_MAX),
@@ -476,14 +527,14 @@ impl DoubleArrayAhoCorasickBuilder {
 
         for i in 0..BLOCK_LEN {
             if i == 0 {
-                self.extras[i].prev = BLOCK_LEN - 1;
+                self.extras[i].set_prev(BLOCK_LEN - 1);
             } else {
-                self.extras[i].prev = i - 1;
+                self.extras[i].set_prev(i - 1);
             }
             if i == BLOCK_LEN - 1 {
-                self.extras[i].next = 0;
+                self.extras[i].set_next(0);
             } else {
-                self.extras[i].next = i + 1;
+                self.extras[i].set_next(i + 1);
             }
         }
 
@@ -492,13 +543,13 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     fn fix_state(&mut self, i: usize) {
-        debug_assert!(!self.extras[i].used_index);
-        self.extras[i].used_index = true;
+        debug_assert!(!self.extras[i].is_used_index());
+        self.extras[i].use_index();
 
-        let next = self.extras[i].next;
-        let prev = self.extras[i].prev;
-        self.extras[prev].next = next;
-        self.extras[next].prev = prev;
+        let next = self.extras[i].get_next();
+        let prev = self.extras[i].get_prev();
+        self.extras[prev].set_next(next);
+        self.extras[next].set_prev(prev);
 
         if self.head_idx == i {
             if next == i {
@@ -510,18 +561,18 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn find_base(&self, edges: &[(u8, usize)]) -> usize {
+    fn find_base(&self, edges: &[(u8, u32)]) -> usize {
         if self.head_idx == std::usize::MAX {
             return self.states.len();
         }
         let mut idx = self.head_idx;
         loop {
-            debug_assert!(!self.extras[idx].used_index);
+            debug_assert!(!self.extras[idx].is_used_index());
             let base = idx ^ edges[0].0 as usize;
             if self.check_valid_base(base, edges) {
                 return base;
             }
-            idx = self.extras[idx].next;
+            idx = self.extras[idx].get_next();
             if idx == self.head_idx {
                 break;
             }
@@ -529,13 +580,13 @@ impl DoubleArrayAhoCorasickBuilder {
         self.states.len()
     }
 
-    fn check_valid_base(&self, base: usize, edges: &[(u8, usize)]) -> bool {
-        if self.extras[base].used_base {
+    fn check_valid_base(&self, base: usize, edges: &[(u8, u32)]) -> bool {
+        if self.extras[base].is_used_base() {
             return false;
         }
         for &(c, _) in edges {
             let idx = base ^ c as usize;
-            if self.extras[idx].used_index {
+            if self.extras[idx].is_used_index() {
                 return false;
             }
         }
@@ -556,20 +607,20 @@ impl DoubleArrayAhoCorasickBuilder {
         for i in old_len..new_len {
             self.states.push(Default::default());
             self.extras.push(Default::default());
-            self.extras[i].next = i + 1;
-            self.extras[i].prev = i - 1;
+            self.extras[i].set_next(i + 1);
+            self.extras[i].set_prev(i - 1);
         }
 
         if self.head_idx == std::usize::MAX {
-            self.extras[old_len].prev = new_len - 1;
-            self.extras[new_len - 1].next = old_len;
+            self.extras[old_len].set_prev(new_len - 1);
+            self.extras[new_len - 1].set_next(old_len);
             self.head_idx = old_len;
         } else {
-            let tail_idx = self.extras[self.head_idx].prev;
-            self.extras[old_len].prev = tail_idx;
-            self.extras[tail_idx].next = old_len;
-            self.extras[new_len - 1].next = self.head_idx;
-            self.extras[self.head_idx].prev = new_len - 1;
+            let tail_idx = self.extras[self.head_idx].get_prev();
+            self.extras[old_len].set_prev(tail_idx);
+            self.extras[tail_idx].set_next(old_len);
+            self.extras[new_len - 1].set_next(self.head_idx);
+            self.extras[self.head_idx].set_prev(new_len - 1);
         }
 
         if FREE_STATES <= old_len {
@@ -599,7 +650,7 @@ impl DoubleArrayAhoCorasickBuilder {
         let unused_base = {
             let mut i = beg_idx;
             while i < end_idx {
-                if !self.extras[i].used_base {
+                if !self.extras[i].is_used_base() {
                     break;
                 }
                 i += 1;
@@ -610,7 +661,7 @@ impl DoubleArrayAhoCorasickBuilder {
 
         for c in 0..BLOCK_LEN {
             let idx = unused_base ^ c;
-            if idx == 0 || !self.extras[idx].used_index {
+            if idx == 0 || !self.extras[idx].is_used_index() {
                 self.states[idx].set_check(c as u8);
             }
         }
