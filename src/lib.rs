@@ -27,12 +27,6 @@
 mod builder;
 pub mod errors;
 
-use std::fmt;
-use std::io;
-
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::DaachorseError;
 
@@ -98,32 +92,6 @@ impl State {
     pub fn set_output_pos(&mut self, x: u32) {
         self.output_pos = x;
     }
-
-    /// Serializes the state.
-    pub fn serialize<W>(&self, mut writer: W) -> io::Result<()>
-    where
-        W: io::Write,
-    {
-        writer.write_u32::<LittleEndian>(self.base)?;
-        writer.write_u32::<LittleEndian>(self.fach)?;
-        writer.write_u32::<LittleEndian>(self.output_pos)?;
-        Ok(())
-    }
-
-    /// Deserializes the state.
-    pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
-    where
-        R: io::Read,
-    {
-        let base = reader.read_u32::<LittleEndian>()?;
-        let fach = reader.read_u32::<LittleEndian>()?;
-        let output_pos = reader.read_u32::<LittleEndian>()?;
-        Ok(Self {
-            base,
-            fach,
-            output_pos,
-        })
-    }
 }
 
 #[derive(Copy, Clone)]
@@ -154,26 +122,6 @@ impl Output {
     #[inline(always)]
     pub const fn is_begin(&self) -> bool {
         self.length & 1 == 1
-    }
-
-    /// Serializes the state.
-    pub fn serialize<W>(&self, mut writer: W) -> io::Result<()>
-    where
-        W: io::Write,
-    {
-        writer.write_u32::<LittleEndian>(self.value)?;
-        writer.write_u32::<LittleEndian>(self.length)?;
-        Ok(())
-    }
-
-    /// Deserializes the state.
-    pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
-    where
-        R: io::Read,
-    {
-        let value = reader.read_u32::<LittleEndian>()?;
-        let length = reader.read_u32::<LittleEndian>()?;
-        Ok(Self { value, length })
     }
 }
 
@@ -226,10 +174,14 @@ where
         let mut state_id = 0;
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-            state_id = unsafe { self.pma.get_next_state_id(state_id, c) };
+            // state_id is always smaller than self.pma.states.len() because
+            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
+            state_id = unsafe { self.pma.get_next_state_id_unchecked(state_id, c) };
             if let Some(output_pos) =
                 unsafe { self.pma.states.get_unchecked(state_id).output_pos() }
             {
+                // output_pos is always smaller than self.pma.outputs.len() because
+                // State::output_pos() ensures to return such a value when it is Some.
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 self.pos = pos + 1;
                 return Some(Match {
@@ -264,6 +216,8 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
+        // self.output_pos is always smaller than self.pma.outputs.len() because
+        // State::output_pos() ensures to return such a value when it is Some.
         let out = unsafe { self.pma.outputs.get_unchecked(self.output_pos) };
         if !out.is_begin() {
             self.output_pos += 1;
@@ -275,7 +229,9 @@ where
         }
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-            self.state_id = unsafe { self.pma.get_next_state_id(self.state_id, c) };
+            // self.state_id is always smaller than self.pma.states.len() because
+            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
+            self.state_id = unsafe { self.pma.get_next_state_id_unchecked(self.state_id, c) };
             if let Some(output_pos) =
                 unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
             {
@@ -315,12 +271,16 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-            self.state_id = unsafe { self.pma.get_next_state_id(self.state_id, c) };
+            // self.state_id is always smaller than self.pma.states.len() because
+            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
+            self.state_id = unsafe { self.pma.get_next_state_id_unchecked(self.state_id, c) };
             if let Some(output_pos) =
                 unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
             {
-                self.pos = pos + 1;
+                // output_pos is always smaller than self.pma.outputs.len() because
+                // State::output_pos() ensures to return such a value when it is Some.
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
+                self.pos = pos + 1;
                 return Some(Match {
                     length: out.length() as usize,
                     end: self.pos,
@@ -337,45 +297,6 @@ where
 pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
-}
-
-struct DoubleArrayAhoCorasickVisitor;
-
-impl<'de> Visitor<'de> for DoubleArrayAhoCorasickVisitor {
-    type Value = DoubleArrayAhoCorasick;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a byte array")
-    }
-
-    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        DoubleArrayAhoCorasick::deserialize(v)
-            .map_err(|err| serde::de::Error::custom(err.to_string()))
-    }
-}
-
-impl<'de> Deserialize<'de> for DoubleArrayAhoCorasick {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_bytes(DoubleArrayAhoCorasickVisitor)
-    }
-}
-
-impl Serialize for DoubleArrayAhoCorasick {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut v = vec![];
-        self.serialize(&mut v)
-            .map_err(|err| serde::ser::Error::custom(err.to_string()))?;
-        serializer.serialize_bytes(&v)
-    }
 }
 
 impl DoubleArrayAhoCorasick {
@@ -575,95 +496,14 @@ impl DoubleArrayAhoCorasick {
         }
     }
 
-    /// Serializes the automaton into the output stream.
-    ///
-    /// # Arguments
-    ///
-    /// * `writer` - Output stream.
-    ///
-    /// # Errors
-    ///
-    /// `std::io::Error` is returned if it fails to write the data.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use daachorse::DoubleArrayAhoCorasick;
-    ///
-    /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-    ///
-    /// let mut buffer = vec![];
-    /// pma.serialize(&mut buffer).unwrap();
-    /// ```
-    #[doc(hidden)]
-    pub fn serialize<W>(&self, mut writer: W) -> io::Result<()>
-    where
-        W: io::Write,
-    {
-        writer.write_u64::<LittleEndian>(self.states.len() as u64)?;
-        for &s in &self.states {
-            s.serialize(&mut writer)?;
-        }
-        writer.write_u64::<LittleEndian>(self.outputs.len() as u64)?;
-        for &x in &self.outputs {
-            x.serialize(&mut writer)?;
-        }
-        Ok(())
-    }
-
-    /// Deserializes the automaton from the input stream.
-    ///
-    /// # Arguments
-    ///
-    /// * `reader` - Input stream.
-    ///
-    /// # Errors
-    ///
-    /// `std::io::Error` is returned if it fails to read the data.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use daachorse::DoubleArrayAhoCorasick;
-    ///
-    /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-    ///
-    /// let mut buffer = vec![];
-    /// pma.serialize(&mut buffer).unwrap();
-    ///
-    /// let other = DoubleArrayAhoCorasick::deserialize(&buffer[..]).unwrap();
-    /// ```
-    #[doc(hidden)]
-    pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
-    where
-        R: io::Read,
-    {
-        let states = {
-            let len = reader.read_u64::<LittleEndian>()? as usize;
-            let mut states = Vec::with_capacity(len);
-            for _ in 0..len {
-                states.push(State::deserialize(&mut reader)?);
-            }
-            states
-        };
-        let outputs = {
-            let len = reader.read_u64::<LittleEndian>()? as usize;
-            let mut outputs = Vec::with_capacity(len);
-            for _ in 0..len {
-                outputs.push(Output::deserialize(&mut reader)?);
-            }
-            outputs
-        };
-        Ok(Self { states, outputs })
-    }
-
     /// # Safety
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
+    unsafe fn get_child_index_unchecked(&self, state_id: usize, c: u8) -> Option<usize> {
+        // child_idx is always smaller than states.len() because
+        //  - states.len() is 256 * k for some integer k, and
+        //  - base() returns smaller than states.len() when it is Some.
         self.states.get_unchecked(state_id).base().and_then(|base| {
             let child_idx = (base ^ c as u32) as usize;
             Some(child_idx).filter(|&x| self.states.get_unchecked(x).check() == c)
@@ -674,9 +514,11 @@ impl DoubleArrayAhoCorasick {
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_next_state_id(&self, mut state_id: usize, c: u8) -> usize {
+    unsafe fn get_next_state_id_unchecked(&self, mut state_id: usize, c: u8) -> usize {
+        // In the loop, state_id is always set to values smaller than states.len(),
+        // because get_child_index_unchecked() and fail() return such values.
         loop {
-            if let Some(state_id) = self.get_child_index(state_id, c) {
+            if let Some(state_id) = self.get_child_index_unchecked(state_id, c) {
                 return state_id;
             }
             if state_id == 0 {
@@ -684,6 +526,15 @@ impl DoubleArrayAhoCorasick {
             }
             state_id = self.states.get_unchecked(state_id).fail() as usize;
         }
+    }
+
+    #[cfg(test)]
+    #[inline(always)]
+    fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
+        self.states[state_id].base().and_then(|base| {
+            let child_idx = (base ^ c as u32) as usize;
+            Some(child_idx).filter(|&x| self.states[x].check() == c)
+        })
     }
 }
 
@@ -1067,9 +918,9 @@ mod tests {
     fn test_dump_root_state() {
         let patterns: Vec<Vec<u8>> = (1..=255).map(|c| vec![c]).collect();
         let pma = DoubleArrayAhoCorasick::new(&patterns).unwrap();
-        assert!(unsafe { pma.get_child_index(0, 0) }.is_none());
+        assert!(pma.get_child_index(0, 0).is_none());
         for c in 1..=255 {
-            assert_eq!(unsafe { pma.get_child_index(0, c) }.unwrap(), c as usize);
+            assert_eq!(pma.get_child_index(0, c).unwrap(), c as usize);
         }
     }
 
@@ -1091,72 +942,11 @@ mod tests {
                 assert!(pma.states[idx].base().is_some() || pma.states[idx].output_pos().is_some());
                 visited[idx] = true;
                 for c in 0..=255 {
-                    if let Some(child_idx) = unsafe { pma.get_child_index(idx, c) } {
+                    if let Some(child_idx) = pma.get_child_index(idx, c) {
                         visitor.push(child_idx);
                     }
                 }
             }
-        }
-    }
-
-    #[test]
-    fn test_serialization() {
-        let patterns: Vec<String> = {
-            let mut patterns = HashSet::new();
-            for _ in 0..100 {
-                patterns.insert(generate_random_string(4));
-            }
-            patterns.into_iter().collect()
-        };
-        let pma = DoubleArrayAhoCorasick::new(&patterns).unwrap();
-
-        // Serialize
-        let mut buffer = vec![];
-        pma.serialize(&mut buffer).unwrap();
-
-        // Deserialize
-        let other = DoubleArrayAhoCorasick::deserialize(&buffer[..]).unwrap();
-
-        assert_eq!(pma.states.len(), other.states.len());
-        for (a, b) in pma.states.iter().zip(other.states.iter()) {
-            assert_eq!(a.base, b.base);
-            assert_eq!(a.fach, b.fach);
-            assert_eq!(a.output_pos, b.output_pos);
-        }
-        assert_eq!(pma.outputs.len(), other.outputs.len());
-        for (a, b) in pma.outputs.iter().zip(other.outputs.iter()) {
-            assert_eq!(a.value, b.value);
-            assert_eq!(a.length, b.length);
-        }
-    }
-
-    #[test]
-    fn test_serde() {
-        let patterns: Vec<String> = {
-            let mut patterns = HashSet::new();
-            for _ in 0..100 {
-                patterns.insert(generate_random_string(4));
-            }
-            patterns.into_iter().collect()
-        };
-        let pma = DoubleArrayAhoCorasick::new(&patterns).unwrap();
-
-        // Serialize
-        let buffer = bincode::serialize(&pma).unwrap();
-
-        // Deserialize
-        let other: DoubleArrayAhoCorasick = bincode::deserialize(&buffer).unwrap();
-
-        assert_eq!(pma.states.len(), other.states.len());
-        for (a, b) in pma.states.iter().zip(other.states.iter()) {
-            assert_eq!(a.base, b.base);
-            assert_eq!(a.fach, b.fach);
-            assert_eq!(a.output_pos, b.output_pos);
-        }
-        assert_eq!(pma.outputs.len(), other.outputs.len());
-        for (a, b) in pma.outputs.iter().zip(other.outputs.iter()) {
-            assert_eq!(a.value, b.value);
-            assert_eq!(a.length, b.length);
         }
     }
 }

@@ -533,6 +533,7 @@ impl DoubleArrayAhoCorasickBuilder {
         self.fix_state(0);
     }
 
+    #[inline(always)]
     fn fix_state(&mut self, i: usize) {
         debug_assert!(!self.extras[i].is_used_index());
         self.extras[i].use_index();
@@ -571,6 +572,7 @@ impl DoubleArrayAhoCorasickBuilder {
         self.states.len()
     }
 
+    #[inline(always)]
     fn check_valid_base(&self, base: usize, edges: &[(u8, u32)]) -> bool {
         if self.extras[base].is_used_base() {
             return false;
