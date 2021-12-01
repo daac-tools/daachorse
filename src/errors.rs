@@ -12,6 +12,19 @@ pub enum DaachorseError {
     AutomatonScale(AutomatonScaleError),
 }
 
+impl fmt::Display for DaachorseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::InvalidArgument(e) => e.fmt(f),
+            Self::DuplicatePattern(e) => e.fmt(f),
+            Self::PatternScale(e) => e.fmt(f),
+            Self::AutomatonScale(e) => e.fmt(f),
+        }
+    }
+}
+
+impl Error for DaachorseError {}
+
 /// Error used when the argument is invalid.
 #[derive(Debug)]
 pub struct InvalidArgumentError {
