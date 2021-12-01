@@ -413,7 +413,7 @@ impl DoubleArrayAhoCorasick {
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
     {
-        DoubleArrayAhoCorasickBuilder::new(65536)?.build(patterns)
+        DoubleArrayAhoCorasickBuilder::new().build(patterns)
     }
 
     /// Creates a new [`DoubleArrayAhoCorasick`] from input pattern-value pairs.
@@ -452,7 +452,7 @@ impl DoubleArrayAhoCorasick {
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<[u8]>,
     {
-        DoubleArrayAhoCorasickBuilder::new(65536)?.build_with_values(patvals)
+        DoubleArrayAhoCorasickBuilder::new().build_with_values(patvals)
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack.

@@ -1,6 +1,5 @@
 use crate::errors::{
-    AutomatonScaleError, DaachorseError, DuplicatePatternError, InvalidArgumentError,
-    PatternScaleError,
+    AutomatonScaleError, DaachorseError, DuplicatePatternError, PatternScaleError,
 };
 use crate::{DoubleArrayAhoCorasick, Output, State, OUTPOS_INVALID};
 
@@ -18,6 +17,8 @@ const VALUE_INVALID: u32 = std::u32::MAX;
 const LENGTH_INVALID: u32 = std::u32::MAX >> 1;
 // The maximum FAIL value.
 const FAIL_MAX: usize = 0x00ffffff;
+// The initial capacity to build a double array.
+const INIT_CAPACITY: usize = 1 << 16;
 
 struct SparseNFA {
     states: Vec<SparseState>,
@@ -297,23 +298,21 @@ pub struct DoubleArrayAhoCorasickBuilder {
     head_idx: usize,
 }
 
+impl Default for DoubleArrayAhoCorasickBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DoubleArrayAhoCorasickBuilder {
     /// Creates a new [`DoubleArrayAhoCorasickBuilder`].
-    ///
-    /// # Arguments
-    ///
-    /// * `init_size` - Initial size of the Double-Array (<= 2^{32}).
-    ///
-    /// # Errors
-    ///
-    /// [`DaachorseError`] is returned when invalid arguements are given.
     ///
     /// # Examples
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasickBuilder;
     ///
-    /// let builder = DoubleArrayAhoCorasickBuilder::new(16).unwrap();
+    /// let builder = DoubleArrayAhoCorasickBuilder::new();
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = builder.build(patterns).unwrap();
@@ -328,21 +327,13 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn new(init_size: usize) -> Result<Self, DaachorseError> {
-        if init_size > STATE_IDX_INVALID as usize {
-            let e = InvalidArgumentError {
-                arg: "init_size",
-                msg: format!("must be <= {}", STATE_IDX_INVALID),
-            };
-            return Err(DaachorseError::InvalidArgument(e));
-        }
-
-        let init_capa = std::cmp::min(BLOCK_LEN, init_size / BLOCK_LEN * BLOCK_LEN);
-        Ok(Self {
+    pub fn new() -> Self {
+        let init_capa = std::cmp::min(BLOCK_LEN, INIT_CAPACITY / BLOCK_LEN * BLOCK_LEN);
+        Self {
             states: Vec::with_capacity(init_capa),
             extras: Vec::with_capacity(init_capa),
             head_idx: std::usize::MAX,
-        })
+        }
     }
 
     /// Builds and returns a new [`DoubleArrayAhoCorasick`] from input patterns.
@@ -364,7 +355,7 @@ impl DoubleArrayAhoCorasickBuilder {
     /// ```
     /// use daachorse::DoubleArrayAhoCorasickBuilder;
     ///
-    /// let builder = DoubleArrayAhoCorasickBuilder::new(16).unwrap();
+    /// let builder = DoubleArrayAhoCorasickBuilder::new();
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = builder.build(patterns).unwrap();
@@ -413,7 +404,7 @@ impl DoubleArrayAhoCorasickBuilder {
     /// ```
     /// use daachorse::DoubleArrayAhoCorasickBuilder;
     ///
-    /// let builder = DoubleArrayAhoCorasickBuilder::new(16).unwrap();
+    /// let builder = DoubleArrayAhoCorasickBuilder::new();
     ///
     /// let patvals = vec![("bcd", 0), ("ab", 1), ("a", 2), ("e", 1)];
     /// let pma = builder.build_with_values(patvals).unwrap();
