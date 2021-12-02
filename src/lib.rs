@@ -33,7 +33,13 @@ use errors::DaachorseError;
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: u32 = std::u32::MAX;
 // The maximum output position value used as an invalid value.
-pub(crate) const OUTPOS_INVALID: u32 = std::u32::MAX;
+pub(crate) const OUTPUT_POS_INVALID: u32 = std::u32::MAX;
+// The maximum FAIL value.
+pub(crate) const FAIL_MAX: u32 = 0xFFFFFF;
+// The mask value of FAIL for `State::fach`.
+const FAIL_MASK: u32 = FAIL_MAX << 8;
+// The mask value of CEHCK for `State::fach`.
+const CHECK_MASK: u32 = 0xFF;
 
 #[derive(Clone, Copy)]
 struct State {
@@ -47,7 +53,7 @@ impl Default for State {
         Self {
             base: BASE_INVALID,
             fach: 0,
-            output_pos: OUTPOS_INVALID,
+            output_pos: OUTPUT_POS_INVALID,
         }
     }
 }
@@ -70,7 +76,7 @@ impl State {
 
     #[inline(always)]
     pub fn output_pos(&self) -> Option<u32> {
-        Some(self.output_pos).filter(|&x| x != OUTPOS_INVALID)
+        Some(self.output_pos).filter(|&x| x != OUTPUT_POS_INVALID)
     }
 
     #[inline(always)]
@@ -80,12 +86,14 @@ impl State {
 
     #[inline(always)]
     pub fn set_check(&mut self, x: u8) {
-        self.fach = (self.fail() << 8) | x as u32;
+        self.fach &= !CHECK_MASK;
+        self.fach |= x as u32;
     }
 
     #[inline(always)]
     pub fn set_fail(&mut self, x: u32) {
-        self.fach = (x << 8) | self.check() as u32;
+        self.fach &= !FAIL_MASK;
+        self.fach |= x << 8;
     }
 
     #[inline(always)]
@@ -494,6 +502,23 @@ impl DoubleArrayAhoCorasick {
             state_id: 0,
             pos: 0,
         }
+    }
+
+    /// Returns the total amount of heap used by this automaton in bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// assert_eq!(pma.heap_bytes(), 3104);
+    /// ```
+    pub fn heap_bytes(&self) -> usize {
+        self.states.len() * std::mem::size_of::<State>()
+            + self.outputs.len() * std::mem::size_of::<Output>()
     }
 
     /// # Safety

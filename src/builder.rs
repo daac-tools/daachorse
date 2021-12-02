@@ -1,7 +1,7 @@
 use crate::errors::{
     AutomatonScaleError, DaachorseError, DuplicatePatternError, PatternScaleError,
 };
-use crate::{DoubleArrayAhoCorasick, Output, State, OUTPOS_INVALID};
+use crate::{DoubleArrayAhoCorasick, Output, State, FAIL_MAX, OUTPUT_POS_INVALID};
 
 // The length of each double-array block.
 const BLOCK_LEN: usize = 256;
@@ -15,8 +15,6 @@ const STATE_IDX_INVALID: u32 = std::u32::MAX;
 const VALUE_INVALID: u32 = std::u32::MAX;
 // The maximum length of a pattern used as an invalid value.
 const LENGTH_INVALID: u32 = std::u32::MAX >> 1;
-// The maximum FAIL value.
-const FAIL_MAX: usize = 0x00ffffff;
 // The initial capacity to build a double array.
 const INIT_CAPACITY: usize = 1 << 16;
 
@@ -122,10 +120,10 @@ impl SparseNFA {
             }
 
             if processed[state_id] {
-                debug_assert_ne!(s.output_pos, OUTPOS_INVALID);
+                debug_assert_ne!(s.output_pos, OUTPUT_POS_INVALID);
                 continue;
             }
-            debug_assert_eq!(s.output_pos, OUTPOS_INVALID);
+            debug_assert_eq!(s.output_pos, OUTPUT_POS_INVALID);
             processed[state_id] = true;
 
             s.output_pos = self.outputs.len() as u32;
@@ -145,7 +143,7 @@ impl SparseNFA {
                 }
 
                 if processed[fail_id] {
-                    debug_assert_ne!(s.output_pos, OUTPOS_INVALID);
+                    debug_assert_ne!(s.output_pos, OUTPUT_POS_INVALID);
                     let mut clone_pos = s.output_pos as usize;
                     debug_assert!(!self.outputs[clone_pos].is_begin());
                     while !self.outputs[clone_pos].is_begin() {
@@ -175,10 +173,10 @@ impl SparseNFA {
             let state_id = state_id as usize;
             let s = &mut self.states[state_id];
             if processed[state_id] {
-                debug_assert_ne!(s.output_pos, OUTPOS_INVALID);
+                debug_assert_ne!(s.output_pos, OUTPUT_POS_INVALID);
                 continue;
             }
-            debug_assert_eq!(s.output_pos, OUTPOS_INVALID);
+            debug_assert_eq!(s.output_pos, OUTPUT_POS_INVALID);
             debug_assert_eq!(s.output.0, VALUE_INVALID);
 
             let fail_id = self.states[state_id].fail as usize;
@@ -190,9 +188,9 @@ impl SparseNFA {
 
     #[inline(always)]
     fn check_outputs_error(outputs: &[Output]) -> Result<(), DaachorseError> {
-        if outputs.len() > OUTPOS_INVALID as usize {
+        if outputs.len() > OUTPUT_POS_INVALID as usize {
             let e = AutomatonScaleError {
-                msg: format!("outputs.len() must be <= {}", OUTPOS_INVALID),
+                msg: format!("outputs.len() must be <= {}", OUTPUT_POS_INVALID),
             };
             Err(DaachorseError::AutomatonScale(e))
         } else {
@@ -225,7 +223,7 @@ impl Default for SparseState {
             edges: vec![],
             fail: 0,
             output: (VALUE_INVALID, LENGTH_INVALID),
-            output_pos: OUTPOS_INVALID,
+            output_pos: OUTPUT_POS_INVALID,
         }
     }
 }
@@ -486,14 +484,14 @@ impl DoubleArrayAhoCorasickBuilder {
             let idx = state_id_map[i] as usize;
             self.states[idx].set_output_pos(state.output_pos);
 
-            let fail_idx = state_id_map[state.fail as usize] as usize;
+            let fail_idx = state_id_map[state.fail as usize];
             if fail_idx > FAIL_MAX {
                 let e = AutomatonScaleError {
                     msg: format!("fail_idx must be <= {}", FAIL_MAX),
                 };
                 return Err(DaachorseError::AutomatonScale(e));
             }
-            self.states[idx].set_fail(fail_idx as u32);
+            self.states[idx].set_fail(fail_idx);
         }
 
         // If the root block has not been closed, it has to be closed for setting CHECK[0] to a valid value.
