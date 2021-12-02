@@ -1,8 +1,26 @@
 //! # 🐎 Daac Horse: Double-Array Aho-Corasick
 //!
-//! A fast implementation of the Aho-Corasick algorithm using Double-Array Trie.
+//! A fast implementation of the Aho-Corasick algorithm
+//! using the compact double-array data structure.
 //!
-//! ## Examples
+//! ## Overview
+//!
+//! `daachorse` is a crate for fast multiple pattern matching using
+//! the [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855),
+//! running in linear time over the length of the input text.
+//! For time- and memory-efficiency, the pattern match automaton is implemented using
+//! the [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004).
+//! The data structure not only supports constant-time state-to-state traversal,
+//! but also represents each state in a compact space of only 12 bytes.
+//!
+//! ## Example: Finding overlapped occurrences
+//!
+//! To search for all occurrences of registered patterns that allow for positional overlap in the
+//! input text, use [`DoubleArrayAhoCorasick::find_overlapping_iter()`].
+//!
+//! When you use [`DoubleArrayAhoCorasick::new()`] for constraction,
+//! unique identifiers are assigned to each pattern in the input order.
+//! The match result has the byte positions of the occurrence and its identifier.
 //!
 //! ```
 //! use daachorse::DoubleArrayAhoCorasick;
@@ -23,7 +41,53 @@
 //!
 //! assert_eq!(None, it.next());
 //! ```
-
+//!
+//! ## Example: Finding non-overlapped occurrences
+//!
+//! If you do not want to allow positional overlap,
+//! use [`DoubleArrayAhoCorasick::find_iter()`] instead.
+//!
+//! ```
+//! use daachorse::DoubleArrayAhoCorasick;
+//!
+//! let patterns = vec!["bcd", "ab", "a"];
+//! let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+//!
+//! let mut it = pma.find_iter("abcd");
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+//!
+//! assert_eq!(None, it.next());
+//! ```
+//!
+//! ## Example: Associating arbitrary values with patterns
+//!
+//! To build the automaton from pairs of a pattern and integer value instead of assigning
+//! identifiers automatically, use [`DoubleArrayAhoCorasick::with_values()`].
+//!
+//! ```
+//! use daachorse::DoubleArrayAhoCorasick;
+//!
+//! let patvals = vec![("bcd", 0), ("ab", 10), ("a", 20)];
+//! let pma = DoubleArrayAhoCorasick::with_values(patvals).unwrap();
+//!
+//! let mut it = pma.find_overlapping_iter("abcd");
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 1, 20), (m.start(), m.end(), m.value()));
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 2, 10), (m.start(), m.end(), m.value()));
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+//!
+//! assert_eq!(None, it.next());
+//! ```
 mod builder;
 pub mod errors;
 
@@ -301,7 +365,33 @@ where
     }
 }
 
-/// Pattern match automaton implemented with the Aho-Corasick algorithm and Double-Array.
+/// Fast multiple pattern match automaton implemented
+/// with the Aho-Corasick algorithm and compact double-array data structure.
+///
+/// [`DoubleArrayAhoCorasick`] implements a pattern match automaton based on
+/// the [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855),
+/// supporting linear-time pattern matching.
+/// The internal data structure employs
+/// the [compact double-array structure](https://doi.org/10.1016/j.ipm.2006.04.004)
+/// that is the fastest trie representation technique.
+/// It supports constant-time state-to-state traversal,
+/// allowing for very fast pattern matching.
+/// Moreover, each state is represented in a compact space of only 12 bytes.
+///
+/// # Build instructions
+///
+/// [`DoubleArrayAhoCorasick`] supports the following two types of input data:
+///
+/// - [`DoubleArrayAhoCorasick::new`] builds an automaton from a set of byte strings
+///    while assigning unique identifiers in the input order.
+///
+/// - [`DoubleArrayAhoCorasick::with_values`] builds an automaton
+///    from a set of pairs of a byte string and a `u32` value.
+///
+/// # Limitations
+///
+/// For memory- and cache-efficiency, a FAIL pointer is represented in 24 bits.
+/// Thus, if a very large pattern set is given, [`DaachorseError`] will be reported.
 pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
@@ -317,7 +407,10 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Errors
     ///
-    /// [`errors::DuplicatePatternError`] is returned when `patterns` contains duplicate entries.
+    /// [`DaachorseError`] is returned when
+    ///   - the `patterns` contains duplicate entries,
+    ///   - the scale of `patterns` exceeds the expected one, or
+    ///   - the scale of the resulting automaton exceeds the expected one.
     ///
     /// # Examples
     ///
@@ -349,11 +442,14 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Arguments
     ///
-    /// * `patvals` - List of pattern-value pairs, where the value is of type `u32` and less than `u32::MAX`.
+    /// * `patvals` - List of pattern-value pairs, in which the value is of type `u32` and less than `u32::MAX`.
     ///
     /// # Errors
     ///
-    /// [`errors::DuplicatePatternError`] is returned when `patvals` contains duplicate patterns or invalid values.
+    /// [`DaachorseError`] is returned when
+    ///   - the `patvals` contains duplicate patterns,
+    ///   - the scale of `patvals` exceeds the expected one, or
+    ///   - the scale of the resulting automaton exceeds the expected one.
     ///
     /// # Examples
     ///
