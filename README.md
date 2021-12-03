@@ -16,12 +16,14 @@ the [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.
 The data structure not only supports constant-time state-to-state traversal,
 but also represents each state in a compact space of only 12 bytes.
 
-For example, compared to the [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate
+For example, compared to the NFA of the [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate
 that is the most poplar Aho-Corasick implementation in Rust,
-Daachorse can perform pattern matching **3.4 times faster**
-while consuming **1.5 times smaller** memory, for a English dataset.
-More detailed experimental results can be found in
+Daachorse can perform pattern matching **3.1 times faster**
+while consuming **45% smaller** memory, when using a word dictionary of 675K patterns.
+Other experimental results can be found in
 [Wiki](https://github.com/legalforce-research/daachorse/wiki).
+
+![](./figures/comparison.svg)
 
 ## Installation
 
