@@ -24,4 +24,5 @@ rand = "0.8.4"  # MIT or Apache-2.0
 [workspace]
 members = [
     "bench",
+    "daacfind",
 ]
