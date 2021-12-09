@@ -104,6 +104,10 @@ pub(crate) const FAIL_MAX: u32 = 0xFFFFFF;
 const FAIL_MASK: u32 = FAIL_MAX << 8;
 // The mask value of CEHCK for `State::fach`.
 const CHECK_MASK: u32 = 0xFF;
+// The root index position.
+pub(crate) const ROOT_STATE_IDX: usize = 0;
+// The dead index position.
+pub(crate) const DEAD_STATE_IDX: usize = 1;
 
 #[derive(Clone, Copy)]
 struct State {
@@ -243,7 +247,7 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        let mut state_id = 0;
+        let mut state_id = ROOT_STATE_IDX;
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
             // state_id is always smaller than self.pma.states.len() because
@@ -365,6 +369,60 @@ where
     }
 }
 
+/// Iterator created by [`DoubleArrayAhoCorasick::leftmost_find_iter()`].
+pub struct LestmostFindIterator<'a, P>
+where
+    P: AsRef<[u8]>,
+{
+    pma: &'a DoubleArrayAhoCorasick,
+    haystack: P,
+    pos: usize,
+}
+
+impl<'a, P> Iterator for LestmostFindIterator<'a, P>
+where
+    P: AsRef<[u8]>,
+{
+    type Item = Match;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut state_id = ROOT_STATE_IDX;
+        let mut last_output_pos = OUTPUT_POS_INVALID;
+
+        let haystack = self.haystack.as_ref();
+        for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
+            state_id = unsafe { self.pma.get_next_state_id_leftmost_unchecked(state_id, c) };
+            if state_id == DEAD_STATE_IDX {
+                debug_assert_ne!(last_output_pos, OUTPUT_POS_INVALID);
+                break;
+            }
+
+            // state_id is always smaller than self.pma.states.len() because
+            // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
+            if let Some(output_pos) =
+                unsafe { self.pma.states.get_unchecked(state_id).output_pos() }
+            {
+                last_output_pos = output_pos;
+                self.pos = pos + 1;
+            }
+        }
+
+        if last_output_pos != OUTPUT_POS_INVALID {
+            // last_output_pos is always smaller than self.pma.outputs.len() because
+            // State::output_pos() ensures to return such a value when it is Some.
+            let out = unsafe { self.pma.outputs.get_unchecked(last_output_pos as usize) };
+            Some(Match {
+                length: out.length() as usize,
+                end: self.pos,
+                value: out.value() as usize,
+            })
+        } else {
+            None
+        }
+    }
+}
+
 /// Fast multiple pattern match automaton implemented
 /// with the Aho-Corasick algorithm and compact double-array data structure.
 ///
@@ -395,6 +453,7 @@ where
 pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
+    match_kind: MatchKind,
 }
 
 impl DoubleArrayAhoCorasick {
@@ -486,6 +545,11 @@ impl DoubleArrayAhoCorasick {
     ///
     /// * `haystack` - String to search for.
     ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
     /// # Examples
     ///
     /// ```
@@ -508,6 +572,9 @@ impl DoubleArrayAhoCorasick {
     where
         P: AsRef<[u8]>,
     {
+        if !self.match_kind.is_standard() {
+            panic!("Error: match_kind must be standard.");
+        }
         FindIterator {
             pma: self,
             haystack,
@@ -520,6 +587,11 @@ impl DoubleArrayAhoCorasick {
     /// # Arguments
     ///
     /// * `haystack` - String to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
     ///
     /// # Examples
     ///
@@ -546,10 +618,13 @@ impl DoubleArrayAhoCorasick {
     where
         P: AsRef<[u8]>,
     {
+        if !self.match_kind.is_standard() {
+            panic!("Error: match_kind must be standard.");
+        }
         FindOverlappingIterator {
             pma: self,
             haystack,
-            state_id: 0,
+            state_id: ROOT_STATE_IDX,
             pos: 0,
             output_pos: 0,
         }
@@ -566,6 +641,11 @@ impl DoubleArrayAhoCorasick {
     /// # Arguments
     ///
     /// * `haystack` - String to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
     ///
     /// # Examples
     ///
@@ -592,10 +672,89 @@ impl DoubleArrayAhoCorasick {
     where
         P: AsRef<[u8]>,
     {
+        if !self.match_kind.is_standard() {
+            panic!("Error: match_kind must be standard.");
+        }
         FindOverlappingNoSuffixIterator {
             pma: self,
             haystack,
-            state_id: 0,
+            state_id: ROOT_STATE_IDX,
+            pos: 0,
+        }
+    }
+
+    /// Returns an iterator of leftmost matches in the given haystack.
+    ///
+    /// The leftmost match greedily searches the longest possible match at each iteration, and
+    /// the match results do not overlap positionally such as [`DoubleArrayAhoCorasick::find_iter()`].
+    ///
+    /// According to the [`MatchKind`] option you specified in the construction,
+    /// the behavior is changed for multiple possible matches, as follows.
+    ///
+    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match
+    ///    corresponding to the longest pattern.
+    ///
+    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match
+    ///    corresponding to the pattern earlier registered to the automaton.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - String to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you do not specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Examples
+    ///
+    /// ## LeftmostLongest
+    ///
+    /// ```
+    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["ab", "abcd"];
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///           .match_kind(MatchKind::LeftmostLongest)
+    ///           .build(&patterns)
+    ///           .unwrap();
+    ///
+    /// let mut it = pma.leftmost_find_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 4, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    ///
+    /// ## LeftmostFirst
+    ///
+    /// ```
+    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["ab", "abcd"];
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///           .match_kind(MatchKind::LeftmostFirst)
+    ///           .build(&patterns)
+    ///           .unwrap();
+    ///
+    /// let mut it = pma.leftmost_find_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P>
+    where
+        P: AsRef<[u8]>,
+    {
+        if !self.match_kind.is_leftmost() {
+            panic!("Error: match_kind must be leftmost.");
+        }
+        LestmostFindIterator {
+            pma: self,
+            haystack,
             pos: 0,
         }
     }
@@ -642,10 +801,32 @@ impl DoubleArrayAhoCorasick {
             if let Some(state_id) = self.get_child_index_unchecked(state_id, c) {
                 return state_id;
             }
-            if state_id == 0 {
-                return 0;
+            if state_id == ROOT_STATE_IDX {
+                return ROOT_STATE_IDX;
             }
             state_id = self.states.get_unchecked(state_id).fail() as usize;
+        }
+    }
+
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of states.
+    #[inline(always)]
+    unsafe fn get_next_state_id_leftmost_unchecked(&self, mut state_id: usize, c: u8) -> usize {
+        // In the loop, state_id is always set to values smaller than states.len(),
+        // because get_child_index_unchecked() and fail() return such values.
+        loop {
+            if let Some(state_id) = self.get_child_index_unchecked(state_id, c) {
+                return state_id;
+            }
+            if state_id == ROOT_STATE_IDX {
+                return ROOT_STATE_IDX;
+            }
+            let fail_id = self.states.get_unchecked(state_id).fail() as usize;
+            if fail_id == DEAD_STATE_IDX {
+                return DEAD_STATE_IDX;
+            }
+            state_id = fail_id;
         }
     }
 
@@ -656,6 +837,53 @@ impl DoubleArrayAhoCorasick {
             let child_idx = (base ^ c as u32) as usize;
             Some(child_idx).filter(|&x| self.states[x].check() == c)
         })
+    }
+}
+
+/// An search option of the Aho-Corasick automaton
+/// specified in [`DoubleArrayAhoCorasickBuilder::match_kind`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MatchKind {
+    /// The standard match semantics, which enables
+    /// [`find_iter()`](DoubleArrayAhoCorasick::find_iter()),\
+    /// [`find_overlapping_iter()`](DoubleArrayAhoCorasick::find_overlapping_iter()), and
+    /// [`find_overlapping_no_suffix_iter()`](DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()).
+    /// Patterns are reported in the order that follows the normal behaviour of the Aho-Corasick
+    /// algorithm.
+    Standard,
+
+    /// The leftmost-longest match semantics, which enables
+    /// [`leftmost_find_iter()`](DoubleArrayAhoCorasick::leftmost_find_iter()).
+    /// When multiple patterns are started from the same positions, the longest pattern will be
+    /// reported. For example, when matching patterns `ab|a|abcd` over `abcd`, `abcd` will be
+    /// reported.
+    LeftmostLongest,
+
+    /// The leftmost-first match semantics, which enables
+    /// [`leftmost_find_iter()`](DoubleArrayAhoCorasick::leftmost_find_iter()).
+    /// When multiple patterns are started from the same positions, the pattern that is registered
+    /// earlier will be reported. For example, when matching patterns `ab|a|abcd` over `abcd`,
+    /// `ab` will be reported.
+    LeftmostFirst,
+}
+
+impl Default for MatchKind {
+    fn default() -> Self {
+        Self::Standard
+    }
+}
+
+impl MatchKind {
+    fn is_standard(&self) -> bool {
+        *self == Self::Standard
+    }
+
+    fn is_leftmost(&self) -> bool {
+        *self == Self::LeftmostFirst || *self == Self::LeftmostLongest
+    }
+
+    pub(crate) fn is_leftmost_first(&self) -> bool {
+        *self == Self::LeftmostFirst
     }
 }
 
@@ -684,6 +912,37 @@ mod tests {
         (0..size).map(|_| rng.gen_range(0..=255)).collect()
     }
 
+    // props are a sequence of (num, length) to generate.
+    fn generate_random_patterns<F, T>(props: &[(usize, usize)], gen: F) -> HashSet<T>
+    where
+        F: Fn(usize) -> T,
+        T: std::cmp::Eq + std::hash::Hash,
+    {
+        let mut patterns = HashSet::<T>::new();
+        for &(num, len) in props {
+            for _ in 0..num {
+                patterns.insert(gen(len));
+            }
+        }
+        patterns
+    }
+
+    // props are a sequence of (num, length) to generate.
+    fn generate_random_patvals<F, T>(props: &[(usize, usize)], gen: F) -> HashMap<T, u32>
+    where
+        F: Fn(usize) -> T,
+        T: std::cmp::Eq + std::hash::Hash,
+    {
+        let mut value_gen = rand::thread_rng();
+        let mut patvals = HashMap::<T, u32>::new();
+        for &(num, len) in props {
+            for _ in 0..num {
+                patvals.insert(gen(len), value_gen.gen_range(0..100));
+            }
+        }
+        patvals
+    }
+
     #[test]
     fn test_double_array() {
         /*
@@ -703,25 +962,57 @@ mod tests {
         let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
 
         let base_expected = vec![
-            3,
-            BASE_INVALID,
-            7,
-            4,
-            BASE_INVALID,
-            BASE_INVALID,
-            BASE_INVALID,
+            4,            // 0  (state=0)
+            BASE_INVALID, // 1
+            BASE_INVALID, // 2  (state=6)
+            BASE_INVALID, // 3
+            8,            // 4  (state=1)
+            0,            // 5  (state=2)
+            BASE_INVALID, // 6  (state=3)
+            BASE_INVALID, // 7
+            BASE_INVALID, // 8  (state=4)
+            BASE_INVALID, // 9
+            BASE_INVALID, // 10 (state=5)
         ];
-        let check_expected = vec![0, 2, 1, 0, 0, 2, 2];
-        //                        ^  ^  ^  ^  ^  ^  ^
-        //             state_id=  0  3  2  1  4  6  5
-        let fail_expected = vec![0, 0, 0, 0, 3, 1, 1];
+        let check_expected = vec![
+            1, // 0  (state=0)
+            0, // 1
+            2, // 2  (state=6)
+            2, // 3
+            0, // 4  (state=1)
+            1, // 5  (state=2)
+            2, // 6  (state=3)
+            6, // 7
+            0, // 8  (state=4)
+            8, // 9
+            2, // 10 (state=5)
+        ];
+        let fail_expected = vec![
+            ROOT_STATE_IDX, // 0  (state=0)
+            ROOT_STATE_IDX, // 1
+            6,              // 2  (state=6)
+            ROOT_STATE_IDX, // 3
+            ROOT_STATE_IDX, // 4  (state=1)
+            ROOT_STATE_IDX, // 5  (state=2)
+            ROOT_STATE_IDX, // 6  (state=3)
+            ROOT_STATE_IDX, // 7
+            4,              // 8  (state=4)
+            ROOT_STATE_IDX, // 9
+            6,              // 10 (state=5)
+        ];
 
-        let pma_base: Vec<_> = pma.states[0..7]
+        let pma_base: Vec<_> = pma.states[0..11]
             .iter()
             .map(|state| state.base().unwrap_or(BASE_INVALID))
             .collect();
-        let pma_check: Vec<_> = pma.states[0..7].iter().map(|state| state.check()).collect();
-        let pma_fail: Vec<_> = pma.states[0..7].iter().map(|state| state.fail()).collect();
+        let pma_check: Vec<_> = pma.states[0..11]
+            .iter()
+            .map(|state| state.check())
+            .collect();
+        let pma_fail: Vec<_> = pma.states[0..11]
+            .iter()
+            .map(|state| state.fail() as usize)
+            .collect();
 
         assert_eq!(base_expected, pma_base);
         assert_eq!(check_expected, pma_check);
@@ -731,10 +1022,7 @@ mod tests {
     #[test]
     fn test_find_iter_random() {
         for _ in 0..100 {
-            let mut patterns = HashSet::new();
-            for _ in 0..100 {
-                patterns.insert(generate_random_string(4));
-            }
+            let patterns = generate_random_patterns(&[(100, 4)], generate_random_string);
             let haystack = generate_random_string(100);
 
             // naive pattern match
@@ -755,20 +1043,14 @@ mod tests {
             for m in pma.find_iter(&haystack) {
                 actual.insert((m.start(), m.end(), patterns_vec[m.value()].clone()));
             }
-            eprintln!("{}", haystack);
             assert_eq!(expected, actual);
         }
     }
 
     #[test]
     fn test_find_iter_random_with_values() {
-        let mut value_gen = rand::thread_rng();
-
         for _ in 0..100 {
-            let mut patvals = HashMap::new();
-            for _ in 0..100 {
-                patvals.insert(generate_random_string(4), value_gen.gen_range(0..100));
-            }
+            let patvals = generate_random_patvals(&[(100, 4)], generate_random_string);
             let haystack = generate_random_string(100);
 
             // naive pattern match
@@ -789,7 +1071,6 @@ mod tests {
             for m in pma.find_iter(&haystack) {
                 actual.insert((m.start(), m.end()), m.value());
             }
-            eprintln!("{}", haystack);
             assert_eq!(expected, actual);
         }
     }
@@ -797,10 +1078,7 @@ mod tests {
     #[test]
     fn test_find_iter_binary_random() {
         for _ in 0..100 {
-            let mut patterns = HashSet::new();
-            for _ in 0..100 {
-                patterns.insert(generate_random_binary_string(4));
-            }
+            let patterns = generate_random_patterns(&[(100, 4)], generate_random_binary_string);
             let haystack = generate_random_binary_string(100);
 
             // naive pattern match
@@ -827,16 +1105,8 @@ mod tests {
 
     #[test]
     fn test_find_iter_binary_random_with_values() {
-        let mut value_gen = rand::thread_rng();
-
         for _ in 0..100 {
-            let mut patvals = HashMap::new();
-            for _ in 0..100 {
-                patvals.insert(
-                    generate_random_binary_string(4),
-                    value_gen.gen_range(0..100),
-                );
-            }
+            let patvals = generate_random_patvals(&[(100, 4)], generate_random_binary_string);
             let haystack = generate_random_binary_string(100);
 
             // naive pattern match
@@ -864,19 +1134,10 @@ mod tests {
     #[test]
     fn test_find_overlapping_iter_random() {
         for _ in 0..100 {
-            let mut patterns = HashSet::new();
-            for _ in 0..6 {
-                patterns.insert(generate_random_string(1));
-            }
-            for _ in 0..20 {
-                patterns.insert(generate_random_string(2));
-            }
-            for _ in 0..50 {
-                patterns.insert(generate_random_string(3));
-            }
-            for _ in 0..100 {
-                patterns.insert(generate_random_string(4));
-            }
+            let patterns = generate_random_patterns(
+                &[(6, 1), (20, 2), (50, 3), (100, 4)],
+                generate_random_string,
+            );
             let haystack = generate_random_string(100);
 
             // naive pattern match
@@ -896,29 +1157,17 @@ mod tests {
             for m in pma.find_overlapping_iter(&haystack) {
                 actual.insert((m.start(), m.end(), patterns_vec[m.value()].clone()));
             }
-            eprintln!("{}", haystack);
             assert_eq!(expected, actual);
         }
     }
 
     #[test]
     fn test_find_overlapping_iter_random_with_values() {
-        let mut value_gen = rand::thread_rng();
-
         for _ in 0..100 {
-            let mut patvals = HashMap::new();
-            for _ in 0..6 {
-                patvals.insert(generate_random_string(1), value_gen.gen_range(0..100));
-            }
-            for _ in 0..20 {
-                patvals.insert(generate_random_string(2), value_gen.gen_range(0..100));
-            }
-            for _ in 0..50 {
-                patvals.insert(generate_random_string(3), value_gen.gen_range(0..100));
-            }
-            for _ in 0..100 {
-                patvals.insert(generate_random_string(4), value_gen.gen_range(0..100));
-            }
+            let patvals = generate_random_patvals(
+                &[(6, 1), (20, 2), (50, 3), (100, 4)],
+                generate_random_string,
+            );
             let haystack = generate_random_string(100);
 
             // naive pattern match
@@ -938,7 +1187,6 @@ mod tests {
             for m in pma.find_overlapping_iter(&haystack) {
                 actual.insert((m.start(), m.end()), m.value());
             }
-            eprintln!("{}", haystack);
             assert_eq!(expected, actual);
         }
     }
@@ -946,19 +1194,10 @@ mod tests {
     #[test]
     fn test_find_overlapping_iter_binary_random() {
         for _ in 0..100 {
-            let mut patterns = HashSet::new();
-            for _ in 0..6 {
-                patterns.insert(generate_random_binary_string(1));
-            }
-            for _ in 0..20 {
-                patterns.insert(generate_random_binary_string(2));
-            }
-            for _ in 0..50 {
-                patterns.insert(generate_random_binary_string(3));
-            }
-            for _ in 0..100 {
-                patterns.insert(generate_random_binary_string(4));
-            }
+            let patterns = generate_random_patterns(
+                &[(6, 1), (20, 2), (50, 3), (100, 4)],
+                generate_random_binary_string,
+            );
             let haystack = generate_random_binary_string(100);
 
             // naive pattern match
@@ -984,34 +1223,11 @@ mod tests {
 
     #[test]
     fn test_find_overlapping_iter_binary_random_with_values() {
-        let mut value_gen = rand::thread_rng();
-
         for _ in 0..100 {
-            let mut patvals = HashMap::new();
-            for _ in 0..6 {
-                patvals.insert(
-                    generate_random_binary_string(1),
-                    value_gen.gen_range(0..100),
-                );
-            }
-            for _ in 0..20 {
-                patvals.insert(
-                    generate_random_binary_string(2),
-                    value_gen.gen_range(0..100),
-                );
-            }
-            for _ in 0..50 {
-                patvals.insert(
-                    generate_random_binary_string(3),
-                    value_gen.gen_range(0..100),
-                );
-            }
-            for _ in 0..100 {
-                patvals.insert(
-                    generate_random_binary_string(4),
-                    value_gen.gen_range(0..100),
-                );
-            }
+            let patvals = generate_random_patvals(
+                &[(6, 1), (20, 2), (50, 3), (100, 4)],
+                generate_random_binary_string,
+            );
             let haystack = generate_random_binary_string(100);
 
             // naive pattern match
@@ -1036,12 +1252,162 @@ mod tests {
     }
 
     #[test]
-    fn test_dump_root_state() {
-        let patterns: Vec<Vec<u8>> = (1..=255).map(|c| vec![c]).collect();
-        let pma = DoubleArrayAhoCorasick::new(&patterns).unwrap();
-        assert!(pma.get_child_index(0, 0).is_none());
-        for c in 1..=255 {
-            assert_eq!(pma.get_child_index(0, c).unwrap(), c as usize);
+    fn test_leftmost_longest_find_iter_random() {
+        for _ in 0..100 {
+            let patterns = generate_random_patterns(
+                &[(6, 1), (20, 2), (50, 3), (100, 4)],
+                generate_random_string,
+            );
+            let haystack = generate_random_string(100);
+
+            // naive pattern match
+            let mut expected = HashSet::new();
+            let mut pos = 0;
+            while pos < haystack.len() {
+                for i in (0..4).rev() {
+                    if pos + i >= haystack.len() {
+                        continue;
+                    }
+                    if patterns.contains(&haystack[pos..pos + i + 1]) {
+                        expected.insert((pos, pos + i + 1, haystack[pos..pos + i + 1].to_string()));
+                        pos += i;
+                        break;
+                    }
+                }
+                pos += 1;
+            }
+
+            // daachorse
+            let mut actual = HashSet::new();
+            let patterns_vec: Vec<_> = patterns.into_iter().collect();
+            let pma = DoubleArrayAhoCorasickBuilder::new()
+                .match_kind(MatchKind::LeftmostLongest)
+                .build(&patterns_vec)
+                .unwrap();
+            for m in pma.leftmost_find_iter(&haystack) {
+                actual.insert((m.start(), m.end(), patterns_vec[m.value()].clone()));
+            }
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_leftmost_longest_find_iter_random_with_values() {
+        for _ in 0..100 {
+            let patvals = generate_random_patvals(
+                &[(6, 1), (20, 2), (50, 3), (100, 4)],
+                generate_random_string,
+            );
+            let haystack = generate_random_string(100);
+
+            // naive pattern match
+            let mut expected = HashMap::new();
+            let mut pos = 0;
+            while pos < haystack.len() {
+                for i in (0..4).rev() {
+                    if pos + i >= haystack.len() {
+                        continue;
+                    }
+                    if let Some(&v) = patvals.get(&haystack[pos..pos + i + 1]) {
+                        expected.insert((pos, pos + i + 1), v as usize);
+                        pos += i;
+                        break;
+                    }
+                }
+                pos += 1;
+            }
+
+            // daachorse
+            let mut actual = HashMap::new();
+            let patvals_vec: Vec<_> = patvals.into_iter().collect();
+            let pma = DoubleArrayAhoCorasickBuilder::new()
+                .match_kind(MatchKind::LeftmostLongest)
+                .build_with_values(patvals_vec)
+                .unwrap();
+            for m in pma.leftmost_find_iter(&haystack) {
+                actual.insert((m.start(), m.end()), m.value());
+            }
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_leftmost_longest_find_iter_binary_random() {
+        for _ in 0..100 {
+            let patterns = generate_random_patterns(
+                &[(6, 1), (20, 2), (50, 3), (100, 4)],
+                generate_random_binary_string,
+            );
+            let haystack = generate_random_binary_string(100);
+
+            // naive pattern match
+            let mut expected = HashSet::new();
+            let mut pos = 0;
+            while pos < haystack.len() {
+                for i in (0..4).rev() {
+                    if pos + i >= haystack.len() {
+                        continue;
+                    }
+                    if patterns.contains(&haystack[pos..pos + i + 1]) {
+                        expected.insert((pos, pos + i + 1, haystack[pos..pos + i + 1].to_vec()));
+                        pos += i;
+                        break;
+                    }
+                }
+                pos += 1;
+            }
+
+            // daachorse
+            let mut actual = HashSet::new();
+            let patterns_vec: Vec<_> = patterns.into_iter().collect();
+            let pma = DoubleArrayAhoCorasickBuilder::new()
+                .match_kind(MatchKind::LeftmostLongest)
+                .build(&patterns_vec)
+                .unwrap();
+            for m in pma.leftmost_find_iter(&haystack) {
+                actual.insert((m.start(), m.end(), patterns_vec[m.value()].clone()));
+            }
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn test_leftmost_longest_find_iter_binary_random_with_values() {
+        for _ in 0..100 {
+            let patvals = generate_random_patvals(
+                &[(6, 1), (20, 2), (50, 3), (100, 4)],
+                generate_random_binary_string,
+            );
+            let haystack = generate_random_binary_string(100);
+
+            // naive pattern match
+            let mut expected = HashMap::new();
+            let mut pos = 0;
+            while pos < haystack.len() {
+                for i in (0..4).rev() {
+                    if pos + i >= haystack.len() {
+                        continue;
+                    }
+                    if let Some(&v) = patvals.get(&haystack[pos..pos + i + 1]) {
+                        expected.insert((pos, pos + i + 1), v as usize);
+                        pos += i;
+                        break;
+                    }
+                }
+                pos += 1;
+            }
+
+            // daachorse
+            let mut actual = HashMap::new();
+            let patvals_vec: Vec<_> = patvals.into_iter().collect();
+            let pma = DoubleArrayAhoCorasickBuilder::new()
+                .match_kind(MatchKind::LeftmostLongest)
+                .build_with_values(patvals_vec)
+                .unwrap();
+            for m in pma.leftmost_find_iter(&haystack) {
+                actual.insert((m.start(), m.end()), m.value());
+            }
+            assert_eq!(expected, actual);
         }
     }
 
@@ -1069,5 +1435,75 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_to_create_find_iter_with_leftmost_longest() {
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostLongest)
+            .build([""])
+            .unwrap();
+        pma.find_iter("");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_to_create_find_iter_with_leftmost_first() {
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostFirst)
+            .build([""])
+            .unwrap();
+        pma.find_iter("");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_to_create_find_overlapping_iter_with_leftmost_longest() {
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostLongest)
+            .build([""])
+            .unwrap();
+        pma.find_overlapping_iter("");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_to_create_find_overlapping_iter_with_leftmost_first() {
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostFirst)
+            .build([""])
+            .unwrap();
+        pma.find_overlapping_iter("");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_to_create_find_overlapping_no_suffix_iter_with_leftmost_longest() {
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostLongest)
+            .build([""])
+            .unwrap();
+        pma.find_overlapping_no_suffix_iter("");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_to_create_find_overlapping_no_suffix_iter_with_leftmost_first() {
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostFirst)
+            .build([""])
+            .unwrap();
+        pma.find_overlapping_no_suffix_iter("");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_to_create_leftmost_find_iter_with_standard() {
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::Standard)
+            .build([""])
+            .unwrap();
+        pma.leftmost_find_iter("");
     }
 }

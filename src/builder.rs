@@ -1,7 +1,10 @@
 use crate::errors::{
     AutomatonScaleError, DaachorseError, DuplicatePatternError, PatternScaleError,
 };
-use crate::{DoubleArrayAhoCorasick, Output, State, FAIL_MAX, OUTPUT_POS_INVALID};
+use crate::{
+    DoubleArrayAhoCorasick, MatchKind, Output, State, DEAD_STATE_IDX, FAIL_MAX, OUTPUT_POS_INVALID,
+    ROOT_STATE_IDX,
+};
 
 // The length of each double-array block.
 const BLOCK_LEN: usize = 256;
@@ -17,19 +20,25 @@ const VALUE_INVALID: u32 = std::u32::MAX;
 const LENGTH_INVALID: u32 = std::u32::MAX >> 1;
 // The initial capacity to build a double array.
 const INIT_CAPACITY: usize = 1 << 16;
+// The root state id of SparseNFA.
+const ROOT_STATE_ID: usize = ROOT_STATE_IDX;
+// The dead state id of SparseNFA.
+const DEAD_STATE_ID: usize = DEAD_STATE_IDX;
 
 struct SparseNFA {
     states: Vec<SparseState>,
     outputs: Vec<Output>, // in which common parts are merged.
     len: usize,
+    match_kind: MatchKind,
 }
 
 impl SparseNFA {
-    fn new() -> Self {
+    fn new(match_kind: MatchKind) -> Self {
         Self {
-            states: vec![SparseState::default()],
+            states: vec![SparseState::default(), SparseState::default()], // (root, dead)
             outputs: vec![],
             len: 0,
+            match_kind,
         }
     }
 
@@ -48,9 +57,17 @@ impl SparseNFA {
             return Err(DaachorseError::PatternScale(e));
         }
 
-        let mut state_id = 0;
+        let mut state_id = ROOT_STATE_ID;
         for &c in pattern {
-            if let Some(next_state_id) = self.get(state_id, c) {
+            if self.match_kind.is_leftmost_first() {
+                // If state_id has an output, the descendants will never searched.
+                let output = &mut self.states[state_id].output;
+                if output.0 != VALUE_INVALID {
+                    return Ok(());
+                }
+            }
+
+            if let Some(next_state_id) = self.get_child_id(state_id, c) {
                 state_id = next_state_id;
             } else {
                 let next_state_id = self.states.len();
@@ -80,7 +97,7 @@ impl SparseNFA {
 
     fn build_fails(&mut self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
-        for &(_, child_id) in &self.states[0].edges {
+        for &(_, child_id) in &self.states[ROOT_STATE_ID].edges {
             q.push(child_id);
         }
 
@@ -92,15 +109,61 @@ impl SparseNFA {
                 let (c, child_id) = self.states[state_id].edges[i];
                 let mut fail_id = self.states[state_id].fail as usize;
                 let new_fail_id = loop {
-                    if let Some(child_fail_id) = self.get(fail_id, c) {
+                    if let Some(child_fail_id) = self.get_child_id(fail_id, c) {
                         break child_fail_id;
                     }
                     let next_fail_id = self.states[fail_id].fail as usize;
-                    if fail_id == 0 && next_fail_id == 0 {
-                        break 0;
+                    if fail_id == ROOT_STATE_ID && next_fail_id == ROOT_STATE_ID {
+                        break ROOT_STATE_ID;
                     }
                     fail_id = next_fail_id;
                 };
+                self.states[child_id as usize].fail = new_fail_id as u32;
+                q.push(child_id);
+            }
+        }
+        q
+    }
+
+    fn build_fails_leftmost(&mut self) -> Vec<u32> {
+        let mut q = Vec::with_capacity(self.states.len());
+        for &(_, child_id) in &self.states[ROOT_STATE_ID].edges {
+            q.push(child_id);
+        }
+
+        let mut qi = 0;
+        while qi < q.len() {
+            let state_id = q[qi] as usize;
+            qi += 1;
+
+            // Sets the output state to the dead fail.
+            if self.states[state_id].output.0 != VALUE_INVALID {
+                self.states[state_id].fail = DEAD_STATE_ID as u32;
+            }
+
+            for i in 0..self.states[state_id].edges.len() {
+                let (c, child_id) = self.states[state_id].edges[i];
+                let mut fail_id = self.states[state_id].fail as usize;
+
+                // If the parent has the dead fail, the child also has the dead fail.
+                let new_fail_id = if fail_id == DEAD_STATE_ID {
+                    DEAD_STATE_ID
+                } else {
+                    loop {
+                        if let Some(child_fail_id) = self.get_child_id(fail_id, c) {
+                            break child_fail_id;
+                        }
+                        let next_fail_id = self.states[fail_id].fail as usize;
+                        if next_fail_id == DEAD_STATE_ID {
+                            break DEAD_STATE_ID;
+                        }
+                        if fail_id == ROOT_STATE_ID && next_fail_id == ROOT_STATE_ID {
+                            break ROOT_STATE_ID;
+                        }
+                        fail_id = next_fail_id;
+                    }
+                };
+
                 self.states[child_id as usize].fail = new_fail_id as u32;
                 q.push(child_id);
             }
@@ -133,7 +196,7 @@ impl SparseNFA {
             let mut fail_id = state_id;
             loop {
                 fail_id = self.states[fail_id].fail as usize;
-                if fail_id == 0 {
+                if fail_id == ROOT_STATE_ID || fail_id == DEAD_STATE_ID {
                     break;
                 }
 
@@ -180,7 +243,9 @@ impl SparseNFA {
             debug_assert_eq!(s.output.0, VALUE_INVALID);
 
             let fail_id = self.states[state_id].fail as usize;
-            self.states[state_id].output_pos = self.states[fail_id].output_pos;
+            if fail_id != DEAD_STATE_ID {
+                self.states[state_id].output_pos = self.states[fail_id].output_pos;
+            }
         }
 
         Ok(())
@@ -199,7 +264,7 @@ impl SparseNFA {
     }
 
     #[inline(always)]
-    fn get(&self, state_id: usize, c: u8) -> Option<usize> {
+    fn get_child_id(&self, state_id: usize, c: u8) -> Option<usize> {
         for &(cc, child_id) in &self.states[state_id].edges {
             if c == cc {
                 return Some(child_id as usize);
@@ -221,7 +286,7 @@ impl Default for SparseState {
     fn default() -> Self {
         Self {
             edges: vec![],
-            fail: 0,
+            fail: ROOT_STATE_ID as u32,
             output: (VALUE_INVALID, LENGTH_INVALID),
             output_pos: OUTPUT_POS_INVALID,
         }
@@ -294,6 +359,7 @@ pub struct DoubleArrayAhoCorasickBuilder {
     states: Vec<State>,
     extras: Vec<Extra>,
     head_idx: usize,
+    match_kind: MatchKind,
 }
 
 impl Default for DoubleArrayAhoCorasickBuilder {
@@ -331,7 +397,37 @@ impl DoubleArrayAhoCorasickBuilder {
             states: Vec::with_capacity(init_capa),
             extras: Vec::with_capacity(init_capa),
             head_idx: std::usize::MAX,
+            match_kind: MatchKind::default(),
         }
+    }
+
+    /// Specifies [`MatchKind`] to build.
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - Match kind.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["ab", "abcd"];
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///           .match_kind(MatchKind::LeftmostLongest)
+    ///           .build(&patterns)
+    ///           .unwrap();
+    ///
+    /// let mut it = pma.leftmost_find_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 4, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub const fn match_kind(mut self, kind: MatchKind) -> Self {
+        self.match_kind = kind;
+        self
     }
 
     /// Builds and returns a new [`DoubleArrayAhoCorasick`] from input patterns.
@@ -380,6 +476,7 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(DoubleArrayAhoCorasick {
             states: self.states,
             outputs: nfa.outputs,
+            match_kind: self.match_kind,
         })
     }
 
@@ -434,6 +531,7 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(DoubleArrayAhoCorasick {
             states: self.states,
             outputs: nfa.outputs,
+            match_kind: self.match_kind,
         })
     }
 
@@ -442,24 +540,34 @@ impl DoubleArrayAhoCorasickBuilder {
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<[u8]>,
     {
-        let mut nfa = SparseNFA::new();
+        let mut nfa = SparseNFA::new(self.match_kind);
         for (pattern, value) in patvals {
             nfa.add(pattern.as_ref(), value)?;
         }
-        let q = nfa.build_fails();
+        let q = match self.match_kind {
+            MatchKind::Standard => nfa.build_fails(),
+            MatchKind::LeftmostLongest => nfa.build_fails_leftmost(),
+            MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),
+        };
         nfa.build_outputs(&q)?;
         Ok(nfa)
     }
 
     fn build_double_array(&mut self, nfa: &SparseNFA) -> Result<(), DaachorseError> {
-        let mut state_id_map = vec![STATE_IDX_INVALID; nfa.states.len()];
-        state_id_map[0] = 0;
-
         self.init_array();
+
+        let mut state_id_map = vec![STATE_IDX_INVALID; nfa.states.len()];
+        state_id_map[ROOT_STATE_ID] = ROOT_STATE_IDX as u32;
 
         // Arranges base & check values
         for (i, state) in nfa.states.iter().enumerate() {
+            if i == DEAD_STATE_ID {
+                continue;
+            }
+
             let idx = state_id_map[i] as usize;
+            debug_assert_ne!(idx as u32, STATE_IDX_INVALID);
+
             if state.edges.is_empty() {
                 continue;
             }
@@ -481,17 +589,29 @@ impl DoubleArrayAhoCorasickBuilder {
 
         // Sets fail & output_pos values
         for (i, state) in nfa.states.iter().enumerate() {
+            if i == DEAD_STATE_ID {
+                continue;
+            }
+
             let idx = state_id_map[i] as usize;
+            debug_assert_ne!(idx as u32, STATE_IDX_INVALID);
+
             self.states[idx].set_output_pos(state.output_pos);
 
-            let fail_idx = state_id_map[state.fail as usize];
-            if fail_idx > FAIL_MAX {
-                let e = AutomatonScaleError {
-                    msg: format!("fail_idx must be <= {}", FAIL_MAX),
-                };
-                return Err(DaachorseError::AutomatonScale(e));
+            let fail_id = state.fail as usize;
+            if fail_id == DEAD_STATE_ID {
+                self.states[idx].set_fail(DEAD_STATE_IDX as u32);
+            } else {
+                let fail_idx = state_id_map[state.fail as usize];
+                debug_assert_ne!(fail_idx, DEAD_STATE_IDX as u32);
+                if fail_idx > FAIL_MAX {
+                    let e = AutomatonScaleError {
+                        msg: format!("fail_idx must be <= {}", FAIL_MAX),
+                    };
+                    return Err(DaachorseError::AutomatonScale(e));
+                }
+                self.states[idx].set_fail(fail_idx);
             }
-            self.states[idx].set_fail(fail_idx);
         }
 
         // If the root block has not been closed, it has to be closed for setting CHECK[0] to a valid value.
@@ -512,7 +632,7 @@ impl DoubleArrayAhoCorasickBuilder {
     fn init_array(&mut self) {
         self.states.resize(BLOCK_LEN, Default::default());
         self.extras.resize(BLOCK_LEN, Default::default());
-        self.head_idx = 0;
+        self.head_idx = ROOT_STATE_IDX;
 
         for i in 0..BLOCK_LEN {
             if i == 0 {
@@ -527,8 +647,8 @@ impl DoubleArrayAhoCorasickBuilder {
             }
         }
 
-        self.states[0].set_check(0);
-        self.fix_state(0);
+        self.fix_state(ROOT_STATE_IDX);
+        self.fix_state(DEAD_STATE_IDX);
     }
 
     #[inline(always)]
@@ -652,7 +772,7 @@ impl DoubleArrayAhoCorasickBuilder {
 
         for c in 0..BLOCK_LEN {
             let idx = unused_base ^ c;
-            if idx == 0 || !self.extras[idx].is_used_index() {
+            if idx == ROOT_STATE_IDX || idx == DEAD_STATE_IDX || !self.extras[idx].is_used_index() {
                 self.states[idx].set_check(c as u8);
             }
         }
