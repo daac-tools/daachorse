@@ -91,7 +91,9 @@
 mod builder;
 pub mod errors;
 #[cfg(test)]
-mod tests;
+mod tests_fixed;
+#[cfg(test)]
+mod tests_random;
 
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::DaachorseError;
