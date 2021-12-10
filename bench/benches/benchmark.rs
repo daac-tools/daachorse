@@ -80,6 +80,58 @@ fn criterion_words100000_find_overlapping(c: &mut Criterion) {
     add_find_overlapping_benches(&mut group, &patterns, &haystacks);
 }
 
+fn criterion_unidic_leftmost_longest_find(c: &mut Criterion) {
+    let mut group = c.benchmark_group("unidic/leftmost_longest_find");
+    group.sample_size(SEARCH_SAMPLE_SIZE);
+    group.warm_up_time(SEARCH_WARM_UP_TIME);
+    group.measurement_time(SEARCH_MEASURE_TIME);
+    group.sampling_mode(SamplingMode::Flat);
+    let mut patterns = load_file("data/unidic/unidic");
+    patterns.sort_unstable();
+    let haystacks = load_file("data/wagahaiwa_nekodearu.txt");
+
+    add_leftmost_longest_find_benches(&mut group, &patterns, &haystacks);
+}
+
+fn criterion_words100000_leftmost_longest_find(c: &mut Criterion) {
+    let mut group = c.benchmark_group("words_100000/leftmost_longest_find");
+    group.sample_size(SEARCH_SAMPLE_SIZE);
+    group.warm_up_time(SEARCH_WARM_UP_TIME);
+    group.measurement_time(SEARCH_MEASURE_TIME);
+    group.sampling_mode(SamplingMode::Flat);
+    let mut patterns = load_file("data/words_100000");
+    patterns.sort_unstable();
+    let haystacks = load_file("data/sherlock.txt");
+
+    add_leftmost_longest_find_benches(&mut group, &patterns, &haystacks);
+}
+
+fn criterion_unidic_leftmost_first_find(c: &mut Criterion) {
+    let mut group = c.benchmark_group("unidic/leftmost_first_find");
+    group.sample_size(SEARCH_SAMPLE_SIZE);
+    group.warm_up_time(SEARCH_WARM_UP_TIME);
+    group.measurement_time(SEARCH_MEASURE_TIME);
+    group.sampling_mode(SamplingMode::Flat);
+    let mut patterns = load_file("data/unidic/unidic");
+    patterns.sort_unstable();
+    let haystacks = load_file("data/wagahaiwa_nekodearu.txt");
+
+    add_leftmost_first_find_benches(&mut group, &patterns, &haystacks);
+}
+
+fn criterion_words100000_leftmost_first_find(c: &mut Criterion) {
+    let mut group = c.benchmark_group("words_100000/leftmost_first_find");
+    group.sample_size(SEARCH_SAMPLE_SIZE);
+    group.warm_up_time(SEARCH_WARM_UP_TIME);
+    group.measurement_time(SEARCH_MEASURE_TIME);
+    group.sampling_mode(SamplingMode::Flat);
+    let mut patterns = load_file("data/words_100000");
+    patterns.sort_unstable();
+    let haystacks = load_file("data/sherlock.txt");
+
+    add_leftmost_first_find_benches(&mut group, &patterns, &haystacks);
+}
+
 fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) {
     group.bench_function("daachorse", |b| {
         b.iter(|| daachorse::DoubleArrayAhoCorasick::new(patterns).unwrap());
@@ -298,6 +350,124 @@ fn add_find_overlapping_benches(
     });
 }
 
+fn add_leftmost_longest_find_benches(
+    group: &mut BenchmarkGroup<WallTime>,
+    patterns: &[String],
+    haystacks: &[String],
+) {
+    group.bench_function("daachorse", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(daachorse::MatchKind::LeftmostLongest)
+            .build(patterns)
+            .unwrap();
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.leftmost_find_iter(haystack) {
+                    sum += m.start() + m.end() + m.value();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+
+    group.bench_function("aho_corasick/nfa", |b| {
+        let pma = aho_corasick::AhoCorasickBuilder::new()
+            .match_kind(aho_corasick::MatchKind::LeftmostLongest)
+            .build(patterns);
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.find_iter(haystack) {
+                    sum += m.start() + m.end() + m.pattern();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+
+    group.bench_function("aho_corasick/dfa", |b| {
+        let pma = aho_corasick::AhoCorasickBuilder::new()
+            .dfa(true)
+            .match_kind(aho_corasick::MatchKind::LeftmostLongest)
+            .build(patterns);
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.find_iter(haystack) {
+                    sum += m.start() + m.end() + m.pattern();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+}
+
+fn add_leftmost_first_find_benches(
+    group: &mut BenchmarkGroup<WallTime>,
+    patterns: &[String],
+    haystacks: &[String],
+) {
+    group.bench_function("daachorse", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(daachorse::MatchKind::LeftmostFirst)
+            .build(patterns)
+            .unwrap();
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.leftmost_find_iter(haystack) {
+                    sum += m.start() + m.end() + m.value();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+
+    group.bench_function("aho_corasick/nfa", |b| {
+        let pma = aho_corasick::AhoCorasickBuilder::new()
+            .match_kind(aho_corasick::MatchKind::LeftmostFirst)
+            .build(patterns);
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.find_iter(haystack) {
+                    sum += m.start() + m.end() + m.pattern();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+
+    group.bench_function("aho_corasick/dfa", |b| {
+        let pma = aho_corasick::AhoCorasickBuilder::new()
+            .dfa(true)
+            .match_kind(aho_corasick::MatchKind::LeftmostFirst)
+            .build(patterns);
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.find_iter(haystack) {
+                    sum += m.start() + m.end() + m.pattern();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+}
+
 fn load_file<P>(path: P) -> Vec<String>
 where
     P: AsRef<Path>,
@@ -338,8 +508,12 @@ criterion_group!(
     benches,
     criterion_unidic_find,
     criterion_unidic_find_overlapping,
+    criterion_unidic_leftmost_longest_find,
+    criterion_unidic_leftmost_first_find,
     criterion_words100000_find,
     criterion_words100000_find_overlapping,
+    criterion_words100000_leftmost_longest_find,
+    criterion_words100000_leftmost_first_find,
     criterion_words100000_build,
 );
 criterion_main!(benches);
