@@ -118,10 +118,7 @@ fn test_double_array() {
         .iter()
         .map(|state| state.check())
         .collect();
-    let pma_fail: Vec<_> = pma.states[0..11]
-        .iter()
-        .map(|state| state.fail() as usize)
-        .collect();
+    let pma_fail: Vec<_> = pma.states[0..11].iter().map(|state| state.fail()).collect();
 
     assert_eq!(base_expected, pma_base);
     assert_eq!(check_expected, pma_check);
@@ -530,13 +527,16 @@ fn test_dump_states_random() {
         let patterns_vec: Vec<_> = patterns.into_iter().collect();
         let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
 
-        let mut visitor = vec![0 as usize];
+        let mut visitor = vec![0u32];
         let mut visited = vec![false; pma.states.len()];
 
         while let Some(idx) = visitor.pop() {
-            assert!(!visited[idx]);
-            assert!(pma.states[idx].base().is_some() || pma.states[idx].output_pos().is_some());
-            visited[idx] = true;
+            assert!(!visited[idx as usize]);
+            assert!(
+                pma.states[idx as usize].base().is_some()
+                    || pma.states[idx as usize].output_pos().is_some()
+            );
+            visited[idx as usize] = true;
             for c in 0..=255 {
                 if let Some(child_idx) = pma.get_child_index(idx, c) {
                     visitor.push(child_idx);

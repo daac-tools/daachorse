@@ -104,7 +104,7 @@ fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) 
                     .iter()
                     .cloned()
                     .enumerate()
-                    .map(|(i, pattern)| (pattern, i as u32))
+                    .map(|(i, pattern)| (pattern, i.try_into().unwrap()))
                     .collect::<Vec<_>>(),
             )
             .unwrap()
@@ -118,7 +118,7 @@ fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) 
                     .iter()
                     .cloned()
                     .enumerate()
-                    .map(|(i, pattern)| (pattern, i as u64)),
+                    .map(|(i, pattern)| (pattern, i.try_into().unwrap())),
             )
             .unwrap()
         });

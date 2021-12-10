@@ -101,15 +101,15 @@ pub(crate) const BASE_INVALID: u32 = std::u32::MAX;
 // The maximum output position value used as an invalid value.
 pub(crate) const OUTPUT_POS_INVALID: u32 = std::u32::MAX;
 // The maximum FAIL value.
-pub(crate) const FAIL_MAX: u32 = 0xFFFFFF;
+pub(crate) const FAIL_MAX: u32 = 0xFF_FFFF;
 // The mask value of FAIL for `State::fach`.
 const FAIL_MASK: u32 = FAIL_MAX << 8;
 // The mask value of CEHCK for `State::fach`.
 const CHECK_MASK: u32 = 0xFF;
 // The root index position.
-pub(crate) const ROOT_STATE_IDX: usize = 0;
+pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
-pub(crate) const DEAD_STATE_IDX: usize = 1;
+pub(crate) const DEAD_STATE_IDX: u32 = 1;
 
 #[derive(Clone, Copy)]
 struct State {
@@ -136,6 +136,7 @@ impl State {
 
     #[inline(always)]
     pub const fn check(&self) -> u8 {
+        #![allow(clippy::cast_possible_truncation)]
         (self.fach & 0xFF) as u8
     }
 
@@ -157,7 +158,7 @@ impl State {
     #[inline(always)]
     pub fn set_check(&mut self, x: u8) {
         self.fach &= !CHECK_MASK;
-        self.fach |= x as u32;
+        self.fach |= u32::from(x);
     }
 
     #[inline(always)]
@@ -180,25 +181,25 @@ struct Output {
 
 impl Output {
     #[inline(always)]
-    pub const fn new(value: u32, length: u32, is_begin: bool) -> Self {
+    pub fn new(value: u32, length: u32, is_begin: bool) -> Self {
         Self {
             value,
-            length: (length << 1) | is_begin as u32,
+            length: (length << 1) | u32::from(is_begin),
         }
     }
 
     #[inline(always)]
-    pub const fn value(&self) -> u32 {
+    pub const fn value(self) -> u32 {
         self.value
     }
 
     #[inline(always)]
-    pub const fn length(&self) -> u32 {
+    pub const fn length(self) -> u32 {
         self.length >> 1
     }
 
     #[inline(always)]
-    pub const fn is_begin(&self) -> bool {
+    pub const fn is_begin(self) -> bool {
         self.length & 1 == 1
     }
 }
@@ -255,9 +256,12 @@ where
             // state_id is always smaller than self.pma.states.len() because
             // self.pma.get_next_state_id_unchecked() ensures to return such a value.
             state_id = unsafe { self.pma.get_next_state_id_unchecked(state_id, c) };
-            if let Some(output_pos) =
-                unsafe { self.pma.states.get_unchecked(state_id).output_pos() }
-            {
+            if let Some(output_pos) = unsafe {
+                self.pma
+                    .states
+                    .get_unchecked(state_id as usize)
+                    .output_pos()
+            } {
                 // output_pos is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
@@ -281,7 +285,7 @@ where
 {
     pma: &'a DoubleArrayAhoCorasick,
     haystack: P,
-    state_id: usize,
+    state_id: u32,
     pos: usize,
     output_pos: usize,
 }
@@ -310,9 +314,12 @@ where
             // self.state_id is always smaller than self.pma.states.len() because
             // self.pma.get_next_state_id_unchecked() ensures to return such a value.
             self.state_id = unsafe { self.pma.get_next_state_id_unchecked(self.state_id, c) };
-            if let Some(output_pos) =
-                unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
-            {
+            if let Some(output_pos) = unsafe {
+                self.pma
+                    .states
+                    .get_unchecked(self.state_id as usize)
+                    .output_pos()
+            } {
                 self.pos = pos + 1;
                 self.output_pos = output_pos as usize + 1;
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
@@ -335,7 +342,7 @@ where
 {
     pma: &'a DoubleArrayAhoCorasick,
     haystack: P,
-    state_id: usize,
+    state_id: u32,
     pos: usize,
 }
 
@@ -352,9 +359,12 @@ where
             // self.state_id is always smaller than self.pma.states.len() because
             // self.pma.get_next_state_id_unchecked() ensures to return such a value.
             self.state_id = unsafe { self.pma.get_next_state_id_unchecked(self.state_id, c) };
-            if let Some(output_pos) =
-                unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
-            {
+            if let Some(output_pos) = unsafe {
+                self.pma
+                    .states
+                    .get_unchecked(self.state_id as usize)
+                    .output_pos()
+            } {
                 // output_pos is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
@@ -402,15 +412,20 @@ where
 
             // state_id is always smaller than self.pma.states.len() because
             // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
-            if let Some(output_pos) =
-                unsafe { self.pma.states.get_unchecked(state_id).output_pos() }
-            {
+            if let Some(output_pos) = unsafe {
+                self.pma
+                    .states
+                    .get_unchecked(state_id as usize)
+                    .output_pos()
+            } {
                 last_output_pos = output_pos;
                 self.pos = pos + 1;
             }
         }
 
-        if last_output_pos != OUTPUT_POS_INVALID {
+        if last_output_pos == OUTPUT_POS_INVALID {
+            None
+        } else {
             // last_output_pos is always smaller than self.pma.outputs.len() because
             // State::output_pos() ensures to return such a value when it is Some.
             let out = unsafe { self.pma.outputs.get_unchecked(last_output_pos as usize) };
@@ -419,8 +434,6 @@ where
                 end: self.pos,
                 value: out.value() as usize,
             })
-        } else {
-            None
         }
     }
 }
@@ -574,9 +587,10 @@ impl DoubleArrayAhoCorasick {
     where
         P: AsRef<[u8]>,
     {
-        if !self.match_kind.is_standard() {
-            panic!("Error: match_kind must be standard.");
-        }
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
         FindIterator {
             pma: self,
             haystack,
@@ -620,9 +634,10 @@ impl DoubleArrayAhoCorasick {
     where
         P: AsRef<[u8]>,
     {
-        if !self.match_kind.is_standard() {
-            panic!("Error: match_kind must be standard.");
-        }
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
         FindOverlappingIterator {
             pma: self,
             haystack,
@@ -674,9 +689,10 @@ impl DoubleArrayAhoCorasick {
     where
         P: AsRef<[u8]>,
     {
-        if !self.match_kind.is_standard() {
-            panic!("Error: match_kind must be standard.");
-        }
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
         FindOverlappingNoSuffixIterator {
             pma: self,
             haystack,
@@ -751,9 +767,10 @@ impl DoubleArrayAhoCorasick {
     where
         P: AsRef<[u8]>,
     {
-        if !self.match_kind.is_leftmost() {
-            panic!("Error: match_kind must be leftmost.");
-        }
+        assert!(
+            self.match_kind.is_leftmost(),
+            "Error: match_kind must be leftmost."
+        );
         LestmostFindIterator {
             pma: self,
             haystack,
@@ -782,21 +799,24 @@ impl DoubleArrayAhoCorasick {
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_child_index_unchecked(&self, state_id: usize, c: u8) -> Option<usize> {
+    unsafe fn get_child_index_unchecked(&self, state_id: u32, c: u8) -> Option<u32> {
         // child_idx is always smaller than states.len() because
         //  - states.len() is 256 * k for some integer k, and
         //  - base() returns smaller than states.len() when it is Some.
-        self.states.get_unchecked(state_id).base().and_then(|base| {
-            let child_idx = (base ^ c as u32) as usize;
-            Some(child_idx).filter(|&x| self.states.get_unchecked(x).check() == c)
-        })
+        self.states
+            .get_unchecked(state_id as usize)
+            .base()
+            .and_then(|base| {
+                let child_idx = base ^ u32::from(c);
+                Some(child_idx).filter(|&x| self.states.get_unchecked(x as usize).check() == c)
+            })
     }
 
     /// # Safety
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_next_state_id_unchecked(&self, mut state_id: usize, c: u8) -> usize {
+    unsafe fn get_next_state_id_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
         // In the loop, state_id is always set to values smaller than states.len(),
         // because get_child_index_unchecked() and fail() return such values.
         loop {
@@ -806,7 +826,7 @@ impl DoubleArrayAhoCorasick {
             if state_id == ROOT_STATE_IDX {
                 return ROOT_STATE_IDX;
             }
-            state_id = self.states.get_unchecked(state_id).fail() as usize;
+            state_id = self.states.get_unchecked(state_id as usize).fail();
         }
     }
 
@@ -814,7 +834,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_next_state_id_leftmost_unchecked(&self, mut state_id: usize, c: u8) -> usize {
+    unsafe fn get_next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
         // In the loop, state_id is always set to values smaller than states.len(),
         // because get_child_index_unchecked() and fail() return such values.
         loop {
@@ -824,7 +844,7 @@ impl DoubleArrayAhoCorasick {
             if state_id == ROOT_STATE_IDX {
                 return ROOT_STATE_IDX;
             }
-            let fail_id = self.states.get_unchecked(state_id).fail() as usize;
+            let fail_id = self.states.get_unchecked(state_id as usize).fail();
             if fail_id == DEAD_STATE_IDX {
                 return DEAD_STATE_IDX;
             }
@@ -834,10 +854,10 @@ impl DoubleArrayAhoCorasick {
 
     #[cfg(test)]
     #[inline(always)]
-    fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
-        self.states[state_id].base().and_then(|base| {
-            let child_idx = (base ^ c as u32) as usize;
-            Some(child_idx).filter(|&x| self.states[x].check() == c)
+    fn get_child_index(&self, state_id: u32, c: u8) -> Option<u32> {
+        self.states[state_id as usize].base().and_then(|base| {
+            let child_idx = base ^ u32::from(c);
+            Some(child_idx).filter(|&x| self.states[x as usize].check() == c)
         })
     }
 }
@@ -876,15 +896,15 @@ impl Default for MatchKind {
 }
 
 impl MatchKind {
-    fn is_standard(&self) -> bool {
-        *self == Self::Standard
+    fn is_standard(self) -> bool {
+        self == Self::Standard
     }
 
-    fn is_leftmost(&self) -> bool {
-        *self == Self::LeftmostFirst || *self == Self::LeftmostLongest
+    fn is_leftmost(self) -> bool {
+        self == Self::LeftmostFirst || self == Self::LeftmostLongest
     }
 
-    pub(crate) fn is_leftmost_first(&self) -> bool {
-        *self == Self::LeftmostFirst
+    pub(crate) fn is_leftmost_first(self) -> bool {
+        self == Self::LeftmostFirst
     }
 }
