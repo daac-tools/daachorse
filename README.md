@@ -38,6 +38,11 @@ daachorse = "0.3"
 
 ## Example usage
 
+Daachorse contains some search options,
+ranging from basic matching with the Aho-Corasick algorithm to trickier matching.
+All of them will run very fast based on the double-array data structure and
+can be easily plugged into your application as shown below.
+
 ### Finding overlapped occurrences
 
 To search for all occurrences of registered patterns
@@ -66,9 +71,11 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences
+### Finding non-overlapped occurrences with shortest matching
 
 If you do not want to allow positional overlap, use `find_iter()` instead.
+It reports the first pattern found in each iteration,
+which is the shortest pattern starting from each search position.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;
@@ -83,6 +90,56 @@ assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
 
 let m = it.next().unwrap();
 assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+
+assert_eq!(None, it.next());
+```
+
+### Finding non-overlapped occurrences with longest matching
+
+If you want to search for the longest pattern without positional overlap in each iteration,
+use `leftmost_find_iter()` with specifying `MatchKind::LeftmostLongest` in the construction.
+
+```rust
+use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+
+let patterns = vec!["ab", "a", "abcd"];
+let pma = DoubleArrayAhoCorasickBuilder::new()
+          .match_kind(MatchKind::LeftmostLongest)
+          .build(&patterns)
+          .unwrap();
+
+let mut it = pma.leftmost_find_iter("abcd");
+
+let m = it.next().unwrap();
+assert_eq!((0, 4, 2), (m.start(), m.end(), m.value()));
+
+assert_eq!(None, it.next());
+```
+
+### Finding non-overlapped occurrences with leftmost-first matching
+
+If you want to find the the earliest registered pattern
+among ones starting from the search position,
+use `leftmost_find_iter()` with specifying `MatchKind::LeftmostFirst`.
+
+This is so-called *the leftmost first match*, a bit tricky search option that is also
+supported in the [aho-corasick](https://github.com/BurntSushi/aho-corasick#example-finding-the-leftmost-first-match) crate.
+For example, in the following code,
+`ab` is reported because it is the earliest registered one.
+
+```rust
+use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+
+let patterns = vec!["ab", "a", "abcd"];
+let pma = DoubleArrayAhoCorasickBuilder::new()
+          .match_kind(MatchKind::LeftmostFirst)
+          .build(&patterns)
+          .unwrap();
+
+let mut it = pma.leftmost_find_iter("abcd");
+
+let m = it.next().unwrap();
+assert_eq!((0, 2, 0), (m.start(), m.end(), m.value()));
 
 assert_eq!(None, it.next());
 ```

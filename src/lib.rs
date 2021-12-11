@@ -734,7 +734,7 @@ impl DoubleArrayAhoCorasick {
     /// ```
     /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
     ///
-    /// let patterns = vec!["ab", "abcd"];
+    /// let patterns = vec!["ab", "a", "abcd"];
     /// let pma = DoubleArrayAhoCorasickBuilder::new()
     ///           .match_kind(MatchKind::LeftmostLongest)
     ///           .build(&patterns)
@@ -743,7 +743,7 @@ impl DoubleArrayAhoCorasick {
     /// let mut it = pma.leftmost_find_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 4, 1), (m.start(), m.end(), m.value()));
+    /// assert_eq!((0, 4, 2), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -753,7 +753,7 @@ impl DoubleArrayAhoCorasick {
     /// ```
     /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
     ///
-    /// let patterns = vec!["ab", "abcd"];
+    /// let patterns = vec!["ab", "a", "abcd"];
     /// let pma = DoubleArrayAhoCorasickBuilder::new()
     ///           .match_kind(MatchKind::LeftmostFirst)
     ///           .build(&patterns)
