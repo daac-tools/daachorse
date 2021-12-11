@@ -73,6 +73,21 @@ fn test_double_array() {
     assert_eq!(fail_expected, pma_fail);
 }
 
+#[test]
+fn test_num_states() {
+    /*
+     *   b-*-a-*-a-*-b-*-a-*
+     *  /
+     * *-a-*-b-*-b-*-a-*
+     *          \
+     *           a-*-b-*-a-*
+     */
+    let patterns = vec!["abba", "baaba", "ababa"];
+    let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+
+    assert_eq!(13, pma.num_states());
+}
+
 /// The following test suites are copied from
 /// [aho-corasick crate](https://github.com/BurntSushi/aho-corasick/blob/master/src/tests.rs),
 /// although duplicate and empty patterns are removed.

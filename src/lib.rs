@@ -471,6 +471,7 @@ pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
     match_kind: MatchKind,
+    num_states: usize,
 }
 
 impl DoubleArrayAhoCorasick {
@@ -795,6 +796,22 @@ impl DoubleArrayAhoCorasick {
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * std::mem::size_of::<State>()
             + self.outputs.len() * std::mem::size_of::<Output>()
+    }
+
+    /// Returns the total number of states this automaton has.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// assert_eq!(pma.num_states(), 6);
+    /// ```
+    pub const fn num_states(&self) -> usize {
+        self.num_states
     }
 
     /// # Safety

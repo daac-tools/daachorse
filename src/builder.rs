@@ -467,7 +467,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn build<I, P>(mut self, patterns: I) -> Result<DoubleArrayAhoCorasick, DaachorseError>
+    pub fn build<I, P>(self, patterns: I) -> Result<DoubleArrayAhoCorasick, DaachorseError>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
@@ -476,14 +476,7 @@ impl DoubleArrayAhoCorasickBuilder {
             .into_iter()
             .enumerate()
             .map(|(i, p)| (p, i.try_into().unwrap_or(VALUE_INVALID)));
-        let nfa = self.build_sparse_nfa(patvals)?;
-        self.build_double_array(&nfa)?;
-
-        Ok(DoubleArrayAhoCorasick {
-            states: self.states,
-            outputs: nfa.outputs,
-            match_kind: self.match_kind,
-        })
+        self.build_with_values(patvals)
     }
 
     /// Builds and returns a new [`DoubleArrayAhoCorasick`] from input pattern-value pairs.
@@ -538,6 +531,7 @@ impl DoubleArrayAhoCorasickBuilder {
             states: self.states,
             outputs: nfa.outputs,
             match_kind: self.match_kind,
+            num_states: nfa.states.len() - 1,
         })
     }
 
