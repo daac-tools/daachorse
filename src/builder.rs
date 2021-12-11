@@ -14,8 +14,6 @@ const BLOCK_LEN: u32 = BLOCK_MAX as u32 + 1;
 const FREE_BLOCKS: u32 = 16;
 // The number of last states (or elements) to be searched in `DoubleArrayAhoCorasickBuilder::find_base`.
 const FREE_STATES: u32 = BLOCK_LEN * FREE_BLOCKS;
-// The maximum state index used as an invalid value.
-const STATE_IDX_INVALID: u32 = std::u32::MAX;
 // The maximum value of a pattern used as an invalid value.
 const VALUE_INVALID: u32 = std::u32::MAX;
 // The maximum length of a pattern used as an invalid value.
@@ -71,19 +69,17 @@ impl SparseNFA {
 
             if let Some(next_state_id) = self.get_child_id(state_id, c) {
                 state_id = next_state_id;
-            } else {
-                let next_state_id = self.states.len().try_into().unwrap();
-                if next_state_id == STATE_IDX_INVALID {
-                    let e = AutomatonScaleError {
-                        msg: format!("Number of states must be <= {}", STATE_IDX_INVALID),
-                    };
-                    return Err(DaachorseError::AutomatonScale(e));
-                }
+            } else if let Ok(next_state_id) = self.states.len().try_into() {
                 self.states[state_id as usize]
                     .edges
                     .push((c, next_state_id));
                 self.states.push(SparseState::default());
                 state_id = next_state_id;
+            } else {
+                let e = AutomatonScaleError {
+                    msg: "A state id must be represented with u32".to_string(),
+                };
+                return Err(DaachorseError::AutomatonScale(e));
             }
         }
 
@@ -309,8 +305,8 @@ impl Default for Extra {
         Self {
             used_base: false,
             used_index: false,
-            next: STATE_IDX_INVALID,
-            prev: STATE_IDX_INVALID,
+            next: DEAD_STATE_IDX,
+            prev: DEAD_STATE_IDX,
         }
     }
 }
@@ -399,7 +395,7 @@ impl DoubleArrayAhoCorasickBuilder {
         Self {
             states: Vec::with_capacity(init_capa as usize),
             extras: Vec::with_capacity(init_capa as usize),
-            head_idx: std::u32::MAX,
+            head_idx: DEAD_STATE_IDX,
             match_kind: MatchKind::default(),
         }
     }
@@ -555,7 +551,7 @@ impl DoubleArrayAhoCorasickBuilder {
     fn build_double_array(&mut self, nfa: &SparseNFA) -> Result<(), DaachorseError> {
         self.init_array();
 
-        let mut state_id_map = vec![STATE_IDX_INVALID; nfa.states.len()];
+        let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
         state_id_map[ROOT_STATE_ID as usize] = ROOT_STATE_IDX;
 
         // Arranges base & check values
@@ -565,7 +561,7 @@ impl DoubleArrayAhoCorasickBuilder {
             }
 
             let idx = state_id_map[i] as usize;
-            debug_assert_ne!(idx, STATE_IDX_INVALID as usize);
+            debug_assert_ne!(idx, DEAD_STATE_IDX as usize);
 
             if state.edges.is_empty() {
                 continue;
@@ -593,7 +589,7 @@ impl DoubleArrayAhoCorasickBuilder {
             }
 
             let idx = state_id_map[i] as usize;
-            debug_assert_ne!(idx, STATE_IDX_INVALID as usize);
+            debug_assert_ne!(idx, DEAD_STATE_IDX as usize);
 
             self.states[idx].set_output_pos(state.output_pos);
 
@@ -618,7 +614,7 @@ impl DoubleArrayAhoCorasickBuilder {
             self.close_block(0);
         }
 
-        while self.head_idx != std::u32::MAX {
+        while self.head_idx != DEAD_STATE_IDX {
             let block_idx = self.head_idx / BLOCK_LEN;
             self.close_block(block_idx);
         }
@@ -662,7 +658,7 @@ impl DoubleArrayAhoCorasickBuilder {
 
         if self.head_idx == i {
             if next == i {
-                self.head_idx = std::u32::MAX;
+                self.head_idx = DEAD_STATE_IDX;
             } else {
                 self.head_idx = next;
             }
@@ -671,7 +667,7 @@ impl DoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn find_base(&self, edges: &[(u8, u32)]) -> u32 {
-        if self.head_idx == std::u32::MAX {
+        if self.head_idx == DEAD_STATE_IDX {
             return self.states.len().try_into().unwrap();
         }
         let mut idx = self.head_idx;
@@ -707,9 +703,9 @@ impl DoubleArrayAhoCorasickBuilder {
         let old_len = self.states.len().try_into().unwrap();
         // The following condition is same as `new_len > STATE_INDEX_IVALID`.
         // We use the following condition to avoid overflow.
-        if old_len > STATE_IDX_INVALID - BLOCK_LEN {
+        if old_len > std::u32::MAX - BLOCK_LEN {
             let e = AutomatonScaleError {
-                msg: format!("states.len() must be <= {}", STATE_IDX_INVALID),
+                msg: "An index of states must be represented with u32".to_string(),
             };
             return Err(DaachorseError::AutomatonScale(e));
         }
@@ -722,7 +718,7 @@ impl DoubleArrayAhoCorasickBuilder {
             self.extras[i as usize].set_prev(i - 1);
         }
 
-        if self.head_idx == std::u32::MAX {
+        if self.head_idx == DEAD_STATE_IDX {
             self.extras[old_len as usize].set_prev(new_len - 1);
             self.extras[new_len as usize - 1].set_next(old_len);
             self.head_idx = old_len;
@@ -749,7 +745,7 @@ impl DoubleArrayAhoCorasickBuilder {
         if block_idx == 0 || self.head_idx < end_idx {
             self.remove_invalid_checks(block_idx);
         }
-        while self.head_idx < end_idx && self.head_idx != std::u32::MAX {
+        while self.head_idx < end_idx && self.head_idx != DEAD_STATE_IDX {
             self.fix_state(self.head_idx);
         }
     }
