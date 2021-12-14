@@ -42,10 +42,13 @@
 //! assert_eq!(None, it.next());
 //! ```
 //!
-//! ## Example: Finding non-overlapped occurrences
+//! ## Example: Finding non-overlapped occurrences with shortest matching
 //!
 //! If you do not want to allow positional overlap,
 //! use [`DoubleArrayAhoCorasick::find_iter()`] instead.
+//!
+//! It reports the first pattern found in each iteration,
+//! which is the shortest pattern starting from each search position.
 //!
 //! ```
 //! use daachorse::DoubleArrayAhoCorasick;
@@ -60,6 +63,60 @@
 //!
 //! let m = it.next().unwrap();
 //! assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+//!
+//! assert_eq!(None, it.next());
+//! ```
+//!
+//! ## Example: Finding non-overlapped occurrences with longest matching
+//!
+//! If you want to search for the longest pattern
+//! without positional overlap in each iteration,
+//! use [`DoubleArrayAhoCorasick::leftmost_find_iter()`] with specifying
+//! [`MatchKind::LeftmostLongest`] in the construction.
+//!
+//! ```
+//! use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+//!
+//! let patterns = vec!["ab", "a", "abcd"];
+//! let pma = DoubleArrayAhoCorasickBuilder::new()
+//!           .match_kind(MatchKind::LeftmostLongest)
+//!           .build(&patterns)
+//!           .unwrap();
+//!
+//! let mut it = pma.leftmost_find_iter("abcd");
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 4, 2), (m.start(), m.end(), m.value()));
+//!
+//! assert_eq!(None, it.next());
+//! ```
+//!
+//! ## Example: Finding non-overlapped occurrences with leftmost-first matching
+//!
+//! If you want to find the the earliest registered pattern
+//! among ones starting from the search position,
+//! use [`DoubleArrayAhoCorasick::leftmost_find_iter()`]
+//! with specifying [`MatchKind::LeftmostFirst`].
+//!
+//! This is so-called *the leftmost first match*,
+//! a bit tricky search option that is also supported in the
+//! [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate.
+//! For example, in the following code,
+//! `ab` is reported because it is the earliest registered one.
+//!
+//! ```
+//! use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+//!
+//! let patterns = vec!["ab", "a", "abcd"];
+//! let pma = DoubleArrayAhoCorasickBuilder::new()
+//!           .match_kind(MatchKind::LeftmostFirst)
+//!           .build(&patterns)
+//!           .unwrap();
+//!
+//! let mut it = pma.leftmost_find_iter("abcd");
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 2, 0), (m.start(), m.end(), m.value()));
 //!
 //! assert_eq!(None, it.next());
 //! ```

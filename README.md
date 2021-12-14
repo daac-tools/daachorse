@@ -123,7 +123,7 @@ among ones starting from the search position,
 use `leftmost_find_iter()` with specifying `MatchKind::LeftmostFirst`.
 
 This is so-called *the leftmost first match*, a bit tricky search option that is also
-supported in the [aho-corasick](https://github.com/BurntSushi/aho-corasick#example-finding-the-leftmost-first-match) crate.
+supported in the [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate.
 For example, in the following code,
 `ab` is reported because it is the earliest registered one.
 
