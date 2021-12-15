@@ -208,6 +208,8 @@ Licensed under either of
 
 at your option.
 
+For softwares under `bench/data`, follow the license terms of each software.
+
 ## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
