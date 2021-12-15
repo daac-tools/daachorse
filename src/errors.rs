@@ -6,9 +6,16 @@ use std::fmt;
 /// Errors in daachorse.
 #[derive(Debug)]
 pub enum DaachorseError {
+    /// Contains [`InvalidArgumentError`].
     InvalidArgument(InvalidArgumentError),
+
+    /// Contains [`DuplicatePatternError`].
     DuplicatePattern(DuplicatePatternError),
+
+    /// Contains [`PatternScaleError`].
     PatternScale(PatternScaleError),
+
+    /// Contains [`AutomatonScaleError`].
     AutomatonScale(AutomatonScaleError),
 }
 
