@@ -1,0 +1,3 @@
+Library,Word100K [MiB],Unidic [MiB]
+aho-corasick (NFA),12.8,63.5
+daachorse,8.3,34.7

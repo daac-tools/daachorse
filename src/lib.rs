@@ -1,8 +1,26 @@
 //! # 🐎 Daac Horse: Double-Array Aho-Corasick
 //!
-//! A fast implementation of the Aho-Corasick algorithm using Double-Array Trie.
+//! A fast implementation of the Aho-Corasick algorithm
+//! using the compact double-array data structure.
 //!
-//! ## Examples
+//! ## Overview
+//!
+//! `daachorse` is a crate for fast multiple pattern matching using
+//! the [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855),
+//! running in linear time over the length of the input text.
+//! For time- and memory-efficiency, the pattern match automaton is implemented using
+//! the [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004).
+//! The data structure not only supports constant-time state-to-state traversal,
+//! but also represents each state in a compact space of only 12 bytes.
+//!
+//! ## Example: Finding overlapped occurrences
+//!
+//! To search for all occurrences of registered patterns that allow for positional overlap in the
+//! input text, use [`DoubleArrayAhoCorasick::find_overlapping_iter()`].
+//!
+//! When you use [`DoubleArrayAhoCorasick::new()`] for constraction,
+//! unique identifiers are assigned to each pattern in the input order.
+//! The match result has the byte positions of the occurrence and its identifier.
 //!
 //! ```
 //! use daachorse::DoubleArrayAhoCorasick;
@@ -13,33 +31,144 @@
 //! let mut it = pma.find_overlapping_iter("abcd");
 //!
 //! let m = it.next().unwrap();
-//! assert_eq!((0, 1, 2), (m.start(), m.end(), m.pattern()));
+//! assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
 //!
 //! let m = it.next().unwrap();
-//! assert_eq!((0, 2, 1), (m.start(), m.end(), m.pattern()));
+//! assert_eq!((0, 2, 1), (m.start(), m.end(), m.value()));
 //!
 //! let m = it.next().unwrap();
-//! assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+//! assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 //!
 //! assert_eq!(None, it.next());
 //! ```
-
+//!
+//! ## Example: Finding non-overlapped occurrences with shortest matching
+//!
+//! If you do not want to allow positional overlap,
+//! use [`DoubleArrayAhoCorasick::find_iter()`] instead.
+//!
+//! It reports the first pattern found in each iteration,
+//! which is the shortest pattern starting from each search position.
+//!
+//! ```
+//! use daachorse::DoubleArrayAhoCorasick;
+//!
+//! let patterns = vec!["bcd", "ab", "a"];
+//! let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+//!
+//! let mut it = pma.find_iter("abcd");
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+//!
+//! assert_eq!(None, it.next());
+//! ```
+//!
+//! ## Example: Finding non-overlapped occurrences with longest matching
+//!
+//! If you want to search for the longest pattern
+//! without positional overlap in each iteration,
+//! use [`DoubleArrayAhoCorasick::leftmost_find_iter()`] with specifying
+//! [`MatchKind::LeftmostLongest`] in the construction.
+//!
+//! ```
+//! use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+//!
+//! let patterns = vec!["ab", "a", "abcd"];
+//! let pma = DoubleArrayAhoCorasickBuilder::new()
+//!           .match_kind(MatchKind::LeftmostLongest)
+//!           .build(&patterns)
+//!           .unwrap();
+//!
+//! let mut it = pma.leftmost_find_iter("abcd");
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 4, 2), (m.start(), m.end(), m.value()));
+//!
+//! assert_eq!(None, it.next());
+//! ```
+//!
+//! ## Example: Finding non-overlapped occurrences with leftmost-first matching
+//!
+//! If you want to find the the earliest registered pattern
+//! among ones starting from the search position,
+//! use [`DoubleArrayAhoCorasick::leftmost_find_iter()`]
+//! with specifying [`MatchKind::LeftmostFirst`].
+//!
+//! This is so-called *the leftmost first match*,
+//! a bit tricky search option that is also supported in the
+//! [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate.
+//! For example, in the following code,
+//! `ab` is reported because it is the earliest registered one.
+//!
+//! ```
+//! use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+//!
+//! let patterns = vec!["ab", "a", "abcd"];
+//! let pma = DoubleArrayAhoCorasickBuilder::new()
+//!           .match_kind(MatchKind::LeftmostFirst)
+//!           .build(&patterns)
+//!           .unwrap();
+//!
+//! let mut it = pma.leftmost_find_iter("abcd");
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 2, 0), (m.start(), m.end(), m.value()));
+//!
+//! assert_eq!(None, it.next());
+//! ```
+//!
+//! ## Example: Associating arbitrary values with patterns
+//!
+//! To build the automaton from pairs of a pattern and integer value instead of assigning
+//! identifiers automatically, use [`DoubleArrayAhoCorasick::with_values()`].
+//!
+//! ```
+//! use daachorse::DoubleArrayAhoCorasick;
+//!
+//! let patvals = vec![("bcd", 0), ("ab", 10), ("a", 20)];
+//! let pma = DoubleArrayAhoCorasick::with_values(patvals).unwrap();
+//!
+//! let mut it = pma.find_overlapping_iter("abcd");
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 1, 20), (m.start(), m.end(), m.value()));
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 2, 10), (m.start(), m.end(), m.value()));
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+//!
+//! assert_eq!(None, it.next());
+//! ```
 mod builder;
 pub mod errors;
-
-use std::io;
-
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+#[cfg(test)]
+mod tests_fixed;
+#[cfg(test)]
+mod tests_random;
 
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::DaachorseError;
 
-// The maximum length of a pattern used as an invalid value.
-pub(crate) const PATTERN_LEN_INVALID: u32 = std::u32::MAX >> 1;
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: u32 = std::u32::MAX;
 // The maximum output position value used as an invalid value.
-pub(crate) const OUTPOS_INVALID: u32 = std::u32::MAX;
+pub(crate) const OUTPUT_POS_INVALID: u32 = std::u32::MAX;
+// The maximum FAIL value.
+pub(crate) const FAIL_MAX: u32 = 0xFF_FFFF;
+// The mask value of FAIL for `State::fach`.
+const FAIL_MASK: u32 = FAIL_MAX << 8;
+// The mask value of CEHCK for `State::fach`.
+const CHECK_MASK: u32 = 0xFF;
+// The root index position.
+pub(crate) const ROOT_STATE_IDX: u32 = 0;
+// The dead index position.
+pub(crate) const DEAD_STATE_IDX: u32 = 1;
 
 #[derive(Clone, Copy)]
 struct State {
@@ -53,7 +182,7 @@ impl Default for State {
         Self {
             base: BASE_INVALID,
             fach: 0,
-            output_pos: OUTPOS_INVALID,
+            output_pos: OUTPUT_POS_INVALID,
         }
     }
 }
@@ -66,6 +195,7 @@ impl State {
 
     #[inline(always)]
     pub const fn check(&self) -> u8 {
+        #![allow(clippy::cast_possible_truncation)]
         (self.fach & 0xFF) as u8
     }
 
@@ -76,7 +206,7 @@ impl State {
 
     #[inline(always)]
     pub fn output_pos(&self) -> Option<u32> {
-        Some(self.output_pos).filter(|&x| x != OUTPOS_INVALID)
+        Some(self.output_pos).filter(|&x| x != OUTPUT_POS_INVALID)
     }
 
     #[inline(always)]
@@ -86,78 +216,50 @@ impl State {
 
     #[inline(always)]
     pub fn set_check(&mut self, x: u8) {
-        self.fach = (self.fail() << 8) | x as u32;
+        self.fach &= !CHECK_MASK;
+        self.fach |= u32::from(x);
     }
 
     #[inline(always)]
     pub fn set_fail(&mut self, x: u32) {
-        self.fach = (x << 8) | self.check() as u32;
+        self.fach &= !FAIL_MASK;
+        self.fach |= x << 8;
     }
 
     #[inline(always)]
     pub fn set_output_pos(&mut self, x: u32) {
         self.output_pos = x;
     }
-
-    /// Serializes the state.
-    pub fn serialize<W>(&self, mut writer: W) -> io::Result<()>
-    where
-        W: io::Write,
-    {
-        writer.write_u32::<LittleEndian>(self.base)?;
-        writer.write_u32::<LittleEndian>(self.fach)?;
-        writer.write_u32::<LittleEndian>(self.output_pos)?;
-        Ok(())
-    }
-
-    /// Deserializes the state.
-    pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
-    where
-        R: io::Read,
-    {
-        let base = reader.read_u32::<LittleEndian>()?;
-        let fach = reader.read_u32::<LittleEndian>()?;
-        let output_pos = reader.read_u32::<LittleEndian>()?;
-        Ok(Self {
-            base,
-            fach,
-            output_pos,
-        })
-    }
 }
 
 #[derive(Copy, Clone)]
-struct Output(u64);
+struct Output {
+    value: u32,
+    length: u32, // 1 bit is borrowed by a beginning flag
+}
 
 impl Output {
     #[inline(always)]
-    pub const fn new(pattern_id: u32, pattern_len: u32, is_begin: bool) -> Self {
-        Self((pattern_id as u64) << 32 | (pattern_len as u64) << 1 | is_begin as u64)
+    pub fn new(value: u32, length: u32, is_begin: bool) -> Self {
+        Self {
+            value,
+            length: (length << 1) | u32::from(is_begin),
+        }
     }
 
     #[inline(always)]
-    pub const fn pattern_id(&self) -> u32 {
-        (self.0 >> 32) as u32
+    pub const fn value(self) -> u32 {
+        self.value
     }
 
     #[inline(always)]
-    pub const fn pattern_len(&self) -> u32 {
-        ((self.0 >> 1) as u32) & PATTERN_LEN_INVALID
+    pub const fn length(self) -> u32 {
+        self.length >> 1
     }
 
     #[inline(always)]
-    pub const fn is_begin(&self) -> bool {
-        self.0 & 1 == 1
-    }
-
-    #[inline]
-    pub const fn from_u64(x: u64) -> Self {
-        Self(x)
-    }
-
-    #[inline]
-    pub const fn as_u64(&self) -> u64 {
-        self.0
+    pub const fn is_begin(self) -> bool {
+        self.length & 1 == 1
     }
 }
 
@@ -166,7 +268,7 @@ impl Output {
 pub struct Match {
     length: usize,
     end: usize,
-    pattern_id: usize,
+    value: usize,
 }
 
 impl Match {
@@ -182,10 +284,10 @@ impl Match {
         self.end
     }
 
-    /// Pattern ID.
+    /// Value associated with the pattern.
     #[inline(always)]
-    pub const fn pattern(&self) -> usize {
-        self.pattern_id
+    pub const fn value(&self) -> usize {
+        self.value
     }
 }
 
@@ -207,19 +309,26 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        let mut state_id = 0;
+        let mut state_id = ROOT_STATE_IDX;
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-            state_id = unsafe { self.pma.get_next_state_id(state_id, c) };
-            if let Some(output_pos) =
-                unsafe { self.pma.states.get_unchecked(state_id).output_pos() }
-            {
+            // state_id is always smaller than self.pma.states.len() because
+            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
+            state_id = unsafe { self.pma.get_next_state_id_unchecked(state_id, c) };
+            if let Some(output_pos) = unsafe {
+                self.pma
+                    .states
+                    .get_unchecked(state_id as usize)
+                    .output_pos()
+            } {
+                // output_pos is always smaller than self.pma.outputs.len() because
+                // State::output_pos() ensures to return such a value when it is Some.
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 self.pos = pos + 1;
                 return Some(Match {
-                    length: out.pattern_len() as usize,
+                    length: out.length() as usize,
                     end: self.pos,
-                    pattern_id: out.pattern_id() as usize,
+                    value: out.value() as usize,
                 });
             }
         }
@@ -235,7 +344,7 @@ where
 {
     pma: &'a DoubleArrayAhoCorasick,
     haystack: P,
-    state_id: usize,
+    state_id: u32,
     pos: usize,
     output_pos: usize,
 }
@@ -248,28 +357,35 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
+        // self.output_pos is always smaller than self.pma.outputs.len() because
+        // State::output_pos() ensures to return such a value when it is Some.
         let out = unsafe { self.pma.outputs.get_unchecked(self.output_pos) };
         if !out.is_begin() {
             self.output_pos += 1;
             return Some(Match {
-                length: out.pattern_len() as usize,
+                length: out.length() as usize,
                 end: self.pos,
-                pattern_id: out.pattern_id() as usize,
+                value: out.value() as usize,
             });
         }
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-            self.state_id = unsafe { self.pma.get_next_state_id(self.state_id, c) };
-            if let Some(output_pos) =
-                unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
-            {
+            // self.state_id is always smaller than self.pma.states.len() because
+            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
+            self.state_id = unsafe { self.pma.get_next_state_id_unchecked(self.state_id, c) };
+            if let Some(output_pos) = unsafe {
+                self.pma
+                    .states
+                    .get_unchecked(self.state_id as usize)
+                    .output_pos()
+            } {
                 self.pos = pos + 1;
                 self.output_pos = output_pos as usize + 1;
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 return Some(Match {
-                    length: out.pattern_len() as usize,
+                    length: out.length() as usize,
                     end: self.pos,
-                    pattern_id: out.pattern_id() as usize,
+                    value: out.value() as usize,
                 });
             }
         }
@@ -285,7 +401,7 @@ where
 {
     pma: &'a DoubleArrayAhoCorasick,
     haystack: P,
-    state_id: usize,
+    state_id: u32,
     pos: usize,
 }
 
@@ -299,16 +415,23 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-            self.state_id = unsafe { self.pma.get_next_state_id(self.state_id, c) };
-            if let Some(output_pos) =
-                unsafe { self.pma.states.get_unchecked(self.state_id).output_pos() }
-            {
-                self.pos = pos + 1;
+            // self.state_id is always smaller than self.pma.states.len() because
+            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
+            self.state_id = unsafe { self.pma.get_next_state_id_unchecked(self.state_id, c) };
+            if let Some(output_pos) = unsafe {
+                self.pma
+                    .states
+                    .get_unchecked(self.state_id as usize)
+                    .output_pos()
+            } {
+                // output_pos is always smaller than self.pma.outputs.len() because
+                // State::output_pos() ensures to return such a value when it is Some.
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
+                self.pos = pos + 1;
                 return Some(Match {
-                    length: out.pattern_len() as usize,
+                    length: out.length() as usize,
                     end: self.pos,
-                    pattern_id: out.pattern_id() as usize,
+                    value: out.value() as usize,
                 });
             }
         }
@@ -317,14 +440,100 @@ where
     }
 }
 
-/// Pattern match automaton implemented with the Aho-Corasick algorithm and Double-Array.
+/// Iterator created by [`DoubleArrayAhoCorasick::leftmost_find_iter()`].
+pub struct LestmostFindIterator<'a, P>
+where
+    P: AsRef<[u8]>,
+{
+    pma: &'a DoubleArrayAhoCorasick,
+    haystack: P,
+    pos: usize,
+}
+
+impl<'a, P> Iterator for LestmostFindIterator<'a, P>
+where
+    P: AsRef<[u8]>,
+{
+    type Item = Match;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut state_id = ROOT_STATE_IDX;
+        let mut last_output_pos = OUTPUT_POS_INVALID;
+
+        let haystack = self.haystack.as_ref();
+        for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
+            state_id = unsafe { self.pma.get_next_state_id_leftmost_unchecked(state_id, c) };
+            if state_id == DEAD_STATE_IDX {
+                debug_assert_ne!(last_output_pos, OUTPUT_POS_INVALID);
+                break;
+            }
+
+            // state_id is always smaller than self.pma.states.len() because
+            // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
+            if let Some(output_pos) = unsafe {
+                self.pma
+                    .states
+                    .get_unchecked(state_id as usize)
+                    .output_pos()
+            } {
+                last_output_pos = output_pos;
+                self.pos = pos + 1;
+            }
+        }
+
+        if last_output_pos == OUTPUT_POS_INVALID {
+            None
+        } else {
+            // last_output_pos is always smaller than self.pma.outputs.len() because
+            // State::output_pos() ensures to return such a value when it is Some.
+            let out = unsafe { self.pma.outputs.get_unchecked(last_output_pos as usize) };
+            Some(Match {
+                length: out.length() as usize,
+                end: self.pos,
+                value: out.value() as usize,
+            })
+        }
+    }
+}
+
+/// Fast multiple pattern match automaton implemented
+/// with the Aho-Corasick algorithm and compact double-array data structure.
+///
+/// [`DoubleArrayAhoCorasick`] implements a pattern match automaton based on
+/// the [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855),
+/// supporting linear-time pattern matching.
+/// The internal data structure employs
+/// the [compact double-array structure](https://doi.org/10.1016/j.ipm.2006.04.004)
+/// that is the fastest trie representation technique.
+/// It supports constant-time state-to-state traversal,
+/// allowing for very fast pattern matching.
+/// Moreover, each state is represented in a compact space of only 12 bytes.
+///
+/// # Build instructions
+///
+/// [`DoubleArrayAhoCorasick`] supports the following two types of input data:
+///
+/// - [`DoubleArrayAhoCorasick::new`] builds an automaton from a set of byte strings
+///    while assigning unique identifiers in the input order.
+///
+/// - [`DoubleArrayAhoCorasick::with_values`] builds an automaton
+///    from a set of pairs of a byte string and a `u32` value.
+///
+/// # Limitations
+///
+/// For memory- and cache-efficiency, a FAIL pointer is represented in 24 bits.
+/// Thus, if a very large pattern set is given, [`DaachorseError`] will be reported.
 pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
+    match_kind: MatchKind,
+    num_states: usize,
 }
 
 impl DoubleArrayAhoCorasick {
-    /// Creates a new [`DoubleArrayAhoCorasick`].
+    /// Creates a new [`DoubleArrayAhoCorasick`] from input patterns.
+    /// The value `i` is automatically associated with `patterns[i]`.
     ///
     /// # Arguments
     ///
@@ -332,7 +541,10 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Errors
     ///
-    /// [`errors::DuplicatePatternError`] is returned when `patterns` contains duplicate entries.
+    /// [`DaachorseError`] is returned when
+    ///   - the `patterns` contains duplicate entries,
+    ///   - the scale of `patterns` exceeds the expected one, or
+    ///   - the scale of the resulting automaton exceeds the expected one.
     ///
     /// # Examples
     ///
@@ -345,10 +557,10 @@ impl DoubleArrayAhoCorasick {
     /// let mut it = pma.find_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -357,7 +569,49 @@ impl DoubleArrayAhoCorasick {
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
     {
-        DoubleArrayAhoCorasickBuilder::new(65536)?.build(patterns)
+        DoubleArrayAhoCorasickBuilder::new().build(patterns)
+    }
+
+    /// Creates a new [`DoubleArrayAhoCorasick`] from input pattern-value pairs.
+    ///
+    /// # Arguments
+    ///
+    /// * `patvals` - List of pattern-value pairs, in which the value is of type `u32` and less than `u32::MAX`.
+    ///
+    /// # Errors
+    ///
+    /// [`DaachorseError`] is returned when
+    ///   - the `patvals` contains duplicate patterns,
+    ///   - the scale of `patvals` exceeds the expected one, or
+    ///   - the scale of the resulting automaton exceeds the expected one.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patvals = vec![("bcd", 0), ("ab", 1), ("a", 2), ("e", 1)];
+    /// let pma = DoubleArrayAhoCorasick::with_values(patvals).unwrap();
+    ///
+    /// let mut it = pma.find_iter("abcde");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((4, 5, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn with_values<I, P>(patvals: I) -> Result<Self, DaachorseError>
+    where
+        I: IntoIterator<Item = (P, u32)>,
+        P: AsRef<[u8]>,
+    {
+        DoubleArrayAhoCorasickBuilder::new().build_with_values(patvals)
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack.
@@ -365,6 +619,11 @@ impl DoubleArrayAhoCorasick {
     /// # Arguments
     ///
     /// * `haystack` - String to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
     ///
     /// # Examples
     ///
@@ -377,10 +636,10 @@ impl DoubleArrayAhoCorasick {
     /// let mut it = pma.find_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -388,6 +647,10 @@ impl DoubleArrayAhoCorasick {
     where
         P: AsRef<[u8]>,
     {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
         FindIterator {
             pma: self,
             haystack,
@@ -401,6 +664,11 @@ impl DoubleArrayAhoCorasick {
     ///
     /// * `haystack` - String to search for.
     ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
     /// # Examples
     ///
     /// ```
@@ -412,13 +680,13 @@ impl DoubleArrayAhoCorasick {
     /// let mut it = pma.find_overlapping_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -426,10 +694,14 @@ impl DoubleArrayAhoCorasick {
     where
         P: AsRef<[u8]>,
     {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
         FindOverlappingIterator {
             pma: self,
             haystack,
-            state_id: 0,
+            state_id: ROOT_STATE_IDX,
             pos: 0,
             output_pos: 0,
         }
@@ -447,6 +719,11 @@ impl DoubleArrayAhoCorasick {
     ///
     /// * `haystack` - String to search for.
     ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
     /// # Examples
     ///
     /// ```
@@ -458,10 +735,10 @@ impl DoubleArrayAhoCorasick {
     /// let mut it = pma.find_overlapping_no_suffix_iter("abcd");
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.value()));
     ///
     /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.pattern()));
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
     ///
     /// assert_eq!(None, it.next());
     /// ```
@@ -472,23 +749,96 @@ impl DoubleArrayAhoCorasick {
     where
         P: AsRef<[u8]>,
     {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
         FindOverlappingNoSuffixIterator {
             pma: self,
             haystack,
-            state_id: 0,
+            state_id: ROOT_STATE_IDX,
             pos: 0,
         }
     }
 
-    /// Serializes the automaton into the output stream.
+    /// Returns an iterator of leftmost matches in the given haystack.
+    ///
+    /// The leftmost match greedily searches the longest possible match at each iteration, and
+    /// the match results do not overlap positionally such as [`DoubleArrayAhoCorasick::find_iter()`].
+    ///
+    /// According to the [`MatchKind`] option you specified in the construction,
+    /// the behavior is changed for multiple possible matches, as follows.
+    ///
+    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match
+    ///    corresponding to the longest pattern.
+    ///
+    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match
+    ///    corresponding to the pattern earlier registered to the automaton.
     ///
     /// # Arguments
     ///
-    /// * `writer` - Output stream.
+    /// * `haystack` - String to search for.
     ///
-    /// # Errors
+    /// # Panics
     ///
-    /// `std::io::Error` is returned if it fails to write the data.
+    /// When you do not specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Examples
+    ///
+    /// ## LeftmostLongest
+    ///
+    /// ```
+    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["ab", "a", "abcd"];
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///           .match_kind(MatchKind::LeftmostLongest)
+    ///           .build(&patterns)
+    ///           .unwrap();
+    ///
+    /// let mut it = pma.leftmost_find_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 4, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    ///
+    /// ## LeftmostFirst
+    ///
+    /// ```
+    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["ab", "a", "abcd"];
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///           .match_kind(MatchKind::LeftmostFirst)
+    ///           .build(&patterns)
+    ///           .unwrap();
+    ///
+    /// let mut it = pma.leftmost_find_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P>
+    where
+        P: AsRef<[u8]>,
+    {
+        assert!(
+            self.match_kind.is_leftmost(),
+            "Error: match_kind must be leftmost."
+        );
+        LestmostFindIterator {
+            pma: self,
+            haystack,
+            pos: 0,
+        }
+    }
+
+    /// Returns the total amount of heap used by this automaton in bytes.
     ///
     /// # Examples
     ///
@@ -498,34 +848,14 @@ impl DoubleArrayAhoCorasick {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// let mut buffer = vec![];
-    /// pma.serialize(&mut buffer).unwrap();
+    /// assert_eq!(pma.heap_bytes(), 3104);
     /// ```
-    #[doc(hidden)]
-    pub fn serialize<W>(&self, mut writer: W) -> io::Result<()>
-    where
-        W: io::Write,
-    {
-        writer.write_u64::<LittleEndian>(self.states.len() as u64)?;
-        for &s in &self.states {
-            s.serialize(&mut writer)?;
-        }
-        writer.write_u64::<LittleEndian>(self.outputs.len() as u64)?;
-        for &x in &self.outputs {
-            writer.write_u64::<LittleEndian>(x.as_u64())?;
-        }
-        Ok(())
+    pub fn heap_bytes(&self) -> usize {
+        self.states.len() * std::mem::size_of::<State>()
+            + self.outputs.len() * std::mem::size_of::<Output>()
     }
 
-    /// Deserializes the automaton from the input stream.
-    ///
-    /// # Arguments
-    ///
-    /// * `reader` - Input stream.
-    ///
-    /// # Errors
-    ///
-    /// `std::io::Error` is returned if it fails to read the data.
+    /// Returns the total number of states this automaton has.
     ///
     /// # Examples
     ///
@@ -535,337 +865,122 @@ impl DoubleArrayAhoCorasick {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// let mut buffer = vec![];
-    /// pma.serialize(&mut buffer).unwrap();
-    ///
-    /// let other = DoubleArrayAhoCorasick::deserialize(&buffer[..]).unwrap();
+    /// assert_eq!(pma.num_states(), 6);
     /// ```
-    #[doc(hidden)]
-    pub fn deserialize<R>(mut reader: R) -> io::Result<Self>
-    where
-        R: io::Read,
-    {
-        let states = {
-            let len = reader.read_u64::<LittleEndian>()? as usize;
-            let mut states = Vec::with_capacity(len);
-            for _ in 0..len {
-                states.push(State::deserialize(&mut reader)?);
-            }
-            states
-        };
-        let outputs = {
-            let len = reader.read_u64::<LittleEndian>()? as usize;
-            let mut outputs = Vec::with_capacity(len);
-            for _ in 0..len {
-                outputs.push(Output::from_u64(reader.read_u64::<LittleEndian>()?));
-            }
-            outputs
-        };
-        Ok(Self { states, outputs })
+    pub const fn num_states(&self) -> usize {
+        self.num_states
     }
 
     /// # Safety
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_child_index(&self, state_id: usize, c: u8) -> Option<usize> {
-        self.states.get_unchecked(state_id).base().and_then(|base| {
-            let child_idx = (base ^ c as u32) as usize;
-            Some(child_idx).filter(|&x| self.states.get_unchecked(x).check() == c)
-        })
+    unsafe fn get_child_index_unchecked(&self, state_id: u32, c: u8) -> Option<u32> {
+        // child_idx is always smaller than states.len() because
+        //  - states.len() is 256 * k for some integer k, and
+        //  - base() returns smaller than states.len() when it is Some.
+        self.states
+            .get_unchecked(state_id as usize)
+            .base()
+            .and_then(|base| {
+                let child_idx = base ^ u32::from(c);
+                Some(child_idx).filter(|&x| self.states.get_unchecked(x as usize).check() == c)
+            })
     }
 
     /// # Safety
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_next_state_id(&self, mut state_id: usize, c: u8) -> usize {
+    unsafe fn get_next_state_id_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
+        // In the loop, state_id is always set to values smaller than states.len(),
+        // because get_child_index_unchecked() and fail() return such values.
         loop {
-            if let Some(state_id) = self.get_child_index(state_id, c) {
+            if let Some(state_id) = self.get_child_index_unchecked(state_id, c) {
                 return state_id;
             }
-            if state_id == 0 {
-                return 0;
+            if state_id == ROOT_STATE_IDX {
+                return ROOT_STATE_IDX;
             }
-            state_id = self.states.get_unchecked(state_id).fail() as usize;
+            state_id = self.states.get_unchecked(state_id as usize).fail();
         }
+    }
+
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of states.
+    #[inline(always)]
+    unsafe fn get_next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
+        // In the loop, state_id is always set to values smaller than states.len(),
+        // because get_child_index_unchecked() and fail() return such values.
+        loop {
+            if let Some(state_id) = self.get_child_index_unchecked(state_id, c) {
+                return state_id;
+            }
+            if state_id == ROOT_STATE_IDX {
+                return ROOT_STATE_IDX;
+            }
+            let fail_id = self.states.get_unchecked(state_id as usize).fail();
+            if fail_id == DEAD_STATE_IDX {
+                return DEAD_STATE_IDX;
+            }
+            state_id = fail_id;
+        }
+    }
+
+    #[cfg(test)]
+    #[inline(always)]
+    fn get_child_index(&self, state_id: u32, c: u8) -> Option<u32> {
+        self.states[state_id as usize].base().and_then(|base| {
+            let child_idx = base ^ u32::from(c);
+            Some(child_idx).filter(|&x| self.states[x as usize].check() == c)
+        })
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// An search option of the Aho-Corasick automaton
+/// specified in [`DoubleArrayAhoCorasickBuilder::match_kind`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MatchKind {
+    /// The standard match semantics, which enables
+    /// [`find_iter()`](DoubleArrayAhoCorasick::find_iter()),\
+    /// [`find_overlapping_iter()`](DoubleArrayAhoCorasick::find_overlapping_iter()), and
+    /// [`find_overlapping_no_suffix_iter()`](DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()).
+    /// Patterns are reported in the order that follows the normal behaviour of the Aho-Corasick
+    /// algorithm.
+    Standard,
 
-    use std::collections::HashSet;
+    /// The leftmost-longest match semantics, which enables
+    /// [`leftmost_find_iter()`](DoubleArrayAhoCorasick::leftmost_find_iter()).
+    /// When multiple patterns are started from the same positions, the longest pattern will be
+    /// reported. For example, when matching patterns `ab|a|abcd` over `abcd`, `abcd` will be
+    /// reported.
+    LeftmostLongest,
 
-    use rand::Rng;
+    /// The leftmost-first match semantics, which enables
+    /// [`leftmost_find_iter()`](DoubleArrayAhoCorasick::leftmost_find_iter()).
+    /// When multiple patterns are started from the same positions, the pattern that is registered
+    /// earlier will be reported. For example, when matching patterns `ab|a|abcd` over `abcd`,
+    /// `ab` will be reported.
+    LeftmostFirst,
+}
 
-    fn generate_random_string(size: usize) -> String {
-        const CHARSET: &[u8] = b"random";
-        let mut rng = rand::thread_rng();
+impl Default for MatchKind {
+    fn default() -> Self {
+        Self::Standard
+    }
+}
 
-        (0..size)
-            .map(|_| {
-                let idx = rng.gen_range(0..CHARSET.len());
-                CHARSET[idx] as char
-            })
-            .collect()
+impl MatchKind {
+    fn is_standard(self) -> bool {
+        self == Self::Standard
     }
 
-    fn generate_random_binary_string(size: usize) -> Vec<u8> {
-        let mut rng = rand::thread_rng();
-        (0..size).map(|_| rng.gen_range(0..=255)).collect()
+    fn is_leftmost(self) -> bool {
+        self == Self::LeftmostFirst || self == Self::LeftmostLongest
     }
 
-    #[test]
-    fn test_double_array() {
-        /*
-         *          a--> 4
-         *         /
-         *   a--> 1 --c--> 5
-         *  /
-         * 0 --b--> 2 --c--> 6
-         *  \
-         *   c--> 3
-         *
-         *   a = 0
-         *   b = 1
-         *   c = 2
-         */
-        let patterns = vec![vec![0, 0], vec![0, 2], vec![1, 2], vec![2]];
-        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-
-        let base_expected = vec![
-            3,
-            BASE_INVALID,
-            7,
-            4,
-            BASE_INVALID,
-            BASE_INVALID,
-            BASE_INVALID,
-        ];
-        let check_expected = vec![0, 2, 1, 0, 0, 2, 2];
-        //                        ^  ^  ^  ^  ^  ^  ^
-        //             state_id=  0  3  2  1  4  6  5
-        let fail_expected = vec![0, 0, 0, 0, 3, 1, 1];
-
-        let pma_base: Vec<_> = pma.states[0..7]
-            .iter()
-            .map(|state| state.base().unwrap_or(BASE_INVALID))
-            .collect();
-        let pma_check: Vec<_> = pma.states[0..7].iter().map(|state| state.check()).collect();
-        let pma_fail: Vec<_> = pma.states[0..7].iter().map(|state| state.fail()).collect();
-
-        assert_eq!(base_expected, pma_base);
-        assert_eq!(check_expected, pma_check);
-        assert_eq!(fail_expected, pma_fail);
-    }
-
-    #[test]
-    fn test_find_iter_random() {
-        for _ in 0..100 {
-            let mut patterns = HashSet::new();
-            for _ in 0..100 {
-                patterns.insert(generate_random_string(4));
-            }
-            let haystack = generate_random_string(100);
-
-            // naive pattern match
-            let mut expected = HashSet::new();
-            let mut pos = 0;
-            while pos <= haystack.len() - 4 {
-                if patterns.contains(&haystack[pos..pos + 4]) {
-                    expected.insert((pos, pos + 4, haystack[pos..pos + 4].to_string()));
-                    pos += 3;
-                }
-                pos += 1;
-            }
-
-            // daachorse
-            let mut actual = HashSet::new();
-            let patterns_vec: Vec<_> = patterns.into_iter().collect();
-            let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
-            for m in pma.find_iter(&haystack) {
-                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
-            }
-            eprintln!("{}", haystack);
-            assert_eq!(expected, actual);
-        }
-    }
-
-    #[test]
-    fn test_find_iter_binary_random() {
-        for _ in 0..100 {
-            let mut patterns = HashSet::new();
-            for _ in 0..100 {
-                patterns.insert(generate_random_binary_string(4));
-            }
-            let haystack = generate_random_binary_string(100);
-
-            // naive pattern match
-            let mut expected = HashSet::new();
-            let mut pos = 0;
-            while pos <= haystack.len() - 4 {
-                if patterns.contains(&haystack[pos..pos + 4]) {
-                    expected.insert((pos, pos + 4, haystack[pos..pos + 4].to_vec()));
-                    pos += 3;
-                }
-                pos += 1;
-            }
-
-            // daachorse
-            let mut actual = HashSet::new();
-            let patterns_vec: Vec<_> = patterns.into_iter().collect();
-            let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
-            for m in pma.find_iter(&haystack) {
-                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
-            }
-            assert_eq!(expected, actual);
-        }
-    }
-
-    #[test]
-    fn test_find_overlapping_iter_random() {
-        for _ in 0..100 {
-            let mut patterns = HashSet::new();
-            for _ in 0..6 {
-                patterns.insert(generate_random_string(1));
-            }
-            for _ in 0..20 {
-                patterns.insert(generate_random_string(2));
-            }
-            for _ in 0..50 {
-                patterns.insert(generate_random_string(3));
-            }
-            for _ in 0..100 {
-                patterns.insert(generate_random_string(4));
-            }
-            let haystack = generate_random_string(100);
-
-            // naive pattern match
-            let mut expected = HashSet::new();
-            for i in 0..4 {
-                for pos in 0..haystack.len() - i {
-                    if patterns.contains(&haystack[pos..pos + i + 1]) {
-                        expected.insert((pos, pos + i + 1, haystack[pos..pos + i + 1].to_string()));
-                    }
-                }
-            }
-
-            // daachorse
-            let mut actual = HashSet::new();
-            let patterns_vec: Vec<_> = patterns.into_iter().collect();
-            let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
-            for m in pma.find_overlapping_iter(&haystack) {
-                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
-            }
-            eprintln!("{}", haystack);
-            assert_eq!(expected, actual);
-        }
-    }
-
-    #[test]
-    fn test_find_overlapping_iter_binary_random() {
-        for _ in 0..100 {
-            let mut patterns = HashSet::new();
-            for _ in 0..6 {
-                patterns.insert(generate_random_binary_string(1));
-            }
-            for _ in 0..20 {
-                patterns.insert(generate_random_binary_string(2));
-            }
-            for _ in 0..50 {
-                patterns.insert(generate_random_binary_string(3));
-            }
-            for _ in 0..100 {
-                patterns.insert(generate_random_binary_string(4));
-            }
-            let haystack = generate_random_binary_string(100);
-
-            // naive pattern match
-            let mut expected = HashSet::new();
-            for i in 0..4 {
-                for pos in 0..haystack.len() - i {
-                    if patterns.contains(&haystack[pos..pos + i + 1]) {
-                        expected.insert((pos, pos + i + 1, haystack[pos..pos + i + 1].to_vec()));
-                    }
-                }
-            }
-
-            // daachorse
-            let mut actual = HashSet::new();
-            let patterns_vec: Vec<_> = patterns.into_iter().collect();
-            let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
-            for m in pma.find_overlapping_iter(&haystack) {
-                actual.insert((m.start(), m.end(), patterns_vec[m.pattern()].clone()));
-            }
-            assert_eq!(expected, actual);
-        }
-    }
-
-    #[test]
-    fn test_dump_root_state() {
-        let patterns: Vec<Vec<u8>> = (1..=255).map(|c| vec![c]).collect();
-        let pma = DoubleArrayAhoCorasick::new(&patterns).unwrap();
-        assert!(unsafe { pma.get_child_index(0, 0) }.is_none());
-        for c in 1..=255 {
-            assert_eq!(unsafe { pma.get_child_index(0, c) }.unwrap(), c as usize);
-        }
-    }
-
-    #[test]
-    fn test_dump_states_random() {
-        for _ in 0..100 {
-            let mut patterns = HashSet::new();
-            for _ in 0..100 {
-                patterns.insert(generate_random_string(8));
-            }
-            let patterns_vec: Vec<_> = patterns.into_iter().collect();
-            let pma = DoubleArrayAhoCorasick::new(&patterns_vec).unwrap();
-
-            let mut visitor = vec![0 as usize];
-            let mut visited = vec![false; pma.states.len()];
-
-            while let Some(idx) = visitor.pop() {
-                assert!(!visited[idx]);
-                assert!(pma.states[idx].base().is_some() || pma.states[idx].output_pos().is_some());
-                visited[idx] = true;
-                for c in 0..=255 {
-                    if let Some(child_idx) = unsafe { pma.get_child_index(idx, c) } {
-                        visitor.push(child_idx);
-                    }
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_serialization() {
-        let patterns: Vec<String> = {
-            let mut patterns = HashSet::new();
-            for _ in 0..100 {
-                patterns.insert(generate_random_string(4));
-            }
-            patterns.into_iter().collect()
-        };
-        let pma = DoubleArrayAhoCorasick::new(&patterns).unwrap();
-
-        // Serialize
-        let mut buffer = vec![];
-        pma.serialize(&mut buffer).unwrap();
-
-        // Deserialize
-        let other = DoubleArrayAhoCorasick::deserialize(&buffer[..]).unwrap();
-
-        assert_eq!(pma.states.len(), other.states.len());
-        for (a, b) in pma.states.iter().zip(other.states.iter()) {
-            assert_eq!(a.base, b.base);
-            assert_eq!(a.fach, b.fach);
-            assert_eq!(a.output_pos, b.output_pos);
-        }
-        assert_eq!(pma.outputs.len(), other.outputs.len());
-        for (a, b) in pma.outputs.iter().zip(other.outputs.iter()) {
-            assert_eq!(a.as_u64(), b.as_u64());
-        }
+    pub(crate) fn is_leftmost_first(self) -> bool {
+        self == Self::LeftmostFirst
     }
 }
