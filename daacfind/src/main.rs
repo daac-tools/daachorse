@@ -169,11 +169,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let line = match line {
                         Ok(line) => line,
                         Err(err) => {
-                            if let Some(filename) = filename {
-                                eprintln!("{}: {:?}", filename, err);
-                            } else {
-                                eprintln!("{:?}", err);
-                            }
+                            filename.map_or_else(
+                                || {
+                                    eprintln!("{:?}", err);
+                                },
+                                |filename| {
+                                    eprintln!("{}: {:?}", filename, err);
+                                },
+                            );
                             break;
                         }
                     };
@@ -181,11 +184,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             Err(err) => {
-                if let Some(filename) = filename.to_str() {
-                    eprintln!("{}: {:?}", filename, err);
-                } else {
-                    eprintln!("{:?}", err);
-                }
+                filename.to_str().map_or_else(
+                    || {
+                        eprintln!("{:?}", err);
+                    },
+                    |filename| {
+                        eprintln!("{}: {:?}", filename, err);
+                    },
+                );
             }
         }
     }

@@ -356,7 +356,7 @@ impl Extra {
 /// Builder of [`DoubleArrayAhoCorasick`].
 pub struct DoubleArrayAhoCorasickBuilder {
     states: Vec<State>,
-    extras: Vec<Extra>,
+    extras: [Extra; FREE_STATES as usize],
     head_idx: u32,
     match_kind: MatchKind,
 }
@@ -394,7 +394,7 @@ impl DoubleArrayAhoCorasickBuilder {
         let init_capa = BLOCK_LEN.min(INIT_CAPACITY / BLOCK_LEN * BLOCK_LEN);
         Self {
             states: Vec::with_capacity(init_capa as usize),
-            extras: Vec::with_capacity(init_capa as usize),
+            extras: [Extra::default(); FREE_STATES as usize],
             head_idx: DEAD_STATE_IDX,
             match_kind: MatchKind::default(),
         }
@@ -424,6 +424,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
+    #[must_use]
     pub const fn match_kind(mut self, kind: MatchKind) -> Self {
         self.match_kind = kind;
         self
@@ -579,7 +580,7 @@ impl DoubleArrayAhoCorasickBuilder {
                 state_id_map[child_id as usize] = child_idx;
             }
             self.states[idx].set_base(base);
-            self.extras[base as usize].use_base();
+            self.extra_mut_ref(base).use_base();
         }
 
         // Sets fail & output_pos values
@@ -626,19 +627,19 @@ impl DoubleArrayAhoCorasickBuilder {
 
     fn init_array(&mut self) {
         self.states.resize(BLOCK_LEN as usize, State::default());
-        self.extras.resize(BLOCK_LEN as usize, Extra::default());
         self.head_idx = ROOT_STATE_IDX;
 
         for i in 0..BLOCK_LEN {
+            self.init_extra(i);
             if i == 0 {
-                self.extras[i as usize].set_prev(BLOCK_LEN - 1);
+                self.extra_mut_ref(i).set_prev(BLOCK_LEN - 1);
             } else {
-                self.extras[i as usize].set_prev(i - 1);
+                self.extra_mut_ref(i).set_prev(i - 1);
             }
             if i == BLOCK_LEN - 1 {
-                self.extras[i as usize].set_next(0);
+                self.extra_mut_ref(i).set_next(0);
             } else {
-                self.extras[i as usize].set_next(i + 1);
+                self.extra_mut_ref(i).set_next(i + 1);
             }
         }
 
@@ -648,13 +649,13 @@ impl DoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn fix_state(&mut self, i: u32) {
-        debug_assert!(!self.extras[i as usize].is_used_index());
-        self.extras[i as usize].use_index();
+        debug_assert!(!self.extra_ref(i).is_used_index());
+        self.extra_mut_ref(i).use_index();
 
-        let next = self.extras[i as usize].get_next();
-        let prev = self.extras[i as usize].get_prev();
-        self.extras[prev as usize].set_next(next);
-        self.extras[next as usize].set_prev(prev);
+        let next = self.extra_ref(i).get_next();
+        let prev = self.extra_ref(i).get_prev();
+        self.extra_mut_ref(prev).set_next(next);
+        self.extra_mut_ref(next).set_prev(prev);
 
         if self.head_idx == i {
             if next == i {
@@ -672,12 +673,12 @@ impl DoubleArrayAhoCorasickBuilder {
         }
         let mut idx = self.head_idx;
         loop {
-            debug_assert!(!self.extras[idx as usize].is_used_index());
+            debug_assert!(!self.extra_ref(idx).is_used_index());
             let base = idx ^ u32::from(edges[0].0);
             if self.check_valid_base(base, edges) {
                 return base;
             }
-            idx = self.extras[idx as usize].get_next();
+            idx = self.extra_ref(idx).get_next();
             if idx == self.head_idx {
                 break;
             }
@@ -687,12 +688,12 @@ impl DoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn check_valid_base(&self, base: u32, edges: &[(u8, u32)]) -> bool {
-        if self.extras[base as usize].is_used_base() {
+        if self.extra_ref(base).is_used_base() {
             return false;
         }
         for &(c, _) in edges {
             let idx = base ^ u32::from(c);
-            if self.extras[idx as usize].is_used_index() {
+            if self.extra_ref(idx).is_used_index() {
                 return false;
             }
         }
@@ -711,27 +712,30 @@ impl DoubleArrayAhoCorasickBuilder {
         }
         let new_len = old_len + BLOCK_LEN;
 
+        // It is necessary to close the head block before appending a new block
+        // so that the builder works in extras[..FREE_STATES].
+        if FREE_STATES <= old_len {
+            self.close_block((old_len - FREE_STATES) / BLOCK_LEN);
+        }
+
         for i in old_len..new_len {
             self.states.push(State::default());
-            self.extras.push(Extra::default());
-            self.extras[i as usize].set_next(i + 1);
-            self.extras[i as usize].set_prev(i - 1);
+            self.init_extra(i);
+            self.extra_mut_ref(i).set_next(i + 1);
+            self.extra_mut_ref(i).set_prev(i - 1);
         }
 
         if self.head_idx == DEAD_STATE_IDX {
-            self.extras[old_len as usize].set_prev(new_len - 1);
-            self.extras[new_len as usize - 1].set_next(old_len);
+            self.extra_mut_ref(old_len).set_prev(new_len - 1);
+            self.extra_mut_ref(new_len - 1).set_next(old_len);
             self.head_idx = old_len;
         } else {
-            let tail_idx = self.extras[self.head_idx as usize].get_prev();
-            self.extras[old_len as usize].set_prev(tail_idx);
-            self.extras[tail_idx as usize].set_next(old_len);
-            self.extras[new_len as usize - 1].set_next(self.head_idx);
-            self.extras[self.head_idx as usize].set_prev(new_len - 1);
-        }
-
-        if FREE_STATES <= old_len {
-            self.close_block((old_len - FREE_STATES) / BLOCK_LEN);
+            let head_idx = self.head_idx;
+            let tail_idx = self.extra_ref(head_idx).get_prev();
+            self.extra_mut_ref(old_len).set_prev(tail_idx);
+            self.extra_mut_ref(tail_idx).set_next(old_len);
+            self.extra_mut_ref(new_len - 1).set_next(head_idx);
+            self.extra_mut_ref(head_idx).set_prev(new_len - 1);
         }
 
         Ok(())
@@ -757,7 +761,7 @@ impl DoubleArrayAhoCorasickBuilder {
         let unused_base = {
             let mut i = beg_idx;
             while i < end_idx {
-                if !self.extras[i as usize].is_used_base() {
+                if !self.extra_ref(i).is_used_base() {
                     break;
                 }
                 i += 1;
@@ -770,10 +774,28 @@ impl DoubleArrayAhoCorasickBuilder {
             let idx = unused_base ^ u32::from(c);
             if idx == ROOT_STATE_IDX
                 || idx == DEAD_STATE_IDX
-                || !self.extras[idx as usize].is_used_index()
+                || !self.extra_ref(idx).is_used_index()
             {
                 self.states[idx as usize].set_check(c);
             }
         }
+    }
+
+    #[inline(always)]
+    fn init_extra(&mut self, i: u32) {
+        debug_assert!(self.states.len() <= (i + FREE_STATES) as usize);
+        self.extras[(i % FREE_STATES) as usize] = Extra::default();
+    }
+
+    #[inline(always)]
+    fn extra_ref(&self, i: u32) -> &Extra {
+        debug_assert!(self.states.len() <= (i + FREE_STATES) as usize);
+        &self.extras[(i % FREE_STATES) as usize]
+    }
+
+    #[inline(always)]
+    fn extra_mut_ref(&mut self, i: u32) -> &mut Extra {
+        debug_assert!(self.states.len() <= (i + FREE_STATES) as usize);
+        &mut self.extras[(i % FREE_STATES) as usize]
     }
 }
