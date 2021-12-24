@@ -542,7 +542,9 @@ impl DoubleArrayAhoCorasick {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - the `patterns` contains duplicate entries,
+    ///   - `patterns` is empty,
+    ///   - `patterns` contains entries of length zero,
+    ///   - `patterns` contains duplicate entries,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -581,7 +583,9 @@ impl DoubleArrayAhoCorasick {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - the `patvals` contains duplicate patterns,
+    ///   - `patvals` is empty,
+    ///   - `patvals` contains patterns of length zero,
+    ///   - `patvals` contains duplicate patterns,
     ///   - the scale of `patvals` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///

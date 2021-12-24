@@ -88,6 +88,88 @@ fn test_num_states() {
     assert_eq!(13, pma.num_states());
 }
 
+#[test]
+fn test_empty_pattern() {
+    let patterns = vec![""];
+    assert!(DoubleArrayAhoCorasick::new(patterns).is_err());
+}
+
+#[test]
+fn test_empty_pattern_set() {
+    let patterns = Vec::<String>::new();
+    assert!(DoubleArrayAhoCorasick::new(patterns).is_err());
+}
+
+#[test]
+#[should_panic]
+fn test_to_create_find_iter_with_leftmost_longest() {
+    let pma = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostLongest)
+        .build([""])
+        .unwrap();
+    pma.find_iter("");
+}
+
+#[test]
+#[should_panic]
+fn test_to_create_find_iter_with_leftmost_first() {
+    let pma = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostFirst)
+        .build([""])
+        .unwrap();
+    pma.find_iter("");
+}
+
+#[test]
+#[should_panic]
+fn test_to_create_find_overlapping_iter_with_leftmost_longest() {
+    let pma = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostLongest)
+        .build([""])
+        .unwrap();
+    pma.find_overlapping_iter("");
+}
+
+#[test]
+#[should_panic]
+fn test_to_create_find_overlapping_iter_with_leftmost_first() {
+    let pma = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostFirst)
+        .build([""])
+        .unwrap();
+    pma.find_overlapping_iter("");
+}
+
+#[test]
+#[should_panic]
+fn test_to_create_find_overlapping_no_suffix_iter_with_leftmost_longest() {
+    let pma = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostLongest)
+        .build([""])
+        .unwrap();
+    pma.find_overlapping_no_suffix_iter("");
+}
+
+#[test]
+#[should_panic]
+fn test_to_create_find_overlapping_no_suffix_iter_with_leftmost_first() {
+    let pma = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostFirst)
+        .build([""])
+        .unwrap();
+    pma.find_overlapping_no_suffix_iter("");
+}
+
+#[test]
+#[should_panic]
+fn test_to_create_leftmost_find_iter_with_standard() {
+    let pma = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::Standard)
+        .build([""])
+        .unwrap();
+    pma.leftmost_find_iter("");
+}
+
 /// The following test suites are copied from
 /// [aho-corasick crate](https://github.com/BurntSushi/aho-corasick/blob/master/src/tests.rs),
 /// although duplicate and empty patterns are removed.

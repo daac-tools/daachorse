@@ -56,6 +56,12 @@ impl SparseNFA {
             };
             return Err(DaachorseError::PatternScale(e));
         }
+        if pattern.is_empty() {
+            let e = PatternScaleError {
+                msg: "Pattern must not be empty".to_string(),
+            };
+            return Err(DaachorseError::PatternScale(e));
+        }
 
         let mut state_id = ROOT_STATE_ID;
         for &c in pattern {
@@ -172,6 +178,11 @@ impl SparseNFA {
     }
 
     fn build_outputs(&mut self, q: &[u32]) -> Result<(), DaachorseError> {
+        // The queue (built in build_fails or _leftmost) will not have the root state id,
+        // so in the following processing the output of the root state will not be handled.
+        // But, there is no problem since Daachorse does not allow an empty pattern.
+        debug_assert_ne!(q[0], ROOT_STATE_ID);
+
         let mut processed = vec![false; self.states.len()];
 
         // Builds an output sequence in which common parts are merged.
@@ -230,7 +241,12 @@ impl SparseNFA {
         self.outputs.shrink_to_fit();
         Self::check_outputs_error(&self.outputs)?;
 
-        // Sets dummy outputs
+        self.set_dummy_outputs(q, &processed);
+
+        Ok(())
+    }
+
+    fn set_dummy_outputs(&mut self, q: &[u32], processed: &[bool]) {
         for &state_id in q {
             let state_id = state_id as usize;
             let s = &mut self.states[state_id];
@@ -246,8 +262,6 @@ impl SparseNFA {
                 self.states[state_id].output_pos = self.states[fail_id as usize].output_pos;
             }
         }
-
-        Ok(())
     }
 
     #[inline(always)]
@@ -440,7 +454,9 @@ impl DoubleArrayAhoCorasickBuilder {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - the `patterns` contains duplicate entries,
+    ///   - `patterns` is empty,
+    ///   - `patterns` contains entries of length zero,
+    ///   - `patterns` contains duplicate entries,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -485,8 +501,10 @@ impl DoubleArrayAhoCorasickBuilder {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - the `patvals` contains duplicate patterns,
-    ///   - the `patvals` contains invalid values,
+    ///   - `patvals` is empty,
+    ///   - `patvals` contains patterns of length zero,
+    ///   - `patvals` contains duplicate patterns,
+    ///   - `patvals` contains invalid values,
     ///   - the scale of `patvals` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -540,6 +558,12 @@ impl DoubleArrayAhoCorasickBuilder {
         let mut nfa = SparseNFA::new(self.match_kind);
         for (pattern, value) in patvals {
             nfa.add(pattern.as_ref(), value)?;
+        }
+        if nfa.len == 0 {
+            let e = AutomatonScaleError {
+                msg: "Pattern set must not be empty.".to_string(),
+            };
+            return Err(DaachorseError::AutomatonScale(e));
         }
         let q = match self.match_kind {
             MatchKind::Standard => nfa.build_fails(),
