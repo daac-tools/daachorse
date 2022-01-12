@@ -146,6 +146,7 @@
 //! assert_eq!(None, it.next());
 //! ```
 mod builder;
+pub mod charwise;
 pub mod errors;
 #[cfg(test)]
 mod tests_fixed;
