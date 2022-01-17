@@ -25,17 +25,47 @@ const ROOT_STATE_ID: u32 = ROOT_STATE_IDX;
 // The dead state id of SparseNFA.
 const DEAD_STATE_ID: u32 = DEAD_STATE_IDX;
 
-struct SparseNFA {
-    states: Vec<SparseState>,
+/// Mapping edge lables to child ids using `BTreeMap`.
+type EdgeMap<L> = std::collections::BTreeMap<L, u32>;
+
+/// State of [`NfaBuilder`].
+#[derive(Clone)]
+struct NfaBuilderState<L> {
+    edges: EdgeMap<L>,
+    fail: u32,
+    output: (u32, u32),
+    output_pos: u32,
+}
+
+impl<L> Default for NfaBuilderState<L> {
+    fn default() -> Self {
+        Self {
+            edges: EdgeMap::<L>::default(),
+            fail: ROOT_STATE_ID,
+            output: (VALUE_INVALID, LENGTH_INVALID),
+            output_pos: OUTPUT_POS_INVALID,
+        }
+    }
+}
+
+/// Builder of an Aho-Corasick automaton.
+struct NfaBuilder<L> {
+    states: Vec<NfaBuilderState<L>>,
     outputs: Vec<Output>, // in which common parts are merged.
     len: usize,
     match_kind: MatchKind,
 }
 
-impl SparseNFA {
+impl<L> NfaBuilder<L>
+where
+    L: Copy + Ord,
+{
     fn new(match_kind: MatchKind) -> Self {
         Self {
-            states: vec![SparseState::default(), SparseState::default()], // (root, dead)
+            states: vec![
+                NfaBuilderState::<L>::default(), // root
+                NfaBuilderState::<L>::default(), // dead
+            ],
             outputs: vec![],
             len: 0,
             match_kind,
@@ -43,7 +73,7 @@ impl SparseNFA {
     }
 
     #[inline(always)]
-    fn add(&mut self, pattern: &[u8], value: u32) -> Result<(), DaachorseError> {
+    fn add(&mut self, pattern: &[L], value: u32) -> Result<(), DaachorseError> {
         if value == VALUE_INVALID {
             let e = PatternScaleError {
                 msg: format!("Input value must be < {}", VALUE_INVALID),
@@ -78,8 +108,8 @@ impl SparseNFA {
             } else if let Ok(next_state_id) = self.states.len().try_into() {
                 self.states[state_id as usize]
                     .edges
-                    .push((c, next_state_id));
-                self.states.push(SparseState::default());
+                    .insert(c, next_state_id);
+                self.states.push(NfaBuilderState::<L>::default());
                 state_id = next_state_id;
             } else {
                 let e = AutomatonScaleError {
@@ -91,9 +121,8 @@ impl SparseNFA {
 
         let output = &mut self.states[state_id as usize].output;
         if output.0 != VALUE_INVALID {
-            let e = DuplicatePatternError {
-                pattern: pattern.to_vec(),
-            };
+            // TODO: Fix the argument of `DuplicatePatternError` to handle type `L`.
+            let e = DuplicatePatternError { pattern: vec![] };
             return Err(DaachorseError::DuplicatePattern(e));
         }
         *output = (value, pattern.len().try_into().unwrap());
@@ -103,7 +132,7 @@ impl SparseNFA {
 
     fn build_fails(&mut self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
-        for &(_, child_id) in &self.states[ROOT_STATE_ID as usize].edges {
+        for &child_id in self.states[ROOT_STATE_ID as usize].edges.values() {
             q.push(child_id);
         }
 
@@ -111,8 +140,14 @@ impl SparseNFA {
         while qi < q.len() {
             let state_id = q[qi] as usize;
             qi += 1;
-            for i in 0..self.states[state_id].edges.len() {
-                let (c, child_id) = self.states[state_id].edges[i];
+
+            // TODO: Avoid to clone edges.
+            let edges: Vec<(L, u32)> = self.states[state_id]
+                .edges
+                .iter()
+                .map(|(&k, &v)| (k, v))
+                .collect();
+            for (c, child_id) in edges {
                 let mut fail_id = self.states[state_id].fail;
                 let new_fail_id = loop {
                     if let Some(child_fail_id) = self.get_child_id(fail_id, c) {
@@ -133,7 +168,7 @@ impl SparseNFA {
 
     fn build_fails_leftmost(&mut self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
-        for &(_, child_id) in &self.states[ROOT_STATE_ID as usize].edges {
+        for &child_id in self.states[ROOT_STATE_ID as usize].edges.values() {
             q.push(child_id);
         }
 
@@ -147,8 +182,13 @@ impl SparseNFA {
                 self.states[state_id].fail = DEAD_STATE_ID;
             }
 
-            for i in 0..self.states[state_id].edges.len() {
-                let (c, child_id) = self.states[state_id].edges[i];
+            // TODO: Avoid to clone edges.
+            let edges: Vec<(L, u32)> = self.states[state_id]
+                .edges
+                .iter()
+                .map(|(&k, &v)| (k, v))
+                .collect();
+            for (c, child_id) in edges {
                 let mut fail_id = self.states[state_id].fail;
 
                 // If the parent has the dead fail, the child also has the dead fail.
@@ -277,34 +317,13 @@ impl SparseNFA {
     }
 
     #[inline(always)]
-    fn get_child_id(&self, state_id: u32, c: u8) -> Option<u32> {
-        for &(cc, child_id) in &self.states[state_id as usize].edges {
-            if c == cc {
-                return Some(child_id);
-            }
-        }
-        None
+    fn get_child_id(&self, state_id: u32, c: L) -> Option<u32> {
+        self.states[state_id as usize].edges.get(&c).cloned()
     }
 }
 
-#[derive(Clone)]
-struct SparseState {
-    edges: Vec<(u8, u32)>,
-    fail: u32,
-    output: (u32, u32),
-    output_pos: u32,
-}
-
-impl Default for SparseState {
-    fn default() -> Self {
-        Self {
-            edges: vec![],
-            fail: ROOT_STATE_ID,
-            output: (VALUE_INVALID, LENGTH_INVALID),
-            output_pos: OUTPUT_POS_INVALID,
-        }
-    }
-}
+// Specialized [`NfaBuilder`] handling labels of `u8`.
+type BytewiseNfaBuilder = NfaBuilder<u8>;
 
 #[derive(Clone, Copy)]
 struct Extra {
@@ -550,12 +569,12 @@ impl DoubleArrayAhoCorasickBuilder {
         })
     }
 
-    fn build_sparse_nfa<I, P>(&mut self, patvals: I) -> Result<SparseNFA, DaachorseError>
+    fn build_sparse_nfa<I, P>(&mut self, patvals: I) -> Result<BytewiseNfaBuilder, DaachorseError>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<[u8]>,
     {
-        let mut nfa = SparseNFA::new(self.match_kind);
+        let mut nfa = BytewiseNfaBuilder::new(self.match_kind);
         for (pattern, value) in patvals {
             nfa.add(pattern.as_ref(), value)?;
         }
@@ -573,7 +592,7 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(nfa)
     }
 
-    fn build_double_array(&mut self, nfa: &SparseNFA) -> Result<(), DaachorseError> {
+    fn build_double_array(&mut self, nfa: &BytewiseNfaBuilder) -> Result<(), DaachorseError> {
         self.init_array();
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
@@ -592,12 +611,14 @@ impl DoubleArrayAhoCorasickBuilder {
                 continue;
             }
 
-            let base = self.find_base(&state.edges);
+            let edges: Vec<(u8, u32)> = state.edges.iter().map(|(&k, &v)| (k, v)).collect();
+            let base = self.find_base(&edges);
+
             if base as usize >= self.states.len() {
                 self.extend_array()?;
             }
 
-            for &(c, child_id) in &state.edges {
+            for &(c, child_id) in &edges {
                 let child_idx = base ^ u32::from(c);
                 self.fix_state(child_idx);
                 self.states[child_idx as usize].set_check(c);
