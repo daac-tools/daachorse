@@ -601,6 +601,8 @@ impl DoubleArrayAhoCorasickBuilder {
 
         // Arranges base & check values
         let mut stack = vec![ROOT_STATE_ID];
+        let mut labels = vec![];
+
         while let Some(state_id) = stack.pop() {
             debug_assert_ne!(state_id, DEAD_STATE_ID);
             let state = &nfa.states[state_id as usize];
@@ -613,14 +615,15 @@ impl DoubleArrayAhoCorasickBuilder {
                 continue;
             }
 
-            let edges: Vec<(u8, u32)> = s.edges.iter().map(|(&k, &v)| (k, v)).collect();
-            let base = self.find_base(&edges);
+            labels.clear();
+            s.edges.keys().for_each(|&k| labels.push(k));
 
+            let base = self.find_base(&labels);
             if base as usize >= self.states.len() {
                 self.extend_array()?;
             }
 
-            for &(c, child_id) in &edges {
+            for (&c, &child_id) in &s.edges {
                 let child_idx = base ^ u32::from(c);
                 self.fix_state(child_idx);
                 self.states[child_idx as usize].set_check(c);
@@ -716,15 +719,15 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn find_base(&self, edges: &[(u8, u32)]) -> u32 {
+    fn find_base(&self, labels: &[u8]) -> u32 {
         if self.head_idx == DEAD_STATE_IDX {
             return self.states.len().try_into().unwrap();
         }
         let mut idx = self.head_idx;
         loop {
             debug_assert!(!self.extra_ref(idx).is_used_index());
-            let base = idx ^ u32::from(edges[0].0);
-            if self.check_valid_base(base, edges) {
+            let base = idx ^ u32::from(labels[0]);
+            if self.check_valid_base(base, labels) {
                 return base;
             }
             idx = self.extra_ref(idx).get_next();
@@ -736,11 +739,11 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn check_valid_base(&self, base: u32, edges: &[(u8, u32)]) -> bool {
+    fn check_valid_base(&self, base: u32, labels: &[u8]) -> bool {
         if self.extra_ref(base).is_used_base() {
             return false;
         }
-        for &(c, _) in edges {
+        for &c in labels {
             let idx = base ^ u32::from(c);
             if self.extra_ref(idx).is_used_index() {
                 return false;
