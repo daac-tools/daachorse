@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use crate::errors::{
     AutomatonScaleError, DaachorseError, DuplicatePatternError, PatternScaleError,
 };
@@ -50,7 +52,7 @@ impl<L> Default for NfaBuilderState<L> {
 
 /// Builder of an Aho-Corasick automaton.
 struct NfaBuilder<L> {
-    states: Vec<NfaBuilderState<L>>,
+    states: Vec<RefCell<NfaBuilderState<L>>>,
     outputs: Vec<Output>, // in which common parts are merged.
     len: usize,
     match_kind: MatchKind,
@@ -63,8 +65,8 @@ where
     fn new(match_kind: MatchKind) -> Self {
         Self {
             states: vec![
-                NfaBuilderState::<L>::default(), // root
-                NfaBuilderState::<L>::default(), // dead
+                RefCell::new(NfaBuilderState::<L>::default()), // root
+                RefCell::new(NfaBuilderState::<L>::default()), // dead
             ],
             outputs: vec![],
             len: 0,
@@ -97,7 +99,7 @@ where
         for &c in pattern {
             if self.match_kind.is_leftmost_first() {
                 // If state_id has an output, the descendants will never searched.
-                let output = &mut self.states[state_id as usize].output;
+                let output = &self.states[state_id as usize].borrow().output;
                 if output.0 != VALUE_INVALID {
                     return Ok(());
                 }
@@ -107,9 +109,11 @@ where
                 state_id = next_state_id;
             } else if let Ok(next_state_id) = self.states.len().try_into() {
                 self.states[state_id as usize]
+                    .borrow_mut()
                     .edges
                     .insert(c, next_state_id);
-                self.states.push(NfaBuilderState::<L>::default());
+                self.states
+                    .push(RefCell::new(NfaBuilderState::<L>::default()));
                 state_id = next_state_id;
             } else {
                 let e = AutomatonScaleError {
@@ -119,7 +123,7 @@ where
             }
         }
 
-        let output = &mut self.states[state_id as usize].output;
+        let output = &mut self.states[state_id as usize].borrow_mut().output;
         if output.0 != VALUE_INVALID {
             // TODO: Fix the argument of `DuplicatePatternError` to handle type `L`.
             let e = DuplicatePatternError { pattern: vec![] };
@@ -132,7 +136,7 @@ where
 
     fn build_fails(&mut self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
-        for &child_id in self.states[ROOT_STATE_ID as usize].edges.values() {
+        for &child_id in self.states[ROOT_STATE_ID as usize].borrow().edges.values() {
             q.push(child_id);
         }
 
@@ -141,25 +145,20 @@ where
             let state_id = q[qi] as usize;
             qi += 1;
 
-            // TODO: Avoid to clone edges.
-            let edges: Vec<(L, u32)> = self.states[state_id]
-                .edges
-                .iter()
-                .map(|(&k, &v)| (k, v))
-                .collect();
-            for (c, child_id) in edges {
-                let mut fail_id = self.states[state_id].fail;
+            let s = &self.states[state_id].borrow();
+            for (&c, &child_id) in &s.edges {
+                let mut fail_id = s.fail;
                 let new_fail_id = loop {
                     if let Some(child_fail_id) = self.get_child_id(fail_id, c) {
                         break child_fail_id;
                     }
-                    let next_fail_id = self.states[fail_id as usize].fail;
+                    let next_fail_id = self.states[fail_id as usize].borrow().fail;
                     if fail_id == ROOT_STATE_ID && next_fail_id == ROOT_STATE_ID {
                         break ROOT_STATE_ID;
                     }
                     fail_id = next_fail_id;
                 };
-                self.states[child_id as usize].fail = new_fail_id;
+                self.states[child_id as usize].borrow_mut().fail = new_fail_id;
                 q.push(child_id);
             }
         }
@@ -168,7 +167,7 @@ where
 
     fn build_fails_leftmost(&mut self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
-        for &child_id in self.states[ROOT_STATE_ID as usize].edges.values() {
+        for &child_id in self.states[ROOT_STATE_ID as usize].borrow().edges.values() {
             q.push(child_id);
         }
 
@@ -177,19 +176,15 @@ where
             let state_id = q[qi] as usize;
             qi += 1;
 
+            let s = &mut self.states[state_id].borrow_mut();
+
             // Sets the output state to the dead fail.
-            if self.states[state_id].output.0 != VALUE_INVALID {
-                self.states[state_id].fail = DEAD_STATE_ID;
+            if s.output.0 != VALUE_INVALID {
+                s.fail = DEAD_STATE_ID;
             }
 
-            // TODO: Avoid to clone edges.
-            let edges: Vec<(L, u32)> = self.states[state_id]
-                .edges
-                .iter()
-                .map(|(&k, &v)| (k, v))
-                .collect();
-            for (c, child_id) in edges {
-                let mut fail_id = self.states[state_id].fail;
+            for (&c, &child_id) in &s.edges {
+                let mut fail_id = s.fail;
 
                 // If the parent has the dead fail, the child also has the dead fail.
                 let new_fail_id = if fail_id == DEAD_STATE_ID {
@@ -199,7 +194,7 @@ where
                         if let Some(child_fail_id) = self.get_child_id(fail_id, c) {
                             break child_fail_id;
                         }
-                        let next_fail_id = self.states[fail_id as usize].fail;
+                        let next_fail_id = self.states[fail_id as usize].borrow().fail;
                         if next_fail_id == DEAD_STATE_ID {
                             break DEAD_STATE_ID;
                         }
@@ -210,7 +205,7 @@ where
                     }
                 };
 
-                self.states[child_id as usize].fail = new_fail_id;
+                self.states[child_id as usize].borrow_mut().fail = new_fail_id;
                 q.push(child_id);
             }
         }
@@ -227,30 +222,32 @@ where
 
         // Builds an output sequence in which common parts are merged.
         for &state_id in q.iter().rev() {
-            let s = &mut self.states[state_id as usize];
-            if s.output.0 == VALUE_INVALID {
-                continue;
-            }
+            {
+                let s = &mut self.states[state_id as usize].borrow_mut();
+                if s.output.0 == VALUE_INVALID {
+                    continue;
+                }
 
-            if processed[state_id as usize] {
-                debug_assert_ne!(s.output_pos, OUTPUT_POS_INVALID);
-                continue;
-            }
-            debug_assert_eq!(s.output_pos, OUTPUT_POS_INVALID);
-            processed[state_id as usize] = true;
+                if processed[state_id as usize] {
+                    debug_assert_ne!(s.output_pos, OUTPUT_POS_INVALID);
+                    continue;
+                }
+                debug_assert_eq!(s.output_pos, OUTPUT_POS_INVALID);
+                processed[state_id as usize] = true;
 
-            s.output_pos = self.outputs.len().try_into().unwrap();
-            self.outputs.push(Output::new(s.output.0, s.output.1, true));
-            Self::check_outputs_error(&self.outputs)?;
+                s.output_pos = self.outputs.len().try_into().unwrap();
+                self.outputs.push(Output::new(s.output.0, s.output.1, true));
+                Self::check_outputs_error(&self.outputs)?;
+            }
 
             let mut fail_id = state_id;
             loop {
-                fail_id = self.states[fail_id as usize].fail;
+                fail_id = self.states[fail_id as usize].borrow().fail;
                 if fail_id == ROOT_STATE_ID || fail_id == DEAD_STATE_ID {
                     break;
                 }
 
-                let s = &mut self.states[fail_id as usize];
+                let s = &mut self.states[fail_id as usize].borrow_mut();
                 if s.output.0 == VALUE_INVALID {
                     continue;
                 }
@@ -289,7 +286,7 @@ where
     fn set_dummy_outputs(&mut self, q: &[u32], processed: &[bool]) {
         for &state_id in q {
             let state_id = state_id as usize;
-            let s = &mut self.states[state_id];
+            let s = &mut self.states[state_id].borrow_mut();
             if processed[state_id] {
                 debug_assert_ne!(s.output_pos, OUTPUT_POS_INVALID);
                 continue;
@@ -297,9 +294,9 @@ where
             debug_assert_eq!(s.output_pos, OUTPUT_POS_INVALID);
             debug_assert_eq!(s.output.0, VALUE_INVALID);
 
-            let fail_id = self.states[state_id].fail;
+            let fail_id = s.fail;
             if fail_id != DEAD_STATE_ID {
-                self.states[state_id].output_pos = self.states[fail_id as usize].output_pos;
+                s.output_pos = self.states[fail_id as usize].borrow().output_pos;
             }
         }
     }
@@ -318,7 +315,11 @@ where
 
     #[inline(always)]
     fn get_child_id(&self, state_id: u32, c: L) -> Option<u32> {
-        self.states[state_id as usize].edges.get(&c).cloned()
+        self.states[state_id as usize]
+            .borrow()
+            .edges
+            .get(&c)
+            .cloned()
     }
 }
 
@@ -607,11 +608,12 @@ impl DoubleArrayAhoCorasickBuilder {
             let state_idx = state_id_map[state_id as usize] as usize;
             debug_assert_ne!(state_idx, DEAD_STATE_IDX as usize);
 
-            if state.edges.is_empty() {
+            let s = &state.borrow();
+            if s.edges.is_empty() {
                 continue;
             }
 
-            let edges: Vec<(u8, u32)> = state.edges.iter().map(|(&k, &v)| (k, v)).collect();
+            let edges: Vec<(u8, u32)> = s.edges.iter().map(|(&k, &v)| (k, v)).collect();
             let base = self.find_base(&edges);
 
             if base as usize >= self.states.len() {
@@ -638,9 +640,10 @@ impl DoubleArrayAhoCorasickBuilder {
             let idx = state_id_map[i] as usize;
             debug_assert_ne!(idx, DEAD_STATE_IDX as usize);
 
-            self.states[idx].set_output_pos(state.output_pos);
+            let s = &state.borrow();
+            self.states[idx].set_output_pos(s.output_pos);
 
-            let fail_id = state.fail;
+            let fail_id = s.fail;
             if fail_id == DEAD_STATE_ID {
                 self.states[idx].set_fail(DEAD_STATE_IDX);
             } else {
