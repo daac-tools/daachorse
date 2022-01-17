@@ -599,13 +599,13 @@ impl DoubleArrayAhoCorasickBuilder {
         state_id_map[ROOT_STATE_ID as usize] = ROOT_STATE_IDX;
 
         // Arranges base & check values
-        for (i, state) in nfa.states.iter().enumerate() {
-            if i == DEAD_STATE_ID as usize {
-                continue;
-            }
+        let mut stack = vec![ROOT_STATE_ID];
+        while let Some(state_id) = stack.pop() {
+            debug_assert_ne!(state_id, DEAD_STATE_ID);
+            let state = &nfa.states[state_id as usize];
 
-            let idx = state_id_map[i] as usize;
-            debug_assert_ne!(idx, DEAD_STATE_IDX as usize);
+            let state_idx = state_id_map[state_id as usize] as usize;
+            debug_assert_ne!(state_idx, DEAD_STATE_IDX as usize);
 
             if state.edges.is_empty() {
                 continue;
@@ -623,8 +623,9 @@ impl DoubleArrayAhoCorasickBuilder {
                 self.fix_state(child_idx);
                 self.states[child_idx as usize].set_check(c);
                 state_id_map[child_id as usize] = child_idx;
+                stack.push(child_id);
             }
-            self.states[idx].set_base(base);
+            self.states[state_idx].set_base(base);
             self.extra_mut_ref(base).use_base();
         }
 
