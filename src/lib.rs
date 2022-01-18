@@ -148,6 +148,7 @@
 mod builder;
 pub mod charwise;
 pub mod errors;
+mod nfa_builder;
 #[cfg(test)]
 mod tests_fixed;
 #[cfg(test)]
