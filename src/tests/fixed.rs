@@ -1,4 +1,4 @@
-use super::*;
+use crate::*;
 
 #[test]
 fn test_double_array() {

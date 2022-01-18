@@ -145,14 +145,14 @@
 //!
 //! assert_eq!(None, it.next());
 //! ```
+
 mod builder;
 pub mod charwise;
 pub mod errors;
 mod nfa_builder;
+
 #[cfg(test)]
-mod tests_fixed;
-#[cfg(test)]
-mod tests_random;
+mod tests;
 
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::DaachorseError;
