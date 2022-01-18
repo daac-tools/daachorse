@@ -54,12 +54,12 @@ impl Error for InvalidArgumentError {}
 #[derive(Debug)]
 pub struct DuplicatePatternError {
     /// A duplicate pattern.
-    pub(crate) pattern: Vec<u8>,
+    pub(crate) pattern: String,
 }
 
 impl fmt::Display for DuplicatePatternError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DuplicatePatternError: {:?}", self.pattern)
+        write!(f, "DuplicatePatternError: {}", self.pattern)
     }
 }
 

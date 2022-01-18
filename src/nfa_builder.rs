@@ -47,7 +47,7 @@ pub struct NfaBuilder<L> {
 
 impl<L> NfaBuilder<L>
 where
-    L: Copy + Ord,
+    L: Copy + Ord + std::fmt::Debug,
 {
     pub(crate) fn new(match_kind: MatchKind) -> Self {
         Self {
@@ -112,8 +112,9 @@ where
 
         let output = &mut self.states[state_id as usize].borrow_mut().output;
         if output.0 != VALUE_INVALID {
-            // TODO: Fix the argument of `DuplicatePatternError` to handle type `L`.
-            let e = DuplicatePatternError { pattern: vec![] };
+            let e = DuplicatePatternError {
+                pattern: format!("{:?}", pattern),
+            };
             return Err(DaachorseError::DuplicatePattern(e));
         }
         *output = (value, pattern.len().try_into().unwrap());
