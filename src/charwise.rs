@@ -1,5 +1,14 @@
+pub mod builder;
 pub mod iter;
 pub mod mapper;
+
+pub use crate::charwise::builder::CharwiseDoubleArrayAhoCorasickBuilder;
+pub use crate::charwise::iter::{
+    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator,
+};
+pub use crate::charwise::mapper::Mapper;
+use crate::errors::DaachorseError;
+use crate::{MatchKind, Output};
 
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: i32 = std::i32::MAX;
@@ -9,13 +18,6 @@ pub(crate) const OUTPUT_POS_INVALID: u32 = std::u32::MAX;
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
 pub(crate) const DEAD_STATE_IDX: u32 = 1;
-
-use crate::{MatchKind, Output};
-
-pub use crate::charwise::iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator,
-};
-pub use crate::charwise::mapper::Mapper;
 
 /// Fast multiple pattern match automaton implemented
 /// with the Aho-Corasick algorithm and character-wise double-array data structure.
@@ -42,6 +44,56 @@ impl<M> CharwiseDoubleArrayAhoCorasick<M>
 where
     M: Mapper,
 {
+    /// Creates a new [`CharwiseDoubleArrayAhoCorasick`] from input patterns.
+    /// The value `i` is automatically associated with `patterns[i]`.
+    ///
+    /// # Arguments
+    ///
+    /// * `patterns` - List of patterns.
+    /// * `mapper` - Mapper from characters to identifiers.
+    ///
+    /// # Errors
+    ///
+    /// [`DaachorseError`] is returned when
+    ///   - `patterns` is empty,
+    ///   - `patterns` contains entries of length zero,
+    ///   - `patterns` contains duplicate entries,
+    ///   - the scale of `patterns` exceeds the expected one,
+    ///   - the scale of the resulting automaton exceeds the expected one, or
+    ///   - the mapper does not contain characters in `patterns`.
+    pub fn new<I, P>(patterns: I, mapper: M) -> Result<Self, DaachorseError>
+    where
+        I: IntoIterator<Item = P>,
+        P: AsRef<str>,
+    {
+        CharwiseDoubleArrayAhoCorasickBuilder::new(mapper).build(patterns)
+    }
+
+    /// Creates a new [`CharwiseDoubleArrayAhoCorasick`] from input pattern-value pairs.
+    ///
+    /// # Arguments
+    ///
+    /// * `patvals` - List of pattern-value pairs, in which the value is of type `u32` and less than `u32::MAX`.
+    /// * `mapper` - Mapper from characters to identifiers.
+    ///
+    /// # Errors
+    ///
+    /// [`DaachorseError`] is returned when
+    ///   - `patvals` is empty,
+    ///   - `patvals` contains patterns of length zero,
+    ///   - `patvals` contains duplicate patterns,
+    ///   - `patvals` contains invalid values,
+    ///   - the scale of `patvals` exceeds the expected one,
+    ///   - the scale of the resulting automaton exceeds the expected one, or
+    ///   - the mapper does not contain characters in `patvals`.
+    pub fn with_values<I, P>(patvals: I, mapper: M) -> Result<Self, DaachorseError>
+    where
+        I: IntoIterator<Item = (P, u32)>,
+        P: AsRef<str>,
+    {
+        CharwiseDoubleArrayAhoCorasickBuilder::new(mapper).build_with_values(patvals)
+    }
+
     /// Returns an iterator of non-overlapping matches in the given haystack.
     ///
     /// # Arguments
