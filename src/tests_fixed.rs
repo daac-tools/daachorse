@@ -89,6 +89,18 @@ fn test_num_states() {
 }
 
 #[test]
+fn test_input_order() {
+    let patvals_sorted = vec![("ababa", 0), ("abba", 1), ("baaba", 2)];
+    let patvals_unsorted = vec![("abba", 1), ("baaba", 2), ("ababa", 0)];
+
+    let pma_sorted = DoubleArrayAhoCorasick::with_values(patvals_sorted).unwrap();
+    let pma_unsorted = DoubleArrayAhoCorasick::with_values(patvals_unsorted).unwrap();
+
+    assert_eq!(pma_sorted.states, pma_unsorted.states);
+    assert_eq!(pma_sorted.outputs, pma_unsorted.outputs);
+}
+
+#[test]
 fn test_empty_pattern() {
     let patterns = vec![""];
     assert!(DoubleArrayAhoCorasick::new(patterns).is_err());

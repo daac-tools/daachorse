@@ -2,6 +2,7 @@ use super::*;
 
 use std::collections::{HashMap, HashSet};
 
+use rand::seq::SliceRandom;
 use rand::Rng;
 
 fn generate_random_string(size: usize) -> String {
@@ -469,6 +470,40 @@ fn test_dump_states_random() {
                     visitor.push(child_idx);
                 }
             }
+        }
+    }
+}
+
+#[test]
+fn test_input_order_random() {
+    let mut rng = rand::thread_rng();
+    for _ in 0..100 {
+        let patvals = generate_random_patvals(&[(100, 4)], generate_random_string);
+        let mut patvals: Vec<_> = patvals.into_iter().collect();
+        patvals.sort_by(|(s1, _), (s2, _)| s1.cmp(s2));
+        let pma_sorted = DoubleArrayAhoCorasick::with_values(patvals.clone()).unwrap();
+        for _ in 0..10 {
+            patvals.shuffle(&mut rng);
+            let pma_unsorted = DoubleArrayAhoCorasick::with_values(patvals.clone()).unwrap();
+            assert_eq!(pma_sorted.states, pma_unsorted.states);
+            assert_eq!(pma_sorted.outputs, pma_unsorted.outputs);
+        }
+    }
+}
+
+#[test]
+fn test_input_order_binary_random() {
+    let mut rng = rand::thread_rng();
+    for _ in 0..100 {
+        let patvals = generate_random_patvals(&[(100, 4)], generate_random_binary_string);
+        let mut patvals: Vec<_> = patvals.into_iter().collect();
+        patvals.sort_by(|(s1, _), (s2, _)| s1.cmp(s2));
+        let pma_sorted = DoubleArrayAhoCorasick::with_values(patvals.clone()).unwrap();
+        for _ in 0..10 {
+            patvals.shuffle(&mut rng);
+            let pma_unsorted = DoubleArrayAhoCorasick::with_values(patvals.clone()).unwrap();
+            assert_eq!(pma_sorted.states, pma_unsorted.states);
+            assert_eq!(pma_sorted.outputs, pma_unsorted.outputs);
         }
     }
 }

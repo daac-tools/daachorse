@@ -171,7 +171,7 @@ pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
 pub(crate) const DEAD_STATE_IDX: u32 = 1;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct State {
     base: u32,
     fach: u32,
@@ -233,7 +233,18 @@ impl State {
     }
 }
 
-#[derive(Copy, Clone)]
+impl std::fmt::Debug for State {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("State")
+            .field("base", &self.base())
+            .field("check", &self.check())
+            .field("fail", &self.fail())
+            .field("output_pos", &self.output_pos())
+            .finish()
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
 struct Output {
     value: u32,
     length: u32, // 1 bit is borrowed by a beginning flag
@@ -261,6 +272,16 @@ impl Output {
     #[inline(always)]
     pub const fn is_begin(self) -> bool {
         self.length & 1 == 1
+    }
+}
+
+impl std::fmt::Debug for Output {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Output")
+            .field("value", &self.value())
+            .field("length", &self.length())
+            .field("is_begin", &self.is_begin())
+            .finish()
     }
 }
 
