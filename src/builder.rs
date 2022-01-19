@@ -1,4 +1,4 @@
-use crate::errors::{AutomatonScaleError, DaachorseError};
+use crate::errors::{AutomatonScaleError, DaachorseError, Result};
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
 use crate::{DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, FAIL_MAX, ROOT_STATE_IDX};
 
@@ -190,7 +190,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn build<I, P>(self, patterns: I) -> Result<DoubleArrayAhoCorasick, DaachorseError>
+    pub fn build<I, P>(self, patterns: I) -> Result<DoubleArrayAhoCorasick>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
@@ -241,10 +241,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn build_with_values<I, P>(
-        mut self,
-        patvals: I,
-    ) -> Result<DoubleArrayAhoCorasick, DaachorseError>
+    pub fn build_with_values<I, P>(mut self, patvals: I) -> Result<DoubleArrayAhoCorasick>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<[u8]>,
@@ -260,7 +257,7 @@ impl DoubleArrayAhoCorasickBuilder {
         })
     }
 
-    fn build_sparse_nfa<I, P>(&mut self, patvals: I) -> Result<BytewiseNfaBuilder, DaachorseError>
+    fn build_sparse_nfa<I, P>(&mut self, patvals: I) -> Result<BytewiseNfaBuilder>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<[u8]>,
@@ -283,7 +280,7 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(nfa)
     }
 
-    fn build_double_array(&mut self, nfa: &BytewiseNfaBuilder) -> Result<(), DaachorseError> {
+    fn build_double_array(&mut self, nfa: &BytewiseNfaBuilder) -> Result<()> {
         self.init_array();
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
@@ -442,7 +439,7 @@ impl DoubleArrayAhoCorasickBuilder {
         true
     }
 
-    fn extend_array(&mut self) -> Result<(), DaachorseError> {
+    fn extend_array(&mut self) -> Result<()> {
         let old_len = self.states.len().try_into().unwrap();
         // The following condition is same as `new_len > STATE_INDEX_IVALID`.
         // We use the following condition to avoid overflow.

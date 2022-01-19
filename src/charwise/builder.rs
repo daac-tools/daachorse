@@ -1,5 +1,5 @@
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, Mapper, MatchKind, State};
-use crate::errors::{AutomatonScaleError, DaachorseError, InvalidArgumentError};
+use crate::errors::{AutomatonScaleError, DaachorseError, InvalidArgumentError, Result};
 use crate::nfa_builder::NfaBuilder;
 
 use crate::charwise::{DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX};
@@ -65,10 +65,7 @@ where
     ///   - the scale of `patterns` exceeds the expected one,
     ///   - the scale of the resulting automaton exceeds the expected one, or
     ///   - the mapper does not contain characters in `patterns`.
-    pub fn build<I, P>(
-        self,
-        patterns: I,
-    ) -> Result<CharwiseDoubleArrayAhoCorasick<M>, DaachorseError>
+    pub fn build<I, P>(self, patterns: I) -> Result<CharwiseDoubleArrayAhoCorasick<M>>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<str>,
@@ -99,7 +96,7 @@ where
     pub fn build_with_values<I, P>(
         mut self,
         patvals: I,
-    ) -> Result<CharwiseDoubleArrayAhoCorasick<M>, DaachorseError>
+    ) -> Result<CharwiseDoubleArrayAhoCorasick<M>>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<str>,
@@ -118,7 +115,7 @@ where
         })
     }
 
-    fn build_original_nfa<I, P>(&mut self, patvals: I) -> Result<CharwiseNfaBuilder, DaachorseError>
+    fn build_original_nfa<I, P>(&mut self, patvals: I) -> Result<CharwiseNfaBuilder>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<str>,
@@ -147,7 +144,7 @@ where
         Ok(nfa)
     }
 
-    fn build_double_array(&mut self, nfa: &CharwiseNfaBuilder) -> Result<(), DaachorseError> {
+    fn build_double_array(&mut self, nfa: &CharwiseNfaBuilder) -> Result<()> {
         self.init_array();
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];

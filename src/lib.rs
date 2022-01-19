@@ -155,7 +155,7 @@ mod nfa_builder;
 mod tests;
 
 pub use builder::DoubleArrayAhoCorasickBuilder;
-use errors::DaachorseError;
+use errors::Result;
 
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: u32 = std::u32::MAX;
@@ -589,7 +589,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn new<I, P>(patterns: I) -> Result<Self, DaachorseError>
+    pub fn new<I, P>(patterns: I) -> Result<Self>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
@@ -633,7 +633,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn with_values<I, P>(patvals: I) -> Result<Self, DaachorseError>
+    pub fn with_values<I, P>(patvals: I) -> Result<Self>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<[u8]>,

@@ -7,7 +7,7 @@ pub use crate::charwise::iter::{
     FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator,
 };
 pub use crate::charwise::mapper::Mapper;
-use crate::errors::DaachorseError;
+use crate::errors::Result;
 use crate::{MatchKind, Output};
 
 // The maximum BASE value used as an invalid value.
@@ -61,7 +61,7 @@ where
     ///   - the scale of `patterns` exceeds the expected one,
     ///   - the scale of the resulting automaton exceeds the expected one, or
     ///   - the mapper does not contain characters in `patterns`.
-    pub fn new<I, P>(patterns: I, mapper: M) -> Result<Self, DaachorseError>
+    pub fn new<I, P>(patterns: I, mapper: M) -> Result<Self>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<str>,
@@ -86,7 +86,7 @@ where
     ///   - the scale of `patvals` exceeds the expected one,
     ///   - the scale of the resulting automaton exceeds the expected one, or
     ///   - the mapper does not contain characters in `patvals`.
-    pub fn with_values<I, P>(patvals: I, mapper: M) -> Result<Self, DaachorseError>
+    pub fn with_values<I, P>(patvals: I, mapper: M) -> Result<Self>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<str>,

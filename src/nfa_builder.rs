@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use crate::errors::{
-    AutomatonScaleError, DaachorseError, DuplicatePatternError, PatternScaleError,
+    AutomatonScaleError, DaachorseError, DuplicatePatternError, PatternScaleError, Result,
 };
 use crate::{MatchKind, Output, OUTPUT_POS_INVALID};
 
@@ -62,7 +62,7 @@ where
     }
 
     #[inline(always)]
-    pub(crate) fn add(&mut self, pattern: &[L], value: u32) -> Result<(), DaachorseError> {
+    pub(crate) fn add(&mut self, pattern: &[L], value: u32) -> Result<()> {
         if value == VALUE_INVALID {
             let e = PatternScaleError {
                 msg: format!("Input value must be < {}", VALUE_INVALID),
@@ -200,7 +200,7 @@ where
         q
     }
 
-    pub(crate) fn build_outputs(&mut self, q: &[u32]) -> Result<(), DaachorseError> {
+    pub(crate) fn build_outputs(&mut self, q: &[u32]) -> Result<()> {
         // The queue (built in build_fails or _leftmost) will not have the root state id,
         // so in the following processing the output of the root state will not be handled.
         // But, there is no problem since Daachorse does not allow an empty pattern.
@@ -290,7 +290,7 @@ where
     }
 
     #[inline(always)]
-    fn check_outputs_error(outputs: &[Output]) -> Result<(), DaachorseError> {
+    fn check_outputs_error(outputs: &[Output]) -> Result<()> {
         if outputs.len() > OUTPUT_POS_INVALID as usize {
             let e = AutomatonScaleError {
                 msg: format!("outputs.len() must be <= {}", OUTPUT_POS_INVALID),

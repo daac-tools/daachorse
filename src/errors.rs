@@ -2,6 +2,7 @@
 
 use std::error::Error;
 use std::fmt;
+use std::result;
 
 /// Errors in daachorse.
 #[derive(Debug)]
@@ -92,3 +93,6 @@ impl fmt::Display for AutomatonScaleError {
 }
 
 impl Error for AutomatonScaleError {}
+
+/// A specialized Result type for Daachorse.
+pub type Result<T, E = DaachorseError> = result::Result<T, E>;
