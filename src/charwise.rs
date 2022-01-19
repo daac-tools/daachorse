@@ -31,7 +31,7 @@ pub(crate) const DEAD_STATE_IDX: u32 = 1;
 ///
 /// - [`CharwiseDoubleArrayAhoCorasick::with_values`] builds an automaton
 ///    from a set of pairs of a UTF-8 string and a `u32` value.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct CharwiseDoubleArrayAhoCorasick<M> {
     states: Vec<State>,
     outputs: Vec<Output>,

@@ -992,12 +992,6 @@ pub enum MatchKind {
     LeftmostFirst,
 }
 
-impl Default for MatchKind {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
-
 impl MatchKind {
     fn is_standard(self) -> bool {
         self == Self::Standard

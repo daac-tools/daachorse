@@ -120,7 +120,7 @@ impl DoubleArrayAhoCorasickBuilder {
             states: Vec::with_capacity(init_capa as usize),
             extras: [Extra::default(); FREE_STATES as usize],
             head_idx: DEAD_STATE_IDX,
-            match_kind: MatchKind::default(),
+            match_kind: MatchKind::Standard,
         }
     }
 

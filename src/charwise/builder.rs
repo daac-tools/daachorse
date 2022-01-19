@@ -34,7 +34,7 @@ where
         Self {
             states: Vec::with_capacity(INIT_CAPACITY as usize),
             mapper,
-            match_kind: MatchKind::default(),
+            match_kind: MatchKind::Standard,
         }
     }
 
