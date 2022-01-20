@@ -6,7 +6,7 @@ pub use crate::charwise::builder::CharwiseDoubleArrayAhoCorasickBuilder;
 pub use crate::charwise::iter::{
     FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator,
 };
-pub use crate::charwise::mapper::Mapper;
+pub use crate::charwise::mapper::{Mapper, NoMapper};
 use crate::errors::Result;
 use crate::{MatchKind, Output};
 
@@ -61,6 +61,27 @@ where
     ///   - the scale of `patterns` exceeds the expected one,
     ///   - the scale of the resulting automaton exceeds the expected one, or
     ///   - the mapper does not contain characters in `patterns`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasick, NoMapper};
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns, mapper).unwrap();
+    ///
+    /// let mut it = pma.find_iter("全世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
     pub fn new<I, P>(patterns: I, mapper: M) -> Result<Self>
     where
         I: IntoIterator<Item = P>,
@@ -86,6 +107,27 @@ where
     ///   - the scale of `patvals` exceeds the expected one,
     ///   - the scale of the resulting automaton exceeds the expected one, or
     ///   - the mapper does not contain characters in `patvals`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasick, NoMapper};
+    ///
+    /// let patvals = vec![("全世界", 0), ("世界", 10), ("に", 100)];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::with_values(patvals, mapper).unwrap();
+    ///
+    /// let mut it = pma.find_iter("全世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 100), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
     pub fn with_values<I, P>(patvals: I, mapper: M) -> Result<Self>
     where
         I: IntoIterator<Item = (P, u32)>,
@@ -104,6 +146,27 @@ where
     ///
     /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
     /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasick, NoMapper};
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns, mapper).unwrap();
+    ///
+    /// let mut it = pma.find_iter("全世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
     pub fn find_iter<P>(&self, haystack: P) -> FindIterator<M, P>
     where
         P: AsRef<str>,
@@ -129,6 +192,30 @@ where
     ///
     /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
     /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasick, NoMapper};
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns, mapper).unwrap();
+    ///
+    /// let mut it = pma.find_overlapping_iter("全世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((3, 9, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
     pub fn find_overlapping_iter<P>(&self, haystack: P) -> FindOverlappingIterator<M, P>
     where
         P: AsRef<str>,
@@ -162,6 +249,27 @@ where
     ///
     /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
     /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasick, NoMapper};
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns, mapper).unwrap();
+    ///
+    /// let mut it = pma.find_overlapping_no_suffix_iter("全世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
     pub fn find_overlapping_no_suffix_iter<P>(
         &self,
         haystack: P,
@@ -182,22 +290,62 @@ where
     }
 
     /// Returns the total number of states this automaton has.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasick, NoMapper};
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns, mapper).unwrap();
+    ///
+    /// assert_eq!(pma.num_states(), 6);
+    /// ```
     pub fn num_states(&self) -> usize {
         self.num_states
     }
 
     /// Returns the total number of elements of the double array.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasick, NoMapper};
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns, mapper).unwrap();
+    ///
+    /// assert_eq!(pma.num_elements(), 7);
+    /// ```
     pub fn num_elements(&self) -> usize {
         self.states.len()
     }
 
     /// Returns the total amount of heap used by this automaton in bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasick, NoMapper};
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns, mapper).unwrap();
+    ///
+    /// assert_eq!(pma.heap_bytes(), 144);
+    /// ```
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * std::mem::size_of::<State>()
             + self.outputs.len() * std::mem::size_of::<Output>()
             + self.mapper.heap_bytes()
     }
 
+    /// TODO: Make unsafe
     #[inline(always)]
     fn get_child_index(&self, state_id: u32, mapped_c: u32) -> Option<u32> {
         if let Some(base) = self.states[state_id as usize].base() {
@@ -214,6 +362,7 @@ where
         None
     }
 
+    /// TODO: Make unsafe
     #[inline(always)]
     fn get_next_state_id(&self, mut state_id: u32, mapped_c: u32) -> u32 {
         loop {

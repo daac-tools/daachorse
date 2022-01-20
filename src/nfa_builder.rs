@@ -14,6 +14,22 @@ pub const ROOT_STATE_ID: u32 = 0;
 // The dead state id of SparseNFA.
 pub const DEAD_STATE_ID: u32 = 1;
 
+pub trait EdgeLabel: Copy + Ord + std::fmt::Debug {
+    fn num_bytes(&self) -> usize;
+}
+
+impl EdgeLabel for u8 {
+    fn num_bytes(&self) -> usize {
+        1
+    }
+}
+
+impl EdgeLabel for char {
+    fn num_bytes(&self) -> usize {
+        self.len_utf8()
+    }
+}
+
 /// Mapping edge lables to child ids using `BTreeMap`.
 type EdgeMap<L> = std::collections::BTreeMap<L, u32>;
 
@@ -47,7 +63,7 @@ pub struct NfaBuilder<L> {
 
 impl<L> NfaBuilder<L>
 where
-    L: Copy + Ord + std::fmt::Debug,
+    L: EdgeLabel,
 {
     pub(crate) fn new(match_kind: MatchKind) -> Self {
         Self {
@@ -117,7 +133,15 @@ where
             };
             return Err(DaachorseError::DuplicatePattern(e));
         }
-        *output = (value, pattern.len().try_into().unwrap());
+
+        *output = (
+            value,
+            pattern
+                .iter()
+                .fold(0, |acc, c| acc + c.num_bytes())
+                .try_into()
+                .unwrap(),
+        );
         self.len += 1;
         Ok(())
     }

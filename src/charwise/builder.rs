@@ -30,6 +30,28 @@ where
     /// # Arguments
     ///
     /// * `mapper` - Mapper from characters to identifiers.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasickBuilder, NoMapper};
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let builder = CharwiseDoubleArrayAhoCorasickBuilder::new(mapper);
+    /// let pma = builder.build(patterns).unwrap();
+    ///
+    /// let mut it = pma.find_iter("全世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
     pub fn new(mapper: M) -> Self {
         Self {
             states: Vec::with_capacity(INIT_CAPACITY as usize),
@@ -65,6 +87,27 @@ where
     ///   - the scale of `patterns` exceeds the expected one,
     ///   - the scale of the resulting automaton exceeds the expected one, or
     ///   - the mapper does not contain characters in `patterns`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasickBuilder, NoMapper};
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new(mapper).build(patterns).unwrap();
+    ///
+    /// let mut it = pma.find_iter("全世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
     pub fn build<I, P>(self, patterns: I) -> Result<CharwiseDoubleArrayAhoCorasick<M>>
     where
         I: IntoIterator<Item = P>,
@@ -93,6 +136,27 @@ where
     ///   - the scale of `patvals` exceeds the expected one,
     ///   - the scale of the resulting automaton exceeds the expected one, or
     ///   - the mapper does not contain characters in `patvals`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasickBuilder, NoMapper};
+    ///
+    /// let patvals = vec![("全世界", 0), ("世界", 10), ("に", 100)];
+    ///
+    /// let mapper = NoMapper::default();
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new(mapper).build_with_values(patvals).unwrap();
+    ///
+    /// let mut it = pma.find_iter("全世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 100), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
     pub fn build_with_values<I, P>(
         mut self,
         patvals: I,
@@ -102,7 +166,7 @@ where
         P: AsRef<str>,
     {
         let nfa = self.build_original_nfa(patvals)?;
-        let num_states = nfa.states.len();
+        let num_states = nfa.states.len() - 1; // -1 is for dead state
 
         self.build_double_array(&nfa)?;
 
