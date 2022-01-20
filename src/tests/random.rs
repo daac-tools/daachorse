@@ -123,6 +123,38 @@ where
     answers
 }
 
+/// Finds non-overlapped occurrences with leftmost-first matching in a naive manner,
+/// returning answers consisting of `(start, end) => value` mappings.
+fn naive_leftmost_first_find<I, P>(patvals: I, haystack: P) -> HashMap<(usize, usize), usize>
+where
+    I: IntoIterator<Item = (P, u32)>,
+    P: AsRef<[u8]>,
+{
+    let list: Vec<_> = patvals
+        .into_iter()
+        .map(|(p, v)| (p.as_ref().to_vec(), v))
+        .collect();
+
+    let haystack = haystack.as_ref();
+    let mut answers = HashMap::new();
+
+    let mut pos = 0;
+    while pos < haystack.len() {
+        for (p, v) in &list {
+            let l = p.len();
+            if let Some(subject) = haystack.get(pos..pos + l) {
+                if p == subject {
+                    answers.insert((pos, pos + l), *v as usize);
+                    pos += l - 1;
+                    break;
+                }
+            }
+        }
+        pos += 1;
+    }
+    answers
+}
+
 /// Generates a random string consisting of `size` characters from `"random"`.
 fn generate_random_string(size: usize) -> String {
     const CHARSET: &[u8] = b"random";
@@ -453,12 +485,118 @@ fn test_leftmost_longest_find_iter_binary_random_with_values() {
         let haystack = generate_random_binary_string(100);
 
         // naive pattern match
-        let expected = naive_find_overlapping(patvals.iter().map(|(p, &v)| (p, v)), &haystack);
+        let expected = naive_leftmost_longest_find(patvals.iter().map(|(p, &v)| (p, v)), &haystack);
 
         // daachorse
         let mut actual = HashMap::new();
         let pma = DoubleArrayAhoCorasickBuilder::new()
             .match_kind(MatchKind::LeftmostLongest)
+            .build_with_values(patvals)
+            .unwrap();
+        for m in pma.leftmost_find_iter(&haystack) {
+            actual.insert((m.start(), m.end()), m.value());
+        }
+        assert_eq!(expected, actual);
+    }
+}
+
+#[test]
+fn test_leftmost_first_find_iter_random() {
+    for _ in 0..100 {
+        let patterns = generate_random_patterns(
+            &[(6, 1), (20, 2), (50, 3), (100, 4)],
+            generate_random_string,
+        );
+        let haystack = generate_random_string(100);
+
+        // naive pattern match
+        let expected = naive_leftmost_first_find(
+            patterns.iter().enumerate().map(|(i, p)| (p, i as u32)),
+            &haystack,
+        );
+
+        // daachorse
+        let mut actual = HashMap::new();
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostFirst)
+            .build(patterns)
+            .unwrap();
+        for m in pma.leftmost_find_iter(&haystack) {
+            actual.insert((m.start(), m.end()), m.value());
+        }
+        assert_eq!(expected, actual);
+    }
+}
+
+#[test]
+fn test_leftmost_first_find_iter_random_with_values() {
+    for _ in 0..100 {
+        let patvals = generate_random_patvals(
+            &[(6, 1), (20, 2), (50, 3), (100, 4)],
+            generate_random_string,
+        );
+        let haystack = generate_random_string(100);
+
+        // naive pattern match
+        let expected = naive_leftmost_first_find(patvals.iter().map(|(p, &v)| (p, v)), &haystack);
+
+        // daachorse
+        let mut actual = HashMap::new();
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostFirst)
+            .build_with_values(patvals)
+            .unwrap();
+        for m in pma.leftmost_find_iter(&haystack) {
+            actual.insert((m.start(), m.end()), m.value());
+        }
+        assert_eq!(expected, actual);
+    }
+}
+
+#[test]
+fn test_leftmost_first_find_iter_binary_random() {
+    for _ in 0..100 {
+        let patterns = generate_random_patterns(
+            &[(6, 1), (20, 2), (50, 3), (100, 4)],
+            generate_random_binary_string,
+        );
+        let haystack = generate_random_binary_string(100);
+
+        // naive pattern match
+        let expected = naive_leftmost_first_find(
+            patterns.iter().enumerate().map(|(i, p)| (p, i as u32)),
+            &haystack,
+        );
+
+        // daachorse
+        let mut actual = HashMap::new();
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostFirst)
+            .build(patterns)
+            .unwrap();
+        for m in pma.leftmost_find_iter(&haystack) {
+            actual.insert((m.start(), m.end()), m.value());
+        }
+        assert_eq!(expected, actual);
+    }
+}
+
+#[test]
+fn test_leftmost_first_find_iter_binary_random_with_values() {
+    for _ in 0..100 {
+        let patvals = generate_random_patvals(
+            &[(6, 1), (20, 2), (50, 3), (100, 4)],
+            generate_random_binary_string,
+        );
+        let haystack = generate_random_binary_string(100);
+
+        // naive pattern match
+        let expected = naive_leftmost_first_find(patvals.iter().map(|(p, &v)| (p, v)), &haystack);
+
+        // daachorse
+        let mut actual = HashMap::new();
+        let pma = DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostFirst)
             .build_with_values(patvals)
             .unwrap();
         for m in pma.leftmost_find_iter(&haystack) {
