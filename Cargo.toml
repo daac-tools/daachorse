@@ -13,7 +13,6 @@ repository = "https://github.com/legalforce-research/daachorse"
 readme = "README.md"
 keywords = ["string", "search", "text", "aho", "multi"]
 categories = ["text-processing"]
-autotests = false
 exclude = [".*"]
 
 [dependencies]
