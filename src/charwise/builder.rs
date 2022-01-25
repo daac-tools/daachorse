@@ -1,5 +1,5 @@
-use crate::charwise::{CharwiseDoubleArrayAhoCorasick, Mapper, MatchKind, State};
-use crate::errors::{AutomatonScaleError, DaachorseError, InvalidArgumentError, Result};
+use crate::charwise::{CharwiseDoubleArrayAhoCorasick, MatchKind, State};
+use crate::errors::{AutomatonScaleError, DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
 
 use crate::charwise::{DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX};
@@ -12,34 +12,28 @@ const INIT_CAPACITY: u32 = 1 << 16;
 type CharwiseNfaBuilder = NfaBuilder<char>;
 
 /// Builder for [`CharwiseDoubleArrayAhoCorasick`].
-pub struct CharwiseDoubleArrayAhoCorasickBuilder<M>
-where
-    M: Mapper,
-{
+pub struct CharwiseDoubleArrayAhoCorasickBuilder {
     states: Vec<State>,
-    mapper: M,
     match_kind: MatchKind,
 }
 
-impl<M> CharwiseDoubleArrayAhoCorasickBuilder<M>
-where
-    M: Mapper,
-{
+impl Default for CharwiseDoubleArrayAhoCorasickBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CharwiseDoubleArrayAhoCorasickBuilder {
     /// Creates a new [`CharwiseDoubleArrayAhoCorasickBuilder`].
-    ///
-    /// # Arguments
-    ///
-    /// * `mapper` - Mapper from characters to identifiers.
     ///
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasickBuilder, NoMapper};
+    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     ///
-    /// let mapper = NoMapper::default();
-    /// let builder = CharwiseDoubleArrayAhoCorasickBuilder::new(mapper);
+    /// let builder = CharwiseDoubleArrayAhoCorasickBuilder::new();
     /// let pma = builder.build(patterns).unwrap();
     ///
     /// let mut it = pma.find_iter("全世界中に");
@@ -52,10 +46,9 @@ where
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn new(mapper: M) -> Self {
+    pub fn new() -> Self {
         Self {
             states: Vec::with_capacity(INIT_CAPACITY as usize),
-            mapper,
             match_kind: MatchKind::Standard,
         }
     }
@@ -66,7 +59,7 @@ where
     ///
     /// * `kind` - Match kind.
     #[must_use]
-    pub fn match_kind(mut self, kind: MatchKind) -> Self {
+    pub const fn match_kind(mut self, kind: MatchKind) -> Self {
         self.match_kind = kind;
         self
     }
@@ -84,19 +77,16 @@ where
     ///   - `patterns` is empty,
     ///   - `patterns` contains entries of length zero,
     ///   - `patterns` contains duplicate entries,
-    ///   - the scale of `patterns` exceeds the expected one,
-    ///   - the scale of the resulting automaton exceeds the expected one, or
-    ///   - the mapper does not contain characters in `patterns`.
+    ///   - the scale of `patterns` exceeds the expected one, or
+    ///   - the scale of the resulting automaton exceeds the expected one.
     ///
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasickBuilder, NoMapper};
+    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    ///
-    /// let mapper = NoMapper::default();
-    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new(mapper).build(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new().build(patterns).unwrap();
     ///
     /// let mut it = pma.find_iter("全世界中に");
     ///
@@ -108,7 +98,7 @@ where
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn build<I, P>(self, patterns: I) -> Result<CharwiseDoubleArrayAhoCorasick<M>>
+    pub fn build<I, P>(self, patterns: I) -> Result<CharwiseDoubleArrayAhoCorasick>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<str>,
@@ -133,19 +123,16 @@ where
     ///   - `patvals` contains patterns of length zero,
     ///   - `patvals` contains duplicate patterns,
     ///   - `patvals` contains invalid values,
-    ///   - the scale of `patvals` exceeds the expected one,
-    ///   - the scale of the resulting automaton exceeds the expected one, or
-    ///   - the mapper does not contain characters in `patvals`.
+    ///   - the scale of `patvals` exceeds the expected one, or
+    ///   - the scale of the resulting automaton exceeds the expected one.
     ///
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::{CharwiseDoubleArrayAhoCorasickBuilder, NoMapper};
+    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
     ///
     /// let patvals = vec![("全世界", 0), ("世界", 10), ("に", 100)];
-    ///
-    /// let mapper = NoMapper::default();
-    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new(mapper).build_with_values(patvals).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new().build_with_values(patvals).unwrap();
     ///
     /// let mut it = pma.find_iter("全世界中に");
     ///
@@ -157,10 +144,7 @@ where
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn build_with_values<I, P>(
-        mut self,
-        patvals: I,
-    ) -> Result<CharwiseDoubleArrayAhoCorasick<M>>
+    pub fn build_with_values<I, P>(mut self, patvals: I) -> Result<CharwiseDoubleArrayAhoCorasick>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<str>,
@@ -173,7 +157,6 @@ where
         Ok(CharwiseDoubleArrayAhoCorasick {
             states: self.states,
             outputs: nfa.outputs,
-            mapper: self.mapper,
             match_kind: self.match_kind,
             num_states,
         })
@@ -232,14 +215,7 @@ where
 
             mapped.clear();
             for (&label, &child_id) in &s.edges {
-                let mapped_label = self.mapper.get(label).ok_or_else(|| {
-                    let e = InvalidArgumentError {
-                        arg: "Input mapper does not contain the label",
-                        msg: label.to_string(),
-                    };
-                    DaachorseError::InvalidArgument(e)
-                })?;
-                mapped.push((mapped_label, child_id));
+                mapped.push((label as u32, child_id));
             }
             mapped.sort_by(|(c1, _), (c2, _)| c1.cmp(c2));
 
