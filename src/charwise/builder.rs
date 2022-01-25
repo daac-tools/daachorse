@@ -185,7 +185,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         }
         let q = match self.match_kind {
             MatchKind::Standard => nfa.build_fails(),
-            _ => panic!("Leftmost variants have not been implemented."),
+            MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),
         };
         nfa.build_outputs(&q)?;
         Ok(nfa)

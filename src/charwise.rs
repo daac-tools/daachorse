@@ -3,7 +3,7 @@ pub mod iter;
 
 pub use crate::charwise::builder::CharwiseDoubleArrayAhoCorasickBuilder;
 pub use crate::charwise::iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator,
+    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LestmostFindIterator,
 };
 use crate::errors::Result;
 use crate::{MatchKind, Output};
@@ -269,6 +269,85 @@ impl CharwiseDoubleArrayAhoCorasick {
         }
     }
 
+    /// Returns an iterator of leftmost matches in the given haystack.
+    ///
+    /// The leftmost match greedily searches the longest possible match at each iteration, and
+    /// the match results do not overlap positionally such as [`CharwiseDoubleArrayAhoCorasick::find_iter()`].
+    ///
+    /// According to the [`MatchKind`] option you specified in the construction,
+    /// the behavior is changed for multiple possible matches, as follows.
+    ///
+    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match
+    ///    corresponding to the longest pattern.
+    ///
+    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match
+    ///    corresponding to the pattern earlier registered to the automaton.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - String to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you do not specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Examples
+    ///
+    /// ## LeftmostLongest
+    ///
+    /// ```
+    /// use daachorse::MatchKind;
+    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
+    ///
+    /// let patterns = vec!["世界", "世", "世界中に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///           .match_kind(MatchKind::LeftmostLongest)
+    ///           .build(&patterns)
+    ///           .unwrap();
+    ///
+    /// let mut it = pma.leftmost_find_iter("世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 12, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    ///
+    /// ## LeftmostFirst
+    ///
+    /// ```
+    /// use daachorse::MatchKind;
+    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
+    ///
+    /// let patterns = vec!["世界", "世", "世界中に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///           .match_kind(MatchKind::LeftmostFirst)
+    ///           .build(&patterns)
+    ///           .unwrap();
+    ///
+    /// let mut it = pma.leftmost_find_iter("世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 6, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P>
+    where
+        P: AsRef<str>,
+    {
+        assert!(
+            self.match_kind.is_leftmost(),
+            "Error: match_kind must be leftmost."
+        );
+        LestmostFindIterator {
+            pma: self,
+            haystack,
+            pos: 0,
+        }
+    }
+
     /// Returns the total number of states this automaton has.
     ///
     /// # Examples
@@ -346,6 +425,24 @@ impl CharwiseDoubleArrayAhoCorasick {
                 return ROOT_STATE_IDX;
             }
             state_id = self.states[state_id as usize].fail();
+        }
+    }
+
+    /// TODO: Make unsafe
+    #[inline(always)]
+    fn get_next_state_id_leftmost(&self, mut state_id: u32, mapped_c: u32) -> u32 {
+        loop {
+            if let Some(state_id) = self.get_child_index(state_id, mapped_c) {
+                return state_id;
+            }
+            if state_id == ROOT_STATE_IDX {
+                return ROOT_STATE_IDX;
+            }
+            let fail_id = self.states[state_id as usize].fail();
+            if fail_id == DEAD_STATE_IDX {
+                return DEAD_STATE_IDX;
+            }
+            state_id = fail_id;
         }
     }
 }
