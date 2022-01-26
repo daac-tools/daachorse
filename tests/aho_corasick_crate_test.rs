@@ -1,3 +1,4 @@
+use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
 use daachorse::{DoubleArrayAhoCorasickBuilder, Match, MatchKind};
 
 /// The following test suites are copied from
@@ -423,11 +424,11 @@ fn search_tests_have_unique_names() {
 }
 
 macro_rules! testconfig {
-    (non_overlapping, $name:ident, $collection:expr, $kind:ident, $with:expr) => {
+    (non_overlapping, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
         #[test]
         fn $name() {
             run_search_tests($collection, |test| {
-                let pma = DoubleArrayAhoCorasickBuilder::new()
+                let pma = $builder::new()
                     .match_kind(MatchKind::$kind)
                     .build(test.patterns)
                     .unwrap();
@@ -435,11 +436,11 @@ macro_rules! testconfig {
             });
         }
     };
-    (overlapping, $name:ident, $collection:expr, $kind:ident, $with:expr) => {
+    (overlapping, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
         #[test]
         fn $name() {
             run_search_tests($collection, |test| {
-                let pma = DoubleArrayAhoCorasickBuilder::new()
+                let pma = $builder::new()
                     .match_kind(MatchKind::$kind)
                     .build(test.patterns)
                     .unwrap();
@@ -447,11 +448,11 @@ macro_rules! testconfig {
             });
         }
     };
-    (leftmost, $name:ident, $collection:expr, $kind:ident, $with:expr) => {
+    (leftmost, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
         #[test]
         fn $name() {
             run_search_tests($collection, |test| {
-                let pma = DoubleArrayAhoCorasickBuilder::new()
+                let pma = $builder::new()
                     .match_kind(MatchKind::$kind)
                     .build(test.patterns)
                     .unwrap();
@@ -461,9 +462,11 @@ macro_rules! testconfig {
     };
 }
 
+// Bytewise Daachorse tests
 testconfig!(
     non_overlapping,
     search_standard_non_overlapping,
+    DoubleArrayAhoCorasickBuilder,
     AC_STANDARD_NON_OVERLAPPING,
     Standard,
     |_| ()
@@ -472,6 +475,7 @@ testconfig!(
 testconfig!(
     overlapping,
     search_standard_overlapping,
+    DoubleArrayAhoCorasickBuilder,
     AC_STANDARD_OVERLAPPING,
     Standard,
     |_| ()
@@ -480,6 +484,7 @@ testconfig!(
 testconfig!(
     leftmost,
     search_leftmost_longest,
+    DoubleArrayAhoCorasickBuilder,
     AC_LEFTMOST_LONGEST,
     LeftmostLongest,
     |_| ()
@@ -488,6 +493,44 @@ testconfig!(
 testconfig!(
     leftmost,
     search_leftmost_first,
+    DoubleArrayAhoCorasickBuilder,
+    AC_LEFTMOST_FIRST,
+    LeftmostFirst,
+    |_| ()
+);
+
+// Charwise Daachorse tests
+testconfig!(
+    non_overlapping,
+    search_standard_non_overlapping_charwise,
+    CharwiseDoubleArrayAhoCorasickBuilder,
+    AC_STANDARD_NON_OVERLAPPING,
+    Standard,
+    |_| ()
+);
+
+testconfig!(
+    overlapping,
+    search_standard_overlapping_charwise,
+    CharwiseDoubleArrayAhoCorasickBuilder,
+    AC_STANDARD_OVERLAPPING,
+    Standard,
+    |_| ()
+);
+
+testconfig!(
+    leftmost,
+    search_leftmost_longest_charwise,
+    CharwiseDoubleArrayAhoCorasickBuilder,
+    AC_LEFTMOST_LONGEST,
+    LeftmostLongest,
+    |_| ()
+);
+
+testconfig!(
+    leftmost,
+    search_leftmost_first_charwise,
+    CharwiseDoubleArrayAhoCorasickBuilder,
     AC_LEFTMOST_FIRST,
     LeftmostFirst,
     |_| ()
