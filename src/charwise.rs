@@ -397,14 +397,17 @@ impl CharwiseDoubleArrayAhoCorasick {
             + self.outputs.len() * std::mem::size_of::<Output>()
     }
 
-    /// TODO: Make unsafe
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    fn get_child_index(&self, state_id: u32, mapped_c: u32) -> Option<u32> {
-        if let Some(base) = self.states[state_id as usize].base() {
+    unsafe fn get_child_index_unchecked(&self, state_id: u32, mapped_c: u32) -> Option<u32> {
+        if let Some(base) = self.states.get_unchecked(state_id as usize).base() {
             let child_idx = base + mapped_c as i32;
             if child_idx < 0 {
                 return None;
             }
+            // Use `get()` since `child_idx` can be no less than `self.states.len()`.
             if let Some(child) = self.states.get(child_idx as usize) {
                 if child.check() == state_id {
                     return Some(child_idx as u32);
@@ -414,31 +417,35 @@ impl CharwiseDoubleArrayAhoCorasick {
         None
     }
 
-    /// TODO: Make unsafe
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    fn get_next_state_id(&self, mut state_id: u32, mapped_c: u32) -> u32 {
+    unsafe fn get_next_state_id_unchecked(&self, mut state_id: u32, mapped_c: u32) -> u32 {
         loop {
-            if let Some(state_id) = self.get_child_index(state_id, mapped_c) {
+            if let Some(state_id) = self.get_child_index_unchecked(state_id, mapped_c) {
                 return state_id;
             }
             if state_id == ROOT_STATE_IDX {
                 return ROOT_STATE_IDX;
             }
-            state_id = self.states[state_id as usize].fail();
+            state_id = self.states.get_unchecked(state_id as usize).fail();
         }
     }
 
-    /// TODO: Make unsafe
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    fn get_next_state_id_leftmost(&self, mut state_id: u32, mapped_c: u32) -> u32 {
+    unsafe fn get_next_state_id_leftmost_unchecked(&self, mut state_id: u32, mapped_c: u32) -> u32 {
         loop {
-            if let Some(state_id) = self.get_child_index(state_id, mapped_c) {
+            if let Some(state_id) = self.get_child_index_unchecked(state_id, mapped_c) {
                 return state_id;
             }
             if state_id == ROOT_STATE_IDX {
                 return ROOT_STATE_IDX;
             }
-            let fail_id = self.states[state_id as usize].fail();
+            let fail_id = self.states.get_unchecked(state_id as usize).fail();
             if fail_id == DEAD_STATE_IDX {
                 return DEAD_STATE_IDX;
             }
