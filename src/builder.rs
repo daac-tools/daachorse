@@ -1,4 +1,4 @@
-use crate::errors::{AutomatonScaleError, DaachorseError, Result};
+use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
 use crate::{DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, FAIL_MAX, ROOT_STATE_IDX};
 
@@ -267,10 +267,7 @@ impl DoubleArrayAhoCorasickBuilder {
             nfa.add(pattern.as_ref(), value)?;
         }
         if nfa.len == 0 {
-            let e = AutomatonScaleError {
-                msg: "Pattern set must not be empty.".to_string(),
-            };
-            return Err(DaachorseError::AutomatonScale(e));
+            return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
         }
         let q = match self.match_kind {
             MatchKind::Standard => nfa.build_fails(),
@@ -340,10 +337,7 @@ impl DoubleArrayAhoCorasickBuilder {
                 let fail_idx = state_id_map[fail_id as usize];
                 debug_assert_ne!(fail_idx, DEAD_STATE_IDX);
                 if fail_idx > FAIL_MAX {
-                    let e = AutomatonScaleError {
-                        msg: format!("fail_idx must be <= {}", FAIL_MAX),
-                    };
-                    return Err(DaachorseError::AutomatonScale(e));
+                    return Err(DaachorseError::automaton_scale("fail_idx", FAIL_MAX));
                 }
                 self.states[idx].set_fail(fail_idx);
             }
@@ -444,10 +438,7 @@ impl DoubleArrayAhoCorasickBuilder {
         // The following condition is same as `new_len > STATE_INDEX_IVALID`.
         // We use the following condition to avoid overflow.
         if old_len > std::u32::MAX - BLOCK_LEN {
-            let e = AutomatonScaleError {
-                msg: "An index of states must be represented with u32".to_string(),
-            };
-            return Err(DaachorseError::AutomatonScale(e));
+            return Err(DaachorseError::automaton_scale("states.len()", u32::MAX));
         }
         let new_len = old_len + BLOCK_LEN;
 

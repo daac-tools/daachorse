@@ -1,8 +1,6 @@
 use std::cell::RefCell;
 
-use crate::errors::{
-    AutomatonScaleError, DaachorseError, DuplicatePatternError, PatternScaleError, Result,
-};
+use crate::errors::{DaachorseError, Result};
 use crate::{MatchKind, Output, OUTPUT_POS_INVALID};
 
 // The maximum value of a pattern used as an invalid value.
@@ -79,23 +77,26 @@ where
 
     #[inline(always)]
     pub(crate) fn add(&mut self, pattern: &[L], value: u32) -> Result<()> {
-        if value == VALUE_INVALID {
-            let e = PatternScaleError {
-                msg: format!("Input value must be < {}", VALUE_INVALID),
-            };
-            return Err(DaachorseError::PatternScale(e));
+        // Clippy suggests to use `==` in the following comparison instead, but that is dangerous.
+        // Since `VALUE_INVALID` is defined as a constant variable, so developers may forget to
+        // change this operator when they change the constant value.
+        #[allow(clippy::absurd_extreme_comparisons)]
+        if value >= VALUE_INVALID {
+            return Err(DaachorseError::invalid_argument(
+                "value",
+                "<",
+                VALUE_INVALID,
+            ));
         }
         if pattern.len() >= LENGTH_INVALID as usize {
-            let e = PatternScaleError {
-                msg: format!("Pattern length must be < {}", LENGTH_INVALID),
-            };
-            return Err(DaachorseError::PatternScale(e));
+            return Err(DaachorseError::invalid_argument(
+                "pattern.len()",
+                "<",
+                LENGTH_INVALID,
+            ));
         }
         if pattern.is_empty() {
-            let e = PatternScaleError {
-                msg: "Pattern must not be empty".to_string(),
-            };
-            return Err(DaachorseError::PatternScale(e));
+            return Err(DaachorseError::invalid_argument("pattern.len()", ">=", 1));
         }
 
         let mut state_id = ROOT_STATE_ID;
@@ -119,19 +120,13 @@ where
                     .push(RefCell::new(NfaBuilderState::<L>::default()));
                 state_id = next_state_id;
             } else {
-                let e = AutomatonScaleError {
-                    msg: "A state id must be represented with u32".to_string(),
-                };
-                return Err(DaachorseError::AutomatonScale(e));
+                return Err(DaachorseError::automaton_scale("state_id", u32::MAX));
             }
         }
 
         let output = &mut self.states[state_id as usize].borrow_mut().output;
         if output.0 != VALUE_INVALID {
-            let e = DuplicatePatternError {
-                pattern: format!("{:?}", pattern),
-            };
-            return Err(DaachorseError::DuplicatePattern(e));
+            return Err(DaachorseError::duplicate_pattern(format!("{:?}", pattern)));
         }
 
         *output = (
@@ -316,10 +311,10 @@ where
     #[inline(always)]
     fn check_outputs_error(outputs: &[Output]) -> Result<()> {
         if outputs.len() > OUTPUT_POS_INVALID as usize {
-            let e = AutomatonScaleError {
-                msg: format!("outputs.len() must be <= {}", OUTPUT_POS_INVALID),
-            };
-            Err(DaachorseError::AutomatonScale(e))
+            Err(DaachorseError::automaton_scale(
+                "outputs.len()",
+                OUTPUT_POS_INVALID,
+            ))
         } else {
             Ok(())
         }

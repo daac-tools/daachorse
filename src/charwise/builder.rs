@@ -1,5 +1,5 @@
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, MatchKind, State};
-use crate::errors::{AutomatonScaleError, DaachorseError, Result};
+use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
 
 use crate::charwise::{DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX};
@@ -178,10 +178,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         }
 
         if nfa.len == 0 {
-            let e = AutomatonScaleError {
-                msg: "Pattern set must not be empty.".to_string(),
-            };
-            return Err(DaachorseError::AutomatonScale(e));
+            return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
         }
         let q = match self.match_kind {
             MatchKind::Standard => nfa.build_fails(),
