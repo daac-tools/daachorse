@@ -154,6 +154,8 @@ mod nfa_builder;
 #[cfg(test)]
 mod tests;
 
+use std::iter::Enumerate;
+
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::Result;
 
@@ -314,27 +316,50 @@ impl Match {
     }
 }
 
-/// Iterator created by [`DoubleArrayAhoCorasick::find_iter()`].
-pub struct FindIterator<'a, P>
+/// Iterator for some struct that implements [`AsRef<[u8]>`].
+pub struct U8SliceIterator<P> {
+    inner: P,
+    pos: usize,
+}
+
+impl<P> U8SliceIterator<P>
 where
     P: AsRef<[u8]>,
 {
+    fn new(inner: P) -> Self {
+        Self { inner, pos: 0 }
+    }
+}
+
+impl<P> Iterator for U8SliceIterator<P>
+where
+    P: AsRef<[u8]>,
+{
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let ret = *self.inner.as_ref().get(self.pos)?;
+        self.pos += 1;
+        Some(ret)
+    }
+}
+
+/// Iterator created by [`DoubleArrayAhoCorasick::find_iter()`].
+pub struct FindIterator<'a, P> {
     pma: &'a DoubleArrayAhoCorasick,
-    haystack: P,
-    pos: usize,
+    haystack: Enumerate<P>,
 }
 
 impl<'a, P> Iterator for FindIterator<'a, P>
 where
-    P: AsRef<[u8]>,
+    P: Iterator<Item = u8>,
 {
     type Item = Match;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         let mut state_id = ROOT_STATE_IDX;
-        let haystack = self.haystack.as_ref();
-        for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
+        for (pos, c) in self.haystack.by_ref() {
             // state_id is always smaller than self.pma.states.len() because
             // self.pma.get_next_state_id_unchecked() ensures to return such a value.
             state_id = unsafe { self.pma.get_next_state_id_unchecked(state_id, c) };
@@ -347,26 +372,21 @@ where
                 // output_pos is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
-                self.pos = pos + 1;
                 return Some(Match {
                     length: out.length() as usize,
-                    end: self.pos,
+                    end: pos + 1,
                     value: out.value() as usize,
                 });
             }
         }
-        self.pos = haystack.len();
         None
     }
 }
 
 /// Iterator created by [`DoubleArrayAhoCorasick::find_overlapping_iter()`].
-pub struct FindOverlappingIterator<'a, P>
-where
-    P: AsRef<[u8]>,
-{
+pub struct FindOverlappingIterator<'a, P> {
     pma: &'a DoubleArrayAhoCorasick,
-    haystack: P,
+    haystack: Enumerate<P>,
     state_id: u32,
     pos: usize,
     output_pos: usize,
@@ -374,7 +394,7 @@ where
 
 impl<'a, P> Iterator for FindOverlappingIterator<'a, P>
 where
-    P: AsRef<[u8]>,
+    P: Iterator<Item = u8>,
 {
     type Item = Match;
 
@@ -391,8 +411,7 @@ where
                 value: out.value() as usize,
             });
         }
-        let haystack = self.haystack.as_ref();
-        for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
+        for (pos, c) in self.haystack.by_ref() {
             // self.state_id is always smaller than self.pma.states.len() because
             // self.pma.get_next_state_id_unchecked() ensures to return such a value.
             self.state_id = unsafe { self.pma.get_next_state_id_unchecked(self.state_id, c) };
@@ -412,32 +431,26 @@ where
                 });
             }
         }
-        self.pos = haystack.len();
         None
     }
 }
 
 /// Iterator created by [`DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`].
-pub struct FindOverlappingNoSuffixIterator<'a, P>
-where
-    P: AsRef<[u8]>,
-{
+pub struct FindOverlappingNoSuffixIterator<'a, P> {
     pma: &'a DoubleArrayAhoCorasick,
-    haystack: P,
+    haystack: Enumerate<P>,
     state_id: u32,
-    pos: usize,
 }
 
 impl<'a, P> Iterator for FindOverlappingNoSuffixIterator<'a, P>
 where
-    P: AsRef<[u8]>,
+    P: Iterator<Item = u8>,
 {
     type Item = Match;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        let haystack = self.haystack.as_ref();
-        for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
+        for (pos, c) in self.haystack.by_ref() {
             // self.state_id is always smaller than self.pma.states.len() because
             // self.pma.get_next_state_id_unchecked() ensures to return such a value.
             self.state_id = unsafe { self.pma.get_next_state_id_unchecked(self.state_id, c) };
@@ -450,15 +463,13 @@ where
                 // output_pos is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
-                self.pos = pos + 1;
                 return Some(Match {
                     length: out.length() as usize,
-                    end: self.pos,
+                    end: pos + 1,
                     value: out.value() as usize,
                 });
             }
         }
-        self.pos = haystack.len();
         None
     }
 }
@@ -672,7 +683,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<P>
+    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<U8SliceIterator<P>>
     where
         P: AsRef<[u8]>,
     {
@@ -682,8 +693,52 @@ impl DoubleArrayAhoCorasick {
         );
         FindIterator {
             pma: self,
-            haystack,
-            pos: 0,
+            haystack: U8SliceIterator::new(haystack).enumerate(),
+        }
+    }
+
+    /// Returns an iterator of non-overlapping matches in the given haystack iterator.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - [`u8`] iterator to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
+    ///
+    /// let mut it = pma.find_iter_from_iter(haystack);
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn find_iter_from_iter<P>(&self, haystack: P) -> FindIterator<P>
+    where
+        P: Iterator<Item = u8>,
+    {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        FindIterator {
+            pma: self,
+            haystack: haystack.enumerate(),
         }
     }
 
@@ -719,7 +774,10 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_overlapping_iter<P>(&self, haystack: P) -> FindOverlappingIterator<P>
+    pub fn find_overlapping_iter<P>(
+        &self,
+        haystack: P,
+    ) -> FindOverlappingIterator<U8SliceIterator<P>>
     where
         P: AsRef<[u8]>,
     {
@@ -729,14 +787,65 @@ impl DoubleArrayAhoCorasick {
         );
         FindOverlappingIterator {
             pma: self,
-            haystack,
+            haystack: U8SliceIterator::new(haystack).enumerate(),
             state_id: ROOT_STATE_IDX,
-            pos: 0,
             output_pos: 0,
+            pos: 0,
         }
     }
 
-    /// Returns an iterator of overlapping matches without suffixes in the given haystack.
+    /// Returns an iterator of overlapping matches in the given haystack iterator.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - [`u8`] iterator to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
+    ///
+    /// let mut it = pma.find_overlapping_iter_from_iter(haystack);
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn find_overlapping_iter_from_iter<P>(&self, haystack: P) -> FindOverlappingIterator<P>
+    where
+        P: Iterator<Item = u8>,
+    {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        FindOverlappingIterator {
+            pma: self,
+            haystack: haystack.enumerate(),
+            state_id: ROOT_STATE_IDX,
+            output_pos: 0,
+            pos: 0,
+        }
+    }
+
+    /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
     ///
     /// The Aho-Corasick algorithm reads through the haystack from left to right and reports
     /// matches when it reaches the end of each pattern. In the overlapping match, more than one
@@ -774,7 +883,7 @@ impl DoubleArrayAhoCorasick {
     pub fn find_overlapping_no_suffix_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<P>
+    ) -> FindOverlappingNoSuffixIterator<U8SliceIterator<P>>
     where
         P: AsRef<[u8]>,
     {
@@ -784,9 +893,63 @@ impl DoubleArrayAhoCorasick {
         );
         FindOverlappingNoSuffixIterator {
             pma: self,
-            haystack,
+            haystack: U8SliceIterator::new(haystack).enumerate(),
             state_id: ROOT_STATE_IDX,
-            pos: 0,
+        }
+    }
+
+    /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
+    ///
+    /// The Aho-Corasick algorithm reads through the haystack from left to right and reports
+    /// matches when it reaches the end of each pattern. In the overlapping match, more than one
+    /// pattern can be returned per report.
+    ///
+    /// This iterator returns the first match on each report.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - [`u8`] to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "cd", "abc"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
+    ///
+    /// let mut it = pma.find_overlapping_no_suffix_iter_from_iter(haystack);
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn find_overlapping_no_suffix_iter_from_iter<P>(
+        &self,
+        haystack: P,
+    ) -> FindOverlappingNoSuffixIterator<P>
+    where
+        P: Iterator<Item = u8>,
+    {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        FindOverlappingNoSuffixIterator {
+            pma: self,
+            haystack: haystack.enumerate(),
+            state_id: ROOT_STATE_IDX,
         }
     }
 
