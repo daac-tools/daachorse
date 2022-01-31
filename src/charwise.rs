@@ -3,7 +3,8 @@ pub mod iter;
 
 pub use crate::charwise::builder::CharwiseDoubleArrayAhoCorasickBuilder;
 pub use crate::charwise::iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LestmostFindIterator,
+    CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
+    FindOverlappingNoSuffixIterator, LestmostFindIterator, StrIterator,
 };
 use crate::errors::Result;
 use crate::{MatchKind, Output};
@@ -151,7 +152,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<P>
+    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<StrIterator<P>>
     where
         P: AsRef<str>,
     {
@@ -161,8 +162,56 @@ impl CharwiseDoubleArrayAhoCorasick {
         );
         FindIterator {
             pma: self,
-            haystack,
-            pos: 0,
+            haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
+        }
+    }
+
+    /// Returns an iterator of non-overlapping matches in the given haystack iterator.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - String to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Safety
+    ///
+    /// `haystack` must represent a valid UTF-8 string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let haystack = "全世界".as_bytes().iter().chain("中に".as_bytes()).copied();
+    ///
+    /// let mut it = unsafe { pma.find_iter_from_iter(haystack) };
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub unsafe fn find_iter_from_iter<P>(&self, haystack: P) -> FindIterator<P>
+    where
+        P: Iterator<Item = u8>,
+    {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        FindIterator {
+            pma: self,
+            haystack: CharWithEndOffsetIterator::new(haystack),
         }
     }
 
@@ -198,7 +247,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_overlapping_iter<P>(&self, haystack: P) -> FindOverlappingIterator<P>
+    pub fn find_overlapping_iter<P>(&self, haystack: P) -> FindOverlappingIterator<StrIterator<P>>
     where
         P: AsRef<str>,
     {
@@ -208,7 +257,65 @@ impl CharwiseDoubleArrayAhoCorasick {
         );
         FindOverlappingIterator {
             pma: self,
-            haystack,
+            haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
+            state_id: ROOT_STATE_IDX,
+            pos: 0,
+            output_pos: 0,
+        }
+    }
+
+    /// Returns an iterator of overlapping matches in the given haystack iterator.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - String to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Safety
+    ///
+    /// `haystack` must represent a valid UTF-8 string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let haystack = "全世界".as_bytes().iter().chain("中に".as_bytes()).copied();
+    ///
+    /// let mut it = unsafe { pma.find_overlapping_iter_from_iter(haystack) };
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((3, 9, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub unsafe fn find_overlapping_iter_from_iter<P>(
+        &self,
+        haystack: P,
+    ) -> FindOverlappingIterator<P>
+    where
+        P: Iterator<Item = u8>,
+    {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        FindOverlappingIterator {
+            pma: self,
+            haystack: CharWithEndOffsetIterator::new(haystack),
             state_id: ROOT_STATE_IDX,
             pos: 0,
             output_pos: 0,
@@ -253,7 +360,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     pub fn find_overlapping_no_suffix_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<P>
+    ) -> FindOverlappingNoSuffixIterator<StrIterator<P>>
     where
         P: AsRef<str>,
     {
@@ -263,9 +370,67 @@ impl CharwiseDoubleArrayAhoCorasick {
         );
         FindOverlappingNoSuffixIterator {
             pma: self,
-            haystack,
+            haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
             state_id: ROOT_STATE_IDX,
-            pos: 0,
+        }
+    }
+
+    /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
+    ///
+    /// The Aho-Corasick algorithm reads through the haystack from left to right and reports
+    /// matches when it reaches the end of each pattern. In the overlapping match, more than one
+    /// pattern can be returned per report.
+    ///
+    /// This iterator returns the first match on each report.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - String to search for.
+    ///
+    /// # Panics
+    ///
+    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
+    /// the iterator is not supported and the function will call panic!.
+    ///
+    /// # Safety
+    ///
+    /// `haystack` must represent a valid UTF-8 string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let haystack = "全世界".as_bytes().iter().chain("中に".as_bytes()).copied();
+    ///
+    /// let mut it = unsafe { pma.find_overlapping_no_suffix_iter_from_iter(haystack) };
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub unsafe fn find_overlapping_no_suffix_iter_from_iter<P>(
+        &self,
+        haystack: P,
+    ) -> FindOverlappingNoSuffixIterator<P>
+    where
+        P: Iterator<Item = u8>,
+    {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        FindOverlappingNoSuffixIterator {
+            pma: self,
+            haystack: CharWithEndOffsetIterator::new(haystack),
+            state_id: ROOT_STATE_IDX,
         }
     }
 

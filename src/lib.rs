@@ -337,6 +337,7 @@ where
 {
     type Item = u8;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         let ret = *self.inner.as_ref().get(self.pos)?;
         self.pos += 1;

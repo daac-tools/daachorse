@@ -1,11 +1,98 @@
+use std::iter::Enumerate;
+
 use crate::charwise::CharwiseDoubleArrayAhoCorasick;
 use crate::Match;
 use crate::{DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX};
 
+/// Iterator for some struct that implements [`AsRef<str>`].
+pub struct StrIterator<P> {
+    inner: P,
+    pos: usize,
+}
+
+impl<P> StrIterator<P>
+where
+    P: AsRef<str>,
+{
+    pub(crate) fn new(inner: P) -> Self {
+        Self { inner, pos: 0 }
+    }
+}
+
+impl<P> Iterator for StrIterator<P>
+where
+    P: AsRef<str>,
+{
+    type Item = u8;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        let ret = *self.inner.as_ref().as_bytes().get(self.pos)?;
+        self.pos += 1;
+        Some(ret)
+    }
+}
+
+pub struct CharWithEndOffsetIterator<I> {
+    inner: Enumerate<I>,
+}
+
+impl<I> CharWithEndOffsetIterator<I>
+where
+    I: Iterator<Item = u8>,
+{
+    /// Creates a new iterator.
+    ///
+    /// # Safety
+    ///
+    /// `inner` must represent a correct UTF-8 string.
+    pub unsafe fn new(inner: I) -> Self {
+        Self {
+            inner: inner.enumerate(),
+        }
+    }
+}
+
+impl<I> Iterator for CharWithEndOffsetIterator<I>
+where
+    I: Iterator<Item = u8>,
+{
+    type Item = (usize, char);
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        let (i, first) = self.inner.next()?;
+        let (end_offset, c) = if first < 0x80 {
+            // 1 byte
+            (i + 1, u32::from(first))
+        } else {
+            // 2 bytes ~
+            let (i, rest) = unsafe { self.inner.next().unwrap_unchecked() };
+            let c = u32::from(rest & 0x3f);
+            if first < 0xe0 {
+                (i + 1, u32::from(first & 0x1f) << 6 | c)
+            } else {
+                // 3 bytes ~
+                let (i, rest) = unsafe { self.inner.next().unwrap_unchecked() };
+                let c = c << 6 | u32::from(rest & 0x3f);
+                if first < 0xf0 {
+                    (i + 1, u32::from(first & 0x0f) << 12 | c)
+                } else {
+                    // 4 bytes
+                    let (i, rest) = unsafe { self.inner.next().unwrap_unchecked() };
+                    let c = c << 6 | u32::from(rest & 0x3f);
+                    (i + 1, u32::from(first & 0x07) << 18 | c)
+                }
+            }
+        };
+        Some((end_offset, unsafe { char::from_u32_unchecked(c) }))
+    }
+}
+
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_iter()`].
 pub struct FindOverlappingIterator<'a, P> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick,
-    pub(crate) haystack: P,
+    pub(crate) haystack: CharWithEndOffsetIterator<P>,
     pub(crate) state_id: u32,
     pub(crate) pos: usize,
     pub(crate) output_pos: usize,
@@ -14,16 +101,14 @@ pub struct FindOverlappingIterator<'a, P> {
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`].
 pub struct FindIterator<'a, P> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick,
-    pub(crate) haystack: P,
-    pub(crate) pos: usize,
+    pub(crate) haystack: CharWithEndOffsetIterator<P>,
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`].
 pub struct FindOverlappingNoSuffixIterator<'a, P> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick,
-    pub(crate) haystack: P,
+    pub(crate) haystack: CharWithEndOffsetIterator<P>,
     pub(crate) state_id: u32,
-    pub(crate) pos: usize,
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::leftmost_find_iter()`].
@@ -35,7 +120,7 @@ pub struct LestmostFindIterator<'a, P> {
 
 impl<'a, P> Iterator for FindOverlappingIterator<'a, P>
 where
-    P: AsRef<str>,
+    P: Iterator<Item = u8>,
 {
     type Item = Match;
 
@@ -53,8 +138,8 @@ where
             });
         }
 
-        for c in unsafe { self.haystack.as_ref().get_unchecked(self.pos..) }.chars() {
-            self.pos += c.len_utf8();
+        for (pos, c) in self.haystack.by_ref() {
+            self.pos = pos;
             let mapped_c = c as u32;
 
             // self.state_id is always smaller than self.pma.states.len() because
@@ -73,7 +158,7 @@ where
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 return Some(Match {
                     length: out.length() as usize,
-                    end: self.pos,
+                    end: pos,
                     value: out.value() as usize,
                 });
             }
@@ -84,15 +169,14 @@ where
 
 impl<'a, P> Iterator for FindIterator<'a, P>
 where
-    P: AsRef<str>,
+    P: Iterator<Item = u8>,
 {
     type Item = Match;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         let mut state_id = ROOT_STATE_IDX;
-        for c in unsafe { self.haystack.as_ref().get_unchecked(self.pos..) }.chars() {
-            self.pos += c.len_utf8();
+        for (pos, c) in self.haystack.by_ref() {
             let mapped_c = c as u32;
 
             // self.state_id is always smaller than self.pma.states.len() because
@@ -109,7 +193,7 @@ where
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 return Some(Match {
                     length: out.length() as usize,
-                    end: self.pos,
+                    end: pos,
                     value: out.value() as usize,
                 });
             }
@@ -120,14 +204,13 @@ where
 
 impl<'a, P> Iterator for FindOverlappingNoSuffixIterator<'a, P>
 where
-    P: AsRef<str>,
+    P: Iterator<Item = u8>,
 {
     type Item = Match;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        for c in unsafe { self.haystack.as_ref().get_unchecked(self.pos..) }.chars() {
-            self.pos += c.len_utf8();
+        for (pos, c) in self.haystack.by_ref() {
             let mapped_c = c as u32;
 
             // self.state_id is always smaller than self.pma.states.len() because
@@ -147,7 +230,7 @@ where
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
                 return Some(Match {
                     length: out.length() as usize,
-                    end: self.pos,
+                    end: pos,
                     value: out.value() as usize,
                 });
             }
