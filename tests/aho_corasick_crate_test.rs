@@ -1,92 +1,5 @@
-use super::*;
-
-#[test]
-fn test_double_array() {
-    /*
-     *          a--> 4
-     *         /
-     *   a--> 1 --c--> 5
-     *  /
-     * 0 --b--> 2 --c--> 6
-     *  \
-     *   c--> 3
-     *
-     *   a = 0
-     *   b = 1
-     *   c = 2
-     */
-    let patterns = vec![vec![0, 0], vec![0, 2], vec![1, 2], vec![2]];
-    let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-
-    let base_expected = vec![
-        4,            // 0  (state=0)
-        BASE_INVALID, // 1
-        BASE_INVALID, // 2  (state=6)
-        BASE_INVALID, // 3
-        8,            // 4  (state=1)
-        0,            // 5  (state=2)
-        BASE_INVALID, // 6  (state=3)
-        BASE_INVALID, // 7
-        BASE_INVALID, // 8  (state=4)
-        BASE_INVALID, // 9
-        BASE_INVALID, // 10 (state=5)
-    ];
-    let check_expected = vec![
-        1, // 0  (state=0)
-        0, // 1
-        2, // 2  (state=6)
-        2, // 3
-        0, // 4  (state=1)
-        1, // 5  (state=2)
-        2, // 6  (state=3)
-        6, // 7
-        0, // 8  (state=4)
-        8, // 9
-        2, // 10 (state=5)
-    ];
-    let fail_expected = vec![
-        ROOT_STATE_IDX, // 0  (state=0)
-        ROOT_STATE_IDX, // 1
-        6,              // 2  (state=6)
-        ROOT_STATE_IDX, // 3
-        ROOT_STATE_IDX, // 4  (state=1)
-        ROOT_STATE_IDX, // 5  (state=2)
-        ROOT_STATE_IDX, // 6  (state=3)
-        ROOT_STATE_IDX, // 7
-        4,              // 8  (state=4)
-        ROOT_STATE_IDX, // 9
-        6,              // 10 (state=5)
-    ];
-
-    let pma_base: Vec<_> = pma.states[0..11]
-        .iter()
-        .map(|state| state.base().unwrap_or(BASE_INVALID))
-        .collect();
-    let pma_check: Vec<_> = pma.states[0..11]
-        .iter()
-        .map(|state| state.check())
-        .collect();
-    let pma_fail: Vec<_> = pma.states[0..11].iter().map(|state| state.fail()).collect();
-
-    assert_eq!(base_expected, pma_base);
-    assert_eq!(check_expected, pma_check);
-    assert_eq!(fail_expected, pma_fail);
-}
-
-#[test]
-fn test_num_states() {
-    /*
-     *   b-*-a-*-a-*-b-*-a-*
-     *  /
-     * *-a-*-b-*-b-*-a-*
-     *          \
-     *           a-*-b-*-a-*
-     */
-    let patterns = vec!["abba", "baaba", "ababa"];
-    let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-
-    assert_eq!(13, pma.num_states());
-}
+use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
+use daachorse::{DoubleArrayAhoCorasickBuilder, Match, MatchKind};
 
 /// The following test suites are copied from
 /// [aho-corasick crate](https://github.com/BurntSushi/aho-corasick/blob/master/src/tests.rs),
@@ -511,11 +424,11 @@ fn search_tests_have_unique_names() {
 }
 
 macro_rules! testconfig {
-    (non_overlapping, $name:ident, $collection:expr, $kind:ident, $with:expr) => {
+    (non_overlapping, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
         #[test]
         fn $name() {
             run_search_tests($collection, |test| {
-                let pma = DoubleArrayAhoCorasickBuilder::new()
+                let pma = $builder::new()
                     .match_kind(MatchKind::$kind)
                     .build(test.patterns)
                     .unwrap();
@@ -523,11 +436,11 @@ macro_rules! testconfig {
             });
         }
     };
-    (overlapping, $name:ident, $collection:expr, $kind:ident, $with:expr) => {
+    (overlapping, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
         #[test]
         fn $name() {
             run_search_tests($collection, |test| {
-                let pma = DoubleArrayAhoCorasickBuilder::new()
+                let pma = $builder::new()
                     .match_kind(MatchKind::$kind)
                     .build(test.patterns)
                     .unwrap();
@@ -535,11 +448,11 @@ macro_rules! testconfig {
             });
         }
     };
-    (leftmost, $name:ident, $collection:expr, $kind:ident, $with:expr) => {
+    (leftmost, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
         #[test]
         fn $name() {
             run_search_tests($collection, |test| {
-                let pma = DoubleArrayAhoCorasickBuilder::new()
+                let pma = $builder::new()
                     .match_kind(MatchKind::$kind)
                     .build(test.patterns)
                     .unwrap();
@@ -549,9 +462,11 @@ macro_rules! testconfig {
     };
 }
 
+// Bytewise Daachorse tests
 testconfig!(
     non_overlapping,
     search_standard_non_overlapping,
+    DoubleArrayAhoCorasickBuilder,
     AC_STANDARD_NON_OVERLAPPING,
     Standard,
     |_| ()
@@ -560,6 +475,7 @@ testconfig!(
 testconfig!(
     overlapping,
     search_standard_overlapping,
+    DoubleArrayAhoCorasickBuilder,
     AC_STANDARD_OVERLAPPING,
     Standard,
     |_| ()
@@ -568,6 +484,7 @@ testconfig!(
 testconfig!(
     leftmost,
     search_leftmost_longest,
+    DoubleArrayAhoCorasickBuilder,
     AC_LEFTMOST_LONGEST,
     LeftmostLongest,
     |_| ()
@@ -576,6 +493,44 @@ testconfig!(
 testconfig!(
     leftmost,
     search_leftmost_first,
+    DoubleArrayAhoCorasickBuilder,
+    AC_LEFTMOST_FIRST,
+    LeftmostFirst,
+    |_| ()
+);
+
+// Charwise Daachorse tests
+testconfig!(
+    non_overlapping,
+    search_standard_non_overlapping_charwise,
+    CharwiseDoubleArrayAhoCorasickBuilder,
+    AC_STANDARD_NON_OVERLAPPING,
+    Standard,
+    |_| ()
+);
+
+testconfig!(
+    overlapping,
+    search_standard_overlapping_charwise,
+    CharwiseDoubleArrayAhoCorasickBuilder,
+    AC_STANDARD_OVERLAPPING,
+    Standard,
+    |_| ()
+);
+
+testconfig!(
+    leftmost,
+    search_leftmost_longest_charwise,
+    CharwiseDoubleArrayAhoCorasickBuilder,
+    AC_LEFTMOST_LONGEST,
+    LeftmostLongest,
+    |_| ()
+);
+
+testconfig!(
+    leftmost,
+    search_leftmost_first_charwise,
+    CharwiseDoubleArrayAhoCorasickBuilder,
     AC_LEFTMOST_FIRST,
     LeftmostFirst,
     |_| ()

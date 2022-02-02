@@ -18,8 +18,8 @@ but also represents each state in a compact space of only 12 bytes.
 
 For example, compared to the NFA of the [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate
 that is the most poplar Aho-Corasick implementation in Rust,
-Daachorse can perform pattern matching **3.1 times faster**
-while consuming **45% smaller** memory, when using a word dictionary of 675K patterns.
+Daachorse can perform pattern matching **3.0~5.1 times faster**
+while consuming **45~55% smaller** memory, when using a word dictionary of 675K patterns.
 Other experimental results can be found in
 [Wiki](https://github.com/legalforce-research/daachorse/wiki).
 
@@ -33,8 +33,12 @@ To use `daachorse`, depend on it in your Cargo manifest:
 # Cargo.toml
 
 [dependencies]
-daachorse = "0.3"
+daachorse = "0.4"
 ```
+
+### Requirements
+
+To compile this crate, Rust 1.58 or higher is required.
 
 ## Example usage
 
@@ -165,6 +169,32 @@ assert_eq!((0, 2, 10), (m.start(), m.end(), m.value()));
 
 let m = it.next().unwrap();
 assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+
+assert_eq!(None, it.next());
+```
+
+### Building faster automaton on multibyte characters
+
+To build a faster automaton on multibyte characters, use `CharwiseDoubleArrayAhoCorasick` instead.
+
+The standard version `DoubleArrayAhoCorasick` handles strings as UTF-8 sequences
+and defines transition labels using byte values.
+On the other hand, `CharwiseDoubleArrayAhoCorasick` uses code point values of Unicode,
+resulting in reducing the number of transitions and faster matching.
+
+```rust
+use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+
+let patterns = vec!["全世界", "世界", "に"];
+let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+
+let mut it = pma.find_iter("全世界中に");
+
+let m = it.next().unwrap();
+assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+
+let m = it.next().unwrap();
+assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
 
 assert_eq!(None, it.next());
 ```

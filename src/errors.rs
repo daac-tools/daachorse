@@ -2,13 +2,18 @@
 
 use std::error::Error;
 use std::fmt;
+use std::result;
 
 /// Errors in daachorse.
 #[derive(Debug)]
 pub enum DaachorseError {
+    /// Contains [`InvalidArgumentError`].
     InvalidArgument(InvalidArgumentError),
+
+    /// Contains [`DuplicatePatternError`].
     DuplicatePattern(DuplicatePatternError),
-    PatternScale(PatternScaleError),
+
+    /// Contains [`AutomatonScaleError`].
     AutomatonScale(AutomatonScaleError),
 }
 
@@ -17,7 +22,6 @@ impl fmt::Display for DaachorseError {
         match self {
             Self::InvalidArgument(e) => e.fmt(f),
             Self::DuplicatePattern(e) => e.fmt(f),
-            Self::PatternScale(e) => e.fmt(f),
             Self::AutomatonScale(e) => e.fmt(f),
         }
     }
@@ -25,19 +29,40 @@ impl fmt::Display for DaachorseError {
 
 impl Error for DaachorseError {}
 
+impl DaachorseError {
+    pub(crate) const fn invalid_argument(arg: &'static str, op: &'static str, value: u32) -> Self {
+        Self::InvalidArgument(InvalidArgumentError { arg, op, value })
+    }
+
+    pub(crate) const fn duplicate_pattern(pattern: String) -> Self {
+        Self::DuplicatePattern(DuplicatePatternError { pattern })
+    }
+
+    pub(crate) const fn automaton_scale(arg: &'static str, max_value: u32) -> Self {
+        Self::AutomatonScale(AutomatonScaleError { arg, max_value })
+    }
+}
+
 /// Error used when the argument is invalid.
 #[derive(Debug)]
 pub struct InvalidArgumentError {
     /// Name of the argument.
-    pub(crate) arg: &'static str,
+    arg: &'static str,
 
-    /// Error message.
-    pub(crate) msg: String,
+    /// Condition operator.
+    op: &'static str,
+
+    /// Condition value.
+    value: u32,
 }
 
 impl fmt::Display for InvalidArgumentError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "InvalidArgumentError: {}: {}", self.arg, self.msg)
+        write!(
+            f,
+            "InvalidArgumentError: {} must be {} {}",
+            self.arg, self.op, self.value
+        )
     }
 }
 
@@ -47,41 +72,38 @@ impl Error for InvalidArgumentError {}
 #[derive(Debug)]
 pub struct DuplicatePatternError {
     /// A duplicate pattern.
-    pub(crate) pattern: Vec<u8>,
+    pattern: String,
 }
 
 impl fmt::Display for DuplicatePatternError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DuplicatePatternError: {:?}", self.pattern)
+        write!(f, "DuplicatePatternError: {}", self.pattern)
     }
 }
 
 impl Error for DuplicatePatternError {}
 
-/// Error used when the scale of input patterns exceeds the expected one.
-#[derive(Debug)]
-pub struct PatternScaleError {
-    pub(crate) msg: String,
-}
-
-impl fmt::Display for PatternScaleError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "PatternScaleError: {}", self.msg)
-    }
-}
-
-impl Error for PatternScaleError {}
-
 /// Error used when the scale of the automaton exceeds the expected one.
 #[derive(Debug)]
 pub struct AutomatonScaleError {
-    pub(crate) msg: String,
+    /// Name of the argument.
+    arg: &'static str,
+
+    /// The maximum value (inclusive).
+    max_value: u32,
 }
 
 impl fmt::Display for AutomatonScaleError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "AutomatonScaleError: {}", self.msg)
+        write!(
+            f,
+            "AutomatonScaleError: {} must be <= {}",
+            self.arg, self.max_value
+        )
     }
 }
 
 impl Error for AutomatonScaleError {}
+
+/// A specialized Result type for Daachorse.
+pub type Result<T, E = DaachorseError> = result::Result<T, E>;

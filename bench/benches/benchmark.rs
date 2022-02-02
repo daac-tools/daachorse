@@ -137,6 +137,10 @@ fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) 
         b.iter(|| daachorse::DoubleArrayAhoCorasick::new(patterns).unwrap());
     });
 
+    group.bench_function("daachorse/charwise", |b| {
+        b.iter(|| daachorse::charwise::CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap());
+    });
+
     group.bench_function("aho_corasick/nfa", |b| {
         b.iter(|| aho_corasick::AhoCorasick::new(patterns));
     });
@@ -184,6 +188,21 @@ fn add_find_benches(
 ) {
     group.bench_function("daachorse", |b| {
         let pma = daachorse::DoubleArrayAhoCorasick::new(patterns).unwrap();
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.find_iter(haystack) {
+                    sum += m.start() + m.end() + m.value();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+
+    group.bench_function("daachorse/charwise", |b| {
+        let pma = daachorse::charwise::CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
         b.iter(|| {
             let mut sum = 0;
             for haystack in haystacks {
@@ -252,6 +271,36 @@ fn add_find_overlapping_benches(
 
     group.bench_function("daachorse/no_suffix", |b| {
         let pma = daachorse::DoubleArrayAhoCorasick::new(patterns).unwrap();
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.find_overlapping_no_suffix_iter(haystack) {
+                    sum += m.start() + m.end() + m.value();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+
+    group.bench_function("daachorse/charwise", |b| {
+        let pma = daachorse::charwise::CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.find_overlapping_iter(haystack) {
+                    sum += m.start() + m.end() + m.value();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+
+    group.bench_function("daachorse/charwise/no_suffix", |b| {
+        let pma = daachorse::charwise::CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
         b.iter(|| {
             let mut sum = 0;
             for haystack in haystacks {
@@ -373,6 +422,24 @@ fn add_leftmost_longest_find_benches(
         });
     });
 
+    group.bench_function("daachorse/charwise", |b| {
+        let pma = daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder::new()
+            .match_kind(daachorse::MatchKind::LeftmostLongest)
+            .build(patterns)
+            .unwrap();
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.leftmost_find_iter(haystack) {
+                    sum += m.start() + m.end() + m.value();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+
     group.bench_function("aho_corasick/nfa", |b| {
         let pma = aho_corasick::AhoCorasickBuilder::new()
             .match_kind(aho_corasick::MatchKind::LeftmostLongest)
@@ -416,6 +483,24 @@ fn add_leftmost_first_find_benches(
 ) {
     group.bench_function("daachorse", |b| {
         let pma = daachorse::DoubleArrayAhoCorasickBuilder::new()
+            .match_kind(daachorse::MatchKind::LeftmostFirst)
+            .build(patterns)
+            .unwrap();
+        b.iter(|| {
+            let mut sum = 0;
+            for haystack in haystacks {
+                for m in pma.leftmost_find_iter(haystack) {
+                    sum += m.start() + m.end() + m.value();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    });
+
+    group.bench_function("daachorse/charwise", |b| {
+        let pma = daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder::new()
             .match_kind(daachorse::MatchKind::LeftmostFirst)
             .build(patterns)
             .unwrap();
