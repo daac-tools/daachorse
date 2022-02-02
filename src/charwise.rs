@@ -1,3 +1,47 @@
+//! A character-wised version for faster matching on multibyte characters.
+//!
+//! This sub-module provides a character-wised implementation of Daachorse,
+//! [`CharwiseDoubleArrayAhoCorasick`].
+//! The standard version [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick)
+//! handles strings as UTF-8 sequences
+//! and defines transition labels using byte integers.
+//! On the other hand, the character-wised version uses code point values of Unicode,
+//! resulting in reducing the number of transitions and faster matching on multibyte characters.
+//!
+//! # Features
+//!
+//! Compared to [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick),
+//! [`CharwiseDoubleArrayAhoCorasick`] has the following features
+//! if it is built from multibyte strings such as Japanese:
+//!
+//!  - Faster matching can be expected.
+//!  - The construction time can be slower.
+//!  - The memory efficiency depends on input patterns.
+//!    - If the scale is large, the memory efficiency can be competitive.
+//!    - If the scale is small, the double array can be sparse and memory inefficiency.
+//!
+//! # Examples
+//!
+//! The example finds non-overlapped occurrences with shortest matching
+//! on UTF-8 strings.
+//! Note that byte positions are reported.
+//!
+//! ```rust
+//! use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+//!
+//! let patterns = vec!["全世界", "世界", "に"];
+//! let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+//!
+//! let mut it = pma.find_iter("全世界中に");
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+//!
+//! let m = it.next().unwrap();
+//! assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+//!
+//! assert_eq!(None, it.next());
+//! ```
 pub mod builder;
 pub mod iter;
 
@@ -48,7 +92,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Errors
     ///
-    /// [`DaachorseError`] is returned when
+    /// [`DaachorseError`](super::errors::DaachorseError) is returned when
     ///   - `patterns` is empty,
     ///   - `patterns` contains entries of length zero,
     ///   - `patterns` contains duplicate entries,
@@ -89,7 +133,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Errors
     ///
-    /// [`DaachorseError`] is returned when
+    /// [`DaachorseError`](super::errors::DaachorseError) is returned when
     ///   - `patvals` is empty,
     ///   - `patvals` contains patterns of length zero,
     ///   - `patvals` contains duplicate patterns,

@@ -33,6 +33,7 @@ where
     }
 }
 
+/// Iterator for UTF-8 strings with end positions.
 pub struct CharWithEndOffsetIterator<I> {
     inner: Enumerate<I>,
 }

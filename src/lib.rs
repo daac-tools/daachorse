@@ -1,4 +1,4 @@
-//! # 🐎 Daac Horse: Double-Array Aho-Corasick
+//! # 🐎 daachorse: Double-Array Aho-Corasick
 //!
 //! A fast implementation of the Aho-Corasick algorithm
 //! using the compact double-array data structure.
@@ -560,7 +560,8 @@ where
 /// # Limitations
 ///
 /// For memory- and cache-efficiency, a FAIL pointer is represented in 24 bits.
-/// Thus, if a very large pattern set is given, [`DaachorseError`] will be reported.
+/// Thus, if a very large pattern set is given,
+/// [`DaachorseError`](super::errors::DaachorseError) will be reported.
 pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
@@ -578,7 +579,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Errors
     ///
-    /// [`DaachorseError`] is returned when
+    /// [`DaachorseError`](super::errors::DaachorseError) is returned when
     ///   - `patterns` is empty,
     ///   - `patterns` contains entries of length zero,
     ///   - `patterns` contains duplicate entries,
@@ -619,7 +620,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Errors
     ///
-    /// [`DaachorseError`] is returned when
+    /// [`DaachorseError`](super::errors::DaachorseError) is returned when
     ///   - `patvals` is empty,
     ///   - `patvals` contains patterns of length zero,
     ///   - `patvals` contains duplicate patterns,
