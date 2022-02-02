@@ -33,7 +33,7 @@ To use `daachorse`, depend on it in your Cargo manifest:
 # Cargo.toml
 
 [dependencies]
-daachorse = "0.3"
+daachorse = "0.4"
 ```
 
 ### Requirements
