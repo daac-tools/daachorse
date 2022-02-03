@@ -42,6 +42,14 @@ jobs:
           command: test
           args: --release --all-features
 
+      - name: Run cargo doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --release --all-features
+        env:
+          RUSTDOCFLAGS: "-Dwarnings"
+
   nightly:
     name: Nightly
     runs-on: ubuntu-latest
@@ -76,3 +84,11 @@ jobs:
         with:
           command: test
           args: --release --all-features
+
+      - name: Run cargo doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --release --all-features
+        env:
+          RUSTDOCFLAGS: "-Dwarnings"
