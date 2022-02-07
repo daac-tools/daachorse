@@ -46,7 +46,7 @@ pub mod builder;
 pub mod iter;
 
 pub use crate::charwise::builder::CharwiseDoubleArrayAhoCorasickBuilder;
-pub use crate::charwise::iter::{
+use crate::charwise::iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
     FindOverlappingNoSuffixIterator, LestmostFindIterator, StrIterator,
 };
