@@ -1,11 +1,11 @@
-//! A character-wised version for faster matching on multibyte characters.
+//! A character-wise version for faster matching on multibyte characters.
 //!
-//! This sub-module provides a character-wised implementation of Daachorse,
+//! This sub-module provides a character-wise implementation of Daachorse,
 //! [`CharwiseDoubleArrayAhoCorasick`].
 //! The standard version [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick)
 //! handles strings as UTF-8 sequences
 //! and defines transition labels using byte integers.
-//! On the other hand, the character-wised version uses code point values of Unicode,
+//! On the other hand, the character-wise version uses code point values of Unicode,
 //! resulting in reducing the number of transitions and faster matching on multibyte characters.
 //!
 //! # Features
