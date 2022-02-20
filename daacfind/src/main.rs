@@ -3,8 +3,8 @@ use std::io::{prelude::*, stdin, BufReader};
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use clap::Parser;
 use daachorse::DoubleArrayAhoCorasick;
-use structopt::StructOpt;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Clone, Copy, Debug)]
@@ -26,31 +26,31 @@ impl FromStr for ArgColor {
     }
 }
 
-#[derive(StructOpt, Debug)]
-#[structopt(name = "daacfind", about = "A program to find patterns in files.")]
-struct Opt {
+#[derive(Parser, Debug)]
+#[clap(name = "daacfind", about = "A program to find patterns in files.")]
+struct Args {
     /// Match patterns separated with new lines.
-    #[structopt(short)]
+    #[clap(short)]
     patterns: Option<String>,
 
     /// A filename containing patterns.
-    #[structopt(short = "f")]
+    #[clap(short = 'f')]
     pattern_file: Option<String>,
 
     /// Suppresses printing filenames.
-    #[structopt(short = "h", long)]
+    #[clap(short = 'h', long)]
     no_filename: bool,
 
     /// Prints line numbers.
-    #[structopt(short = "n", long)]
+    #[clap(short = 'n', long)]
     line_number: bool,
 
     /// Highlights the matching texts. [never, always, auto]
-    #[structopt(long, default_value = "never")]
+    #[clap(long, default_value = "never")]
     color: ArgColor,
 
     /// File paths.
-    #[structopt(name = "FILE")]
+    #[clap(name = "FILE")]
     files: Vec<PathBuf>,
 }
 
@@ -115,11 +115,11 @@ fn find_and_output(
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let opt = Opt::from_args();
+    let args = Args::parse();
 
     // Builds a PMA from given patterns.
     let mut patterns = vec![];
-    if let Some(filename) = opt.pattern_file {
+    if let Some(filename) = args.pattern_file {
         let buf = BufReader::new(File::open(filename)?);
         for line in buf.lines() {
             let line = line?;
@@ -128,7 +128,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    if let Some(pats_string) = opt.patterns {
+    if let Some(pats_string) = args.patterns {
         for pattern in pats_string.split('\n') {
             if !pattern.is_empty() {
                 patterns.push(pattern.to_string());
@@ -138,34 +138,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pma = DoubleArrayAhoCorasick::new(patterns)?;
 
     // Initialize the stream of termcolor.
-    let mut stdout = match opt.color {
+    let mut stdout = match args.color {
         ArgColor::Never => StandardStream::stdout(ColorChoice::Never),
         ArgColor::Always => StandardStream::stdout(ColorChoice::Always),
         ArgColor::Auto => StandardStream::stdout(ColorChoice::Auto),
     };
 
     // For the standard input.
-    if opt.files.is_empty() {
+    if args.files.is_empty() {
         for (i, line) in stdin().lock().lines().enumerate() {
-            let line_number = if opt.line_number { Some(i) } else { None };
-            find_and_output(&pma, &line?, None, line_number, opt.color, &mut stdout)?;
+            let line_number = if args.line_number { Some(i) } else { None };
+            find_and_output(&pma, &line?, None, line_number, args.color, &mut stdout)?;
         }
     }
 
     // For the given files.
-    for filename in &opt.files {
+    for filename in &args.files {
         match File::open(filename) {
             Ok(file) => {
                 let buf = BufReader::new(file);
                 let filename = filename.to_str().and_then(|filename| {
-                    if opt.no_filename {
+                    if args.no_filename {
                         None
                     } else {
                         Some(filename)
                     }
                 });
                 for (i, line) in buf.lines().enumerate() {
-                    let line_number = if opt.line_number { Some(i) } else { None };
+                    let line_number = if args.line_number { Some(i) } else { None };
                     let line = match line {
                         Ok(line) => line,
                         Err(err) => {
@@ -180,7 +180,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             break;
                         }
                     };
-                    find_and_output(&pma, &line, filename, line_number, opt.color, &mut stdout)?;
+                    find_and_output(&pma, &line, filename, line_number, args.color, &mut stdout)?;
                 }
             }
             Err(err) => {
