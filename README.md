@@ -6,6 +6,8 @@ A fast implementation of the Aho-Corasick algorithm using the compact double-arr
 [![Documentation](https://docs.rs/daachorse/badge.svg)](https://docs.rs/daachorse)
 ![Build Status](https://github.com/legalforce-research/daachorse/actions/workflows/rust.yml/badge.svg)
 
+[Technical details (Japanese)](https://tech.legalforce.co.jp/entry/2022/02/24/140316)
+
 ## Overview
 
 Daachorse is a crate for fast multiple pattern matching using
