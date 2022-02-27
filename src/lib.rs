@@ -839,8 +839,7 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(pma.heap_bytes(), 3104);
     /// ```
     pub fn heap_bytes(&self) -> usize {
-        self.states.len() * mem::size_of::<State>()
-            + self.outputs.len() * mem::size_of::<Output>()
+        self.states.len() * mem::size_of::<State>() + self.outputs.len() * mem::size_of::<Output>()
     }
 
     /// Returns the total number of states this automaton has.

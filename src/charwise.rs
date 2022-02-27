@@ -606,8 +606,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// assert_eq!(pma.heap_bytes(), 144);
     /// ```
     pub fn heap_bytes(&self) -> usize {
-        self.states.len() * mem::size_of::<State>()
-            + self.outputs.len() * mem::size_of::<Output>()
+        self.states.len() * mem::size_of::<State>() + self.outputs.len() * mem::size_of::<Output>()
     }
 
     /// # Safety
