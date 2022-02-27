@@ -201,6 +201,10 @@ assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
+## `no_std`
+
+To use this crate in a `no_std` environment, disable feature `std`.
+
 ## CLI
 
 This repository contains a command line interface named `daacfind` for searching patterns in text files.
