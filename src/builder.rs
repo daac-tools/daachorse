@@ -1,9 +1,11 @@
+use alloc::vec::Vec;
+
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
 use crate::{DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, FAIL_MAX, ROOT_STATE_IDX};
 
 // The maximum value of each double-array block.
-const BLOCK_MAX: u8 = std::u8::MAX;
+const BLOCK_MAX: u8 = u8::MAX;
 // The length of each double-array block.
 const BLOCK_LEN: u32 = BLOCK_MAX as u32 + 1;
 // The number of last blocks to be searched in `DoubleArrayAhoCorasickBuilder::find_base`.
@@ -437,7 +439,7 @@ impl DoubleArrayAhoCorasickBuilder {
         let old_len = self.states.len().try_into().unwrap();
         // The following condition is same as `new_len > STATE_INDEX_IVALID`.
         // We use the following condition to avoid overflow.
-        if old_len > std::u32::MAX - BLOCK_LEN {
+        if old_len > u32::MAX - BLOCK_LEN {
             return Err(DaachorseError::automaton_scale("states.len()", u32::MAX));
         }
         let new_len = old_len + BLOCK_LEN;

@@ -146,6 +146,11 @@
 //! assert_eq!(None, it.next());
 //! ```
 
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[macro_use]
+extern crate alloc;
+
 mod builder;
 pub mod charwise;
 pub mod errors;
@@ -155,6 +160,10 @@ mod nfa_builder;
 #[cfg(test)]
 mod tests;
 
+use core::mem;
+
+use alloc::vec::Vec;
+
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::Result;
 use iter::{
@@ -163,9 +172,9 @@ use iter::{
 };
 
 // The maximum BASE value used as an invalid value.
-pub(crate) const BASE_INVALID: u32 = std::u32::MAX;
+pub(crate) const BASE_INVALID: u32 = u32::MAX;
 // The maximum output position value used as an invalid value.
-pub(crate) const OUTPUT_POS_INVALID: u32 = std::u32::MAX;
+pub(crate) const OUTPUT_POS_INVALID: u32 = u32::MAX;
 // The maximum FAIL value.
 pub(crate) const FAIL_MAX: u32 = 0xFF_FFFF;
 // The mask value of FAIL for `State::fach`.
@@ -239,8 +248,8 @@ impl State {
     }
 }
 
-impl std::fmt::Debug for State {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for State {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("State")
             .field("base", &self.base())
             .field("check", &self.check())
@@ -281,8 +290,8 @@ impl Output {
     }
 }
 
-impl std::fmt::Debug for Output {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Output {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Output")
             .field("value", &self.value())
             .field("length", &self.length())
@@ -830,8 +839,7 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(pma.heap_bytes(), 3104);
     /// ```
     pub fn heap_bytes(&self) -> usize {
-        self.states.len() * std::mem::size_of::<State>()
-            + self.outputs.len() * std::mem::size_of::<Output>()
+        self.states.len() * mem::size_of::<State>() + self.outputs.len() * mem::size_of::<Output>()
     }
 
     /// Returns the total number of states this automaton has.
@@ -905,15 +913,6 @@ impl DoubleArrayAhoCorasick {
             }
             state_id = fail_id;
         }
-    }
-
-    #[cfg(test)]
-    #[inline(always)]
-    fn get_child_index(&self, state_id: u32, c: u8) -> Option<u32> {
-        self.states[state_id as usize].base().and_then(|base| {
-            let child_idx = base ^ u32::from(c);
-            Some(child_idx).filter(|&x| self.states[x as usize].check() == c)
-        })
     }
 }
 

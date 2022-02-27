@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, MatchKind, State};
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
