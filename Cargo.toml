@@ -18,7 +18,6 @@ exclude = [".*"]
 [dependencies]
 
 [dev-dependencies]
-rand = "0.8.4"  # MIT or Apache-2.0
 
 [features]
 default = ["std"]
