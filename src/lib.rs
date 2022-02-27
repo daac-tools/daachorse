@@ -915,15 +915,6 @@ impl DoubleArrayAhoCorasick {
             state_id = fail_id;
         }
     }
-
-    #[cfg(test)]
-    #[inline(always)]
-    fn get_child_index(&self, state_id: u32, c: u8) -> Option<u32> {
-        self.states[state_id as usize].base().and_then(|base| {
-            let child_idx = base ^ u32::from(c);
-            Some(child_idx).filter(|&x| self.states[x as usize].check() == c)
-        })
-    }
 }
 
 /// An search option of the Aho-Corasick automaton
