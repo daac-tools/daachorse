@@ -1,8 +1,8 @@
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 name: build
 
@@ -41,6 +41,12 @@ jobs:
         with:
           command: test
           args: --release --all-features
+
+      - name: Run cargo test (no-default-features)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --no-default-features
 
       - name: Run cargo doc
         uses: actions-rs/cargo@v1
@@ -84,6 +90,13 @@ jobs:
         with:
           command: test
           args: --release --all-features
+
+      - name: Run cargo test (no-default-features)
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --no-default-features
+
 
       - name: Run cargo doc
         uses: actions-rs/cargo@v1
