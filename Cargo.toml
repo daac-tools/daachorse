@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 homepage = "https://github.com/legalforce-research/daachorse"
 repository = "https://github.com/legalforce-research/daachorse"
 readme = "README.md"
-keywords = ["string", "search", "text", "aho", "multi"]
+keywords = ["string", "search", "text", "aho", "multi", "no_std"]
 categories = ["text-processing"]
 exclude = [".*"]
 
@@ -19,6 +19,11 @@ exclude = [".*"]
 
 [dev-dependencies]
 rand = "0.8.4"  # MIT or Apache-2.0
+
+[features]
+default = ["std"]
+
+std = []
 
 [workspace]
 members = [

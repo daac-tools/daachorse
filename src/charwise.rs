@@ -45,6 +45,10 @@
 pub mod builder;
 pub mod iter;
 
+use core::mem;
+
+use alloc::vec::Vec;
+
 pub use crate::charwise::builder::CharwiseDoubleArrayAhoCorasickBuilder;
 use crate::charwise::iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
@@ -54,9 +58,9 @@ use crate::errors::Result;
 use crate::{MatchKind, Output};
 
 // The maximum BASE value used as an invalid value.
-pub(crate) const BASE_INVALID: i32 = std::i32::MAX;
+pub(crate) const BASE_INVALID: i32 = i32::MAX;
 // The maximum output position value used as an invalid value.
-pub(crate) const OUTPUT_POS_INVALID: u32 = std::u32::MAX;
+pub(crate) const OUTPUT_POS_INVALID: u32 = u32::MAX;
 // The root index position.
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
@@ -602,8 +606,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// assert_eq!(pma.heap_bytes(), 144);
     /// ```
     pub fn heap_bytes(&self) -> usize {
-        self.states.len() * std::mem::size_of::<State>()
-            + self.outputs.len() * std::mem::size_of::<Output>()
+        self.states.len() * mem::size_of::<State>()
+            + self.outputs.len() * mem::size_of::<Output>()
     }
 
     /// # Safety

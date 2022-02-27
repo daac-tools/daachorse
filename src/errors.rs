@@ -1,8 +1,12 @@
 //! Definition of errors.
 
+use core::result;
+
+use alloc::fmt;
+use alloc::string::String;
+
+#[cfg(feature = "std")]
 use std::error::Error;
-use std::fmt;
-use std::result;
 
 /// Errors in daachorse.
 #[derive(Debug)]
@@ -27,6 +31,7 @@ impl fmt::Display for DaachorseError {
     }
 }
 
+#[cfg(feature = "std")]
 impl Error for DaachorseError {}
 
 impl DaachorseError {
@@ -66,6 +71,7 @@ impl fmt::Display for InvalidArgumentError {
     }
 }
 
+#[cfg(feature = "std")]
 impl Error for InvalidArgumentError {}
 
 /// Error used when some patterns are duplicated.
@@ -81,6 +87,7 @@ impl fmt::Display for DuplicatePatternError {
     }
 }
 
+#[cfg(feature = "std")]
 impl Error for DuplicatePatternError {}
 
 /// Error used when the scale of the automaton exceeds the expected one.
@@ -103,6 +110,7 @@ impl fmt::Display for AutomatonScaleError {
     }
 }
 
+#[cfg(feature = "std")]
 impl Error for AutomatonScaleError {}
 
 /// A specialized Result type for Daachorse.

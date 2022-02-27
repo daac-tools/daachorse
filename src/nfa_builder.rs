@@ -1,18 +1,20 @@
-use std::cell::RefCell;
+use core::cell::RefCell;
+
+use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
 use crate::{MatchKind, Output, OUTPUT_POS_INVALID};
 
 // The maximum value of a pattern used as an invalid value.
-pub const VALUE_INVALID: u32 = std::u32::MAX;
+pub const VALUE_INVALID: u32 = u32::MAX;
 // The maximum length of a pattern used as an invalid value.
-pub const LENGTH_INVALID: u32 = std::u32::MAX >> 1;
+pub const LENGTH_INVALID: u32 = u32::MAX >> 1;
 // The root state id of SparseNFA.
 pub const ROOT_STATE_ID: u32 = 0;
 // The dead state id of SparseNFA.
 pub const DEAD_STATE_ID: u32 = 1;
 
-pub trait EdgeLabel: Copy + Ord + std::fmt::Debug {
+pub trait EdgeLabel: Copy + Ord + core::fmt::Debug {
     fn num_bytes(&self) -> usize;
 }
 
@@ -29,7 +31,7 @@ impl EdgeLabel for char {
 }
 
 /// Mapping edge lables to child ids using `BTreeMap`.
-type EdgeMap<L> = std::collections::BTreeMap<L, u32>;
+type EdgeMap<L> = alloc::collections::BTreeMap<L, u32>;
 
 /// State of [`NfaBuilder`].
 #[derive(Clone)]
