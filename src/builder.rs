@@ -12,8 +12,6 @@ const BLOCK_LEN: u32 = BLOCK_MAX as u32 + 1;
 const FREE_BLOCKS: u32 = 16;
 // The number of last states (or elements) to be searched in `DoubleArrayAhoCorasickBuilder::find_base`.
 const FREE_STATES: u32 = BLOCK_LEN * FREE_BLOCKS;
-// The initial capacity to build a double array.
-const INIT_CAPACITY: u32 = 1 << 16;
 
 // Specialized [`NfaBuilder`] handling labels of `u8`.
 type BytewiseNfaBuilder = NfaBuilder<u8>;
@@ -117,9 +115,8 @@ impl DoubleArrayAhoCorasickBuilder {
     /// assert_eq!(None, it.next());
     /// ```
     pub fn new() -> Self {
-        let init_capa = BLOCK_LEN.min(INIT_CAPACITY / BLOCK_LEN * BLOCK_LEN);
         Self {
-            states: Vec::with_capacity(init_capa as usize),
+            states: vec![],
             extras: [Extra::default(); FREE_STATES as usize],
             head_idx: DEAD_STATE_IDX,
             match_kind: MatchKind::Standard,
