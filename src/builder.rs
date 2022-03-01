@@ -461,7 +461,8 @@ impl DoubleArrayAhoCorasickBuilder {
 
         // It is necessary to close the head block before appending a new block
         // so that the builder works in extras[..FREE_STATES].
-        if self.extras.len() as u32 <= old_len {
+        if self.extras.len() <= old_len as usize {
+            #[allow(clippy::cast_possible_truncation)]
             self.close_block((old_len - self.extras.len() as u32) / BLOCK_LEN);
         }
 
