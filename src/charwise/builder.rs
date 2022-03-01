@@ -7,9 +7,6 @@ use crate::nfa_builder::NfaBuilder;
 use crate::charwise::{DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX};
 use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
 
-// The initial capacity to build a double array.
-const INIT_CAPACITY: u32 = 1 << 16;
-
 // Specialized [`NfaBuilder`] handling labels of `char`.
 type CharwiseNfaBuilder = NfaBuilder<char>;
 
@@ -48,9 +45,9 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
-            states: Vec::with_capacity(INIT_CAPACITY as usize),
+            states: vec![],
             match_kind: MatchKind::Standard,
         }
     }
