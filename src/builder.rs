@@ -153,7 +153,8 @@ impl DoubleArrayAhoCorasickBuilder {
 
     /// Specifies the number of last blocks to search bases.
     ///
-    /// When the RAM capacity is small, this should be a small value.
+    /// The smaller the number is, the faster the construction time will be;
+    /// however, the memory efficiency can be degraded.
     ///
     /// # Arguments
     ///
