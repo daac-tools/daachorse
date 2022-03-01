@@ -111,7 +111,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             states: vec![],
             extras: vec![],
@@ -367,7 +367,8 @@ impl DoubleArrayAhoCorasickBuilder {
 
     fn init_array(&mut self) {
         self.states.resize(BLOCK_LEN as usize, State::default());
-        self.extras.resize((BLOCK_LEN * self.n_free_blocks) as usize, Extra::default());
+        self.extras
+            .resize((BLOCK_LEN * self.n_free_blocks) as usize, Extra::default());
         self.head_idx = ROOT_STATE_IDX;
 
         for i in 0..BLOCK_LEN {
