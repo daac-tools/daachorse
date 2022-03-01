@@ -8,10 +8,6 @@ use crate::{DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, FAIL_MAX, 
 const BLOCK_MAX: u8 = u8::MAX;
 // The length of each double-array block.
 const BLOCK_LEN: u32 = BLOCK_MAX as u32 + 1;
-// The number of last blocks to be searched in `DoubleArrayAhoCorasickBuilder::find_base`.
-const FREE_BLOCKS: u32 = 16;
-// The number of last states (or elements) to be searched in `DoubleArrayAhoCorasickBuilder::find_base`.
-const FREE_STATES: u32 = BLOCK_LEN * FREE_BLOCKS;
 
 // Specialized [`NfaBuilder`] handling labels of `u8`.
 type BytewiseNfaBuilder = NfaBuilder<u8>;
@@ -80,9 +76,10 @@ impl Extra {
 /// Builder of [`DoubleArrayAhoCorasick`].
 pub struct DoubleArrayAhoCorasickBuilder {
     states: Vec<State>,
-    extras: [Extra; FREE_STATES as usize],
+    extras: Vec<Extra>,
     head_idx: u32,
     match_kind: MatchKind,
+    n_free_blocks: u32,
 }
 
 impl Default for DoubleArrayAhoCorasickBuilder {
@@ -117,9 +114,10 @@ impl DoubleArrayAhoCorasickBuilder {
     pub fn new() -> Self {
         Self {
             states: vec![],
-            extras: [Extra::default(); FREE_STATES as usize],
+            extras: vec![],
             head_idx: DEAD_STATE_IDX,
             match_kind: MatchKind::Standard,
+            n_free_blocks: 16,
         }
     }
 
@@ -150,6 +148,13 @@ impl DoubleArrayAhoCorasickBuilder {
     #[must_use]
     pub const fn match_kind(mut self, kind: MatchKind) -> Self {
         self.match_kind = kind;
+        self
+    }
+
+    #[must_use]
+    pub const fn n_free_blocks(mut self, n: u32) -> Self {
+        assert!(n >= 1);
+        self.n_free_blocks = n;
         self
     }
 
@@ -343,7 +348,7 @@ impl DoubleArrayAhoCorasickBuilder {
         }
 
         // If the root block has not been closed, it has to be closed for setting CHECK[0] to a valid value.
-        if self.states.len() <= FREE_STATES as usize {
+        if self.states.len() <= self.extras.len() {
             self.close_block(0);
         }
 
@@ -359,6 +364,7 @@ impl DoubleArrayAhoCorasickBuilder {
 
     fn init_array(&mut self) {
         self.states.resize(BLOCK_LEN as usize, State::default());
+        self.extras.resize((BLOCK_LEN * self.n_free_blocks) as usize, Extra::default());
         self.head_idx = ROOT_STATE_IDX;
 
         for i in 0..BLOCK_LEN {
@@ -443,8 +449,8 @@ impl DoubleArrayAhoCorasickBuilder {
 
         // It is necessary to close the head block before appending a new block
         // so that the builder works in extras[..FREE_STATES].
-        if FREE_STATES <= old_len {
-            self.close_block((old_len - FREE_STATES) / BLOCK_LEN);
+        if self.extras.len() as u32 <= old_len {
+            self.close_block((old_len - self.extras.len() as u32) / BLOCK_LEN);
         }
 
         for i in old_len..new_len {
@@ -512,19 +518,22 @@ impl DoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn init_extra(&mut self, i: u32) {
-        debug_assert!(self.states.len() <= (i + FREE_STATES) as usize);
-        self.extras[(i % FREE_STATES) as usize] = Extra::default();
+        let free_states = self.extras.len();
+        debug_assert!(self.states.len() <= i as usize + free_states);
+        self.extras[i as usize % free_states] = Extra::default();
     }
 
     #[inline(always)]
     fn extra_ref(&self, i: u32) -> &Extra {
-        debug_assert!(self.states.len() <= (i + FREE_STATES) as usize);
-        &self.extras[(i % FREE_STATES) as usize]
+        let free_states = self.extras.len();
+        debug_assert!(self.states.len() <= i as usize + free_states);
+        &self.extras[i as usize % free_states]
     }
 
     #[inline(always)]
     fn extra_mut_ref(&mut self, i: u32) -> &mut Extra {
-        debug_assert!(self.states.len() <= (i + FREE_STATES) as usize);
-        &mut self.extras[(i % FREE_STATES) as usize]
+        let free_states = self.extras.len();
+        debug_assert!(self.states.len() <= i as usize + free_states);
+        &mut self.extras[i as usize % free_states]
     }
 }
