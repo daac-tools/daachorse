@@ -376,8 +376,10 @@ impl DoubleArrayAhoCorasickBuilder {
 
     fn init_array(&mut self) {
         self.states.resize(BLOCK_LEN as usize, State::default());
-        self.extras
-            .resize((BLOCK_LEN * self.num_free_blocks) as usize, Extra::default());
+        self.extras.resize(
+            (BLOCK_LEN * self.num_free_blocks) as usize,
+            Extra::default(),
+        );
         self.head_idx = ROOT_STATE_IDX;
 
         for i in 0..BLOCK_LEN {
