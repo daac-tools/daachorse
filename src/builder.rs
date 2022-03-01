@@ -79,7 +79,7 @@ pub struct DoubleArrayAhoCorasickBuilder {
     extras: Vec<Extra>,
     head_idx: u32,
     match_kind: MatchKind,
-    n_free_blocks: u32,
+    num_free_blocks: u32,
 }
 
 impl Default for DoubleArrayAhoCorasickBuilder {
@@ -117,7 +117,7 @@ impl DoubleArrayAhoCorasickBuilder {
             extras: vec![],
             head_idx: DEAD_STATE_IDX,
             match_kind: MatchKind::Standard,
-            n_free_blocks: 16,
+            num_free_blocks: 16,
         }
     }
 
@@ -163,9 +163,9 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// `n` must be greater than or equal to 1.
     #[must_use]
-    pub const fn n_free_blocks(mut self, n: u32) -> Self {
+    pub const fn num_free_blocks(mut self, n: u32) -> Self {
         assert!(n >= 1);
-        self.n_free_blocks = n;
+        self.num_free_blocks = n;
         self
     }
 
@@ -376,7 +376,7 @@ impl DoubleArrayAhoCorasickBuilder {
     fn init_array(&mut self) {
         self.states.resize(BLOCK_LEN as usize, State::default());
         self.extras
-            .resize((BLOCK_LEN * self.n_free_blocks) as usize, Extra::default());
+            .resize((BLOCK_LEN * self.num_free_blocks) as usize, Extra::default());
         self.head_idx = ROOT_STATE_IDX;
 
         for i in 0..BLOCK_LEN {
