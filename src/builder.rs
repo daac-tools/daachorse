@@ -151,6 +151,9 @@ impl DoubleArrayAhoCorasickBuilder {
         self
     }
 
+    /// Specifies the number of last blocks to search bases.
+    ///
+    /// When the RAM capacity is small, this should be a small value.
     #[must_use]
     pub const fn n_free_blocks(mut self, n: u32) -> Self {
         assert!(n >= 1);
