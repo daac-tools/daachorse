@@ -625,12 +625,12 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::DoubleArrayAhoCorasick;
+    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let mut bytes = vec![];
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     /// pma.serialize(&mut bytes).unwrap();
     /// ```
     #[cfg(feature = "std")]
@@ -704,18 +704,18 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// ```
     /// use std::io::Read;
     ///
-    /// use daachorse::DoubleArrayAhoCorasick;
+    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let mut bytes = vec![];
     ///
     /// {
     ///     let patterns = vec!["全世界", "世界", "に"];
-    ///     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///     let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     ///     pma.serialize(&mut bytes).unwrap();
     /// }
     ///
     /// let pma = unsafe {
-    ///     DoubleArrayAhoCorasick::deserialize_unchecked(&mut bytes.as_slice()).unwrap()
+    ///     CharwiseDoubleArrayAhoCorasick::deserialize_unchecked(&mut bytes.as_slice()).unwrap()
     /// };
     ///
     /// let mut it = pma.find_overlapping_iter("全世界中に");
