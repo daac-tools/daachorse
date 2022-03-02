@@ -664,7 +664,12 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// let bytes = pma.serialize_to_vec();
     /// ```
     pub fn serialize_to_vec(&self) -> Vec<u8> {
-        let mut result = vec![];
+        let mut result = Vec::with_capacity(
+            mem::size_of::<u32>() * 3
+                + mem::size_of::<u8>()
+                + 16 * self.states.len()
+                + 8 * self.outputs.len(),
+        );
         result.extend_from_slice(&u32::try_from(self.states.len()).unwrap().to_le_bytes());
         for state in &self.states {
             result.extend_from_slice(&state.serialize());
