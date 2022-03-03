@@ -146,6 +146,7 @@
 //! assert_eq!(None, it.next());
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(target_pointer_width = "16")]
@@ -162,6 +163,9 @@ mod nfa_builder;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(feature = "std")]
+use std::io::{self, Read, Write};
 
 use core::mem;
 
@@ -249,6 +253,24 @@ impl State {
     pub fn set_output_pos(&mut self, x: u32) {
         self.output_pos = x;
     }
+
+    #[inline(always)]
+    fn serialize(&self) -> [u8; 12] {
+        let mut result = [0; 12];
+        result[0..4].copy_from_slice(&self.base.to_le_bytes());
+        result[4..8].copy_from_slice(&self.fach.to_le_bytes());
+        result[8..12].copy_from_slice(&self.output_pos.to_le_bytes());
+        result
+    }
+
+    #[inline(always)]
+    fn deserialize(input: [u8; 12]) -> Self {
+        Self {
+            base: u32::from_le_bytes(input[0..4].try_into().unwrap()),
+            fach: u32::from_le_bytes(input[4..8].try_into().unwrap()),
+            output_pos: u32::from_le_bytes(input[8..12].try_into().unwrap()),
+        }
+    }
 }
 
 impl core::fmt::Debug for State {
@@ -290,6 +312,22 @@ impl Output {
     #[inline(always)]
     pub const fn is_begin(self) -> bool {
         self.length & 1 == 1
+    }
+
+    #[inline(always)]
+    fn serialize(&self) -> [u8; 8] {
+        let mut result = [0; 8];
+        result[0..4].copy_from_slice(&self.value.to_le_bytes());
+        result[4..8].copy_from_slice(&self.length.to_le_bytes());
+        result
+    }
+
+    #[inline(always)]
+    fn deserialize(input: [u8; 8]) -> Self {
+        Self {
+            value: u32::from_le_bytes(input[0..4].try_into().unwrap()),
+            length: u32::from_le_bytes(input[4..8].try_into().unwrap()),
+        }
     }
 }
 
@@ -861,6 +899,232 @@ impl DoubleArrayAhoCorasick {
         self.num_states
     }
 
+    /// Serializes the automaton into a given target.
+    ///
+    /// # Arguments
+    ///
+    /// * `wtr` - A writable target.
+    ///
+    /// # Errors
+    ///
+    /// This function will return errors thrown by the given `wtr`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let mut bytes = vec![];
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// pma.serialize(&mut bytes).unwrap();
+    /// ```
+    #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+    pub fn serialize<W>(&self, mut wtr: W) -> io::Result<()>
+    where
+        W: Write,
+    {
+        wtr.write_all(&u32::try_from(self.states.len()).unwrap().to_le_bytes())?;
+        for state in &self.states {
+            wtr.write_all(&state.serialize())?;
+        }
+        wtr.write_all(&u32::try_from(self.outputs.len()).unwrap().to_le_bytes())?;
+        for output in &self.outputs {
+            wtr.write_all(&output.serialize())?;
+        }
+        wtr.write_all(&[self.match_kind as u8])?;
+        wtr.write_all(&u32::try_from(self.num_states).unwrap().to_le_bytes())?;
+        Ok(())
+    }
+
+    /// Serializes the automaton into a [`Vec`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let bytes = pma.serialize_to_vec();
+    /// ```
+    pub fn serialize_to_vec(&self) -> Vec<u8> {
+        let mut result = Vec::with_capacity(
+            mem::size_of::<u32>() * 3
+                + mem::size_of::<u8>()
+                + 12 * self.states.len()
+                + 8 * self.outputs.len(),
+        );
+        result.extend_from_slice(&u32::try_from(self.states.len()).unwrap().to_le_bytes());
+        for state in &self.states {
+            result.extend_from_slice(&state.serialize());
+        }
+        result.extend_from_slice(&u32::try_from(self.outputs.len()).unwrap().to_le_bytes());
+        for output in &self.outputs {
+            result.extend_from_slice(&output.serialize());
+        }
+        result.push(self.match_kind as u8);
+        result.extend_from_slice(&u32::try_from(self.num_states).unwrap().to_le_bytes());
+        result
+    }
+
+    /// Deserializes the automaton from a given source.
+    ///
+    /// # Arguments
+    ///
+    /// * `rdr` - A readable source.
+    ///
+    /// # Errors
+    ///
+    /// This function will return errors thrown by the given `rdr`.
+    ///
+    /// # Safety
+    ///
+    /// The given data must be a correct automaton exported by
+    /// [`DoubleArrayAhoCorasick::serialize()`] or
+    /// [`DoubleArrayAhoCorasick::serialize_to_vec()`] functions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::io::Read;
+    ///
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let mut bytes = vec![];
+    ///
+    /// {
+    ///     let patterns = vec!["bcd", "ab", "a"];
+    ///     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///     pma.serialize(&mut bytes).unwrap();
+    /// }
+    ///
+    /// let pma = unsafe {
+    ///     DoubleArrayAhoCorasick::deserialize_unchecked(&mut bytes.as_slice()).unwrap()
+    /// };
+    ///
+    /// let mut it = pma.find_overlapping_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    #[cfg(feature = "std")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
+    pub unsafe fn deserialize_unchecked<R>(mut rdr: R) -> io::Result<Self>
+    where
+        R: Read,
+    {
+        let mut states_len_array = [0; 4];
+        rdr.read_exact(&mut states_len_array)?;
+        let states_len = u32::from_le_bytes(states_len_array) as usize;
+        let mut states = Vec::with_capacity(states_len);
+        for _ in 0..states_len {
+            let mut state_array = [0; 12];
+            rdr.read_exact(&mut state_array)?;
+            states.push(State::deserialize(state_array));
+        }
+        let mut outputs_len_array = [0; 4];
+        rdr.read_exact(&mut outputs_len_array)?;
+        let outputs_len = u32::from_le_bytes(outputs_len_array) as usize;
+        let mut outputs = Vec::with_capacity(outputs_len);
+        for _ in 0..outputs_len {
+            let mut output_array = [0; 8];
+            rdr.read_exact(&mut output_array)?;
+            outputs.push(Output::deserialize(output_array));
+        }
+
+        let mut match_kind_array = [0];
+        rdr.read_exact(&mut match_kind_array)?;
+        let match_kind = MatchKind::from(match_kind_array[0]);
+
+        let mut num_states_array = [0; 4];
+        rdr.read_exact(&mut num_states_array)?;
+        let num_states = u32::from_le_bytes(num_states_array) as usize;
+
+        Ok(Self {
+            states,
+            outputs,
+            match_kind,
+            num_states,
+        })
+    }
+
+    /// Deserializes the automaton from a given slice.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - A source slice.
+    ///
+    /// # Safety
+    ///
+    /// The given data must be a correct automaton exported by
+    /// [`DoubleArrayAhoCorasick::serialize()`] or
+    /// [`DoubleArrayAhoCorasick::serialize_to_vec()`] functions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let bytes = pma.serialize_to_vec();
+    ///
+    /// let pma = unsafe {
+    ///     DoubleArrayAhoCorasick::deserialize_from_slice_unchecked(&bytes)
+    /// };
+    ///
+    /// let mut it = pma.find_overlapping_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> Self {
+        let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
+        source = &source[4..];
+        let mut states = Vec::with_capacity(states_len);
+        for _ in 0..states_len {
+            states.push(State::deserialize(source[0..12].try_into().unwrap()));
+            source = &source[12..];
+        }
+        let outputs_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
+        source = &source[4..];
+        let mut outputs = Vec::with_capacity(outputs_len);
+        for _ in 0..outputs_len {
+            outputs.push(Output::deserialize(source[0..8].try_into().unwrap()));
+            source = &source[8..];
+        }
+
+        let match_kind = MatchKind::from(source[0]);
+        let num_states_array: [u8; 4] = source[1..5].try_into().unwrap();
+        let num_states = u32::from_le_bytes(num_states_array) as usize;
+
+        Self {
+            states,
+            outputs,
+            match_kind,
+            num_states,
+        }
+    }
+
     /// # Safety
     ///
     /// `state_id` must be smaller than the length of states.
@@ -922,6 +1186,7 @@ impl DoubleArrayAhoCorasick {
 /// An search option of the Aho-Corasick automaton
 /// specified in [`DoubleArrayAhoCorasickBuilder::match_kind`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
 pub enum MatchKind {
     /// The standard match semantics, which enables
     /// [`find_iter()`](DoubleArrayAhoCorasick::find_iter()),\
@@ -929,21 +1194,21 @@ pub enum MatchKind {
     /// [`find_overlapping_no_suffix_iter()`](DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()).
     /// Patterns are reported in the order that follows the normal behaviour of the Aho-Corasick
     /// algorithm.
-    Standard,
+    Standard = 0,
 
     /// The leftmost-longest match semantics, which enables
     /// [`leftmost_find_iter()`](DoubleArrayAhoCorasick::leftmost_find_iter()).
     /// When multiple patterns are started from the same positions, the longest pattern will be
     /// reported. For example, when matching patterns `ab|a|abcd` over `abcd`, `abcd` will be
     /// reported.
-    LeftmostLongest,
+    LeftmostLongest = 1,
 
     /// The leftmost-first match semantics, which enables
     /// [`leftmost_find_iter()`](DoubleArrayAhoCorasick::leftmost_find_iter()).
     /// When multiple patterns are started from the same positions, the pattern that is registered
     /// earlier will be reported. For example, when matching patterns `ab|a|abcd` over `abcd`,
     /// `ab` will be reported.
-    LeftmostFirst,
+    LeftmostFirst = 2,
 }
 
 impl MatchKind {
@@ -957,5 +1222,15 @@ impl MatchKind {
 
     pub(crate) fn is_leftmost_first(self) -> bool {
         self == Self::LeftmostFirst
+    }
+}
+
+impl From<u8> for MatchKind {
+    fn from(src: u8) -> Self {
+        match src {
+            1 => Self::LeftmostLongest,
+            2 => Self::LeftmostFirst,
+            _ => Self::Standard,
+        }
     }
 }
