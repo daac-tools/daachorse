@@ -11,8 +11,8 @@ license = "MIT OR Apache-2.0"
 homepage = "https://github.com/legalforce-research/daachorse"
 repository = "https://github.com/legalforce-research/daachorse"
 readme = "README.md"
-keywords = ["string", "search", "text", "aho", "multi", "no_std"]
-categories = ["text-processing"]
+keywords = ["string", "search", "text", "aho", "multi", "double-array"]
+categories = ["text-processing", "algorithms", "data-structures", "no-std"]
 exclude = [".*"]
 
 [dependencies]
