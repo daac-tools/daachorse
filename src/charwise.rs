@@ -781,7 +781,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Returns
     ///
-    /// A tuple of the automaton and the tail of the slice.
+    /// A tuple of the automaton and the slice not used for the deserialization.
     ///
     /// # Safety
     ///
