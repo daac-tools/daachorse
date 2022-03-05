@@ -1066,6 +1066,10 @@ impl DoubleArrayAhoCorasick {
     ///
     /// * `source` - A source slice.
     ///
+    /// # Returns
+    ///
+    /// A tuple of the automaton and the tail of the slice.
+    ///
     /// # Safety
     ///
     /// The given data must be a correct automaton exported by
@@ -1081,7 +1085,7 @@ impl DoubleArrayAhoCorasick {
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     /// let bytes = pma.serialize_to_vec();
     ///
-    /// let pma = unsafe {
+    /// let (pma, _) = unsafe {
     ///     DoubleArrayAhoCorasick::deserialize_from_slice_unchecked(&bytes)
     /// };
     ///
@@ -1098,7 +1102,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> Self {
+    pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
         let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
         source = &source[4..];
         let mut states = Vec::with_capacity(states_len);
@@ -1118,12 +1122,15 @@ impl DoubleArrayAhoCorasick {
         let num_states_array: [u8; 4] = source[1..5].try_into().unwrap();
         let num_states = u32::from_le_bytes(num_states_array) as usize;
 
-        Self {
-            states,
-            outputs,
-            match_kind,
-            num_states,
-        }
+        (
+            Self {
+                states,
+                outputs,
+                match_kind,
+                num_states,
+            },
+            &source[5..],
+        )
     }
 
     /// # Safety
