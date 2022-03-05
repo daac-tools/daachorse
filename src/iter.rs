@@ -1,3 +1,5 @@
+//! Iterators for [`DoubleArrayAhoCorasick`].
+
 use core::iter::Enumerate;
 
 use crate::{DoubleArrayAhoCorasick, Match};
@@ -14,7 +16,7 @@ impl<P> U8SliceIterator<P>
 where
     P: AsRef<[u8]>,
 {
-    pub fn new(inner: P) -> Self {
+    pub(crate) fn new(inner: P) -> Self {
         Self { inner, pos: 0 }
     }
 }

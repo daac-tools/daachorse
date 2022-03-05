@@ -146,6 +146,7 @@
 //! assert_eq!(None, it.next());
 //! ```
 
+#![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
