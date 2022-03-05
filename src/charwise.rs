@@ -42,7 +42,8 @@
 //!
 //! assert_eq!(None, it.next());
 //! ```
-pub mod builder;
+
+mod builder;
 pub mod iter;
 
 #[cfg(feature = "std")]

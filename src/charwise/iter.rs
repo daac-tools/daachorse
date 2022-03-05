@@ -1,3 +1,5 @@
+//! Iterators for [`CharwiseDoubleArrayAhoCorasick`].
+
 use core::iter::Enumerate;
 
 use crate::charwise::CharwiseDoubleArrayAhoCorasick;
