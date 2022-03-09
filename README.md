@@ -4,7 +4,7 @@ A fast implementation of the Aho-Corasick algorithm using the compact double-arr
 
 [![Crates.io](https://img.shields.io/crates/v/daachorse)](https://crates.io/crates/daachorse)
 [![Documentation](https://docs.rs/daachorse/badge.svg)](https://docs.rs/daachorse)
-![Build Status](https://github.com/legalforce-research/daachorse/actions/workflows/rust.yml/badge.svg)
+![Build Status](https://github.com/daac-tools/daachorse/actions/workflows/rust.yml/badge.svg)
 
 [Technical details (Japanese)](https://tech.legalforce.co.jp/entry/2022/02/24/140316)
 
@@ -23,7 +23,7 @@ that is the most poplar Aho-Corasick implementation in Rust,
 Daachorse can perform pattern matching **3.0–5.1 times faster**
 while consuming **45–55% smaller** memory, when using a word dictionary of 675K patterns.
 Other experimental results can be found in
-[Wiki](https://github.com/legalforce-research/daachorse/wiki).
+[Wiki](https://github.com/daac-tools/daachorse/wiki).
 
 ![](./figures/comparison.svg)
 

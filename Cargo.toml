@@ -8,8 +8,8 @@ authors = [
 ]
 description = "Daachorse: Double-Array Aho-Corasick"
 license = "MIT OR Apache-2.0"
-homepage = "https://github.com/legalforce-research/daachorse"
-repository = "https://github.com/legalforce-research/daachorse"
+homepage = "https://github.com/daac-tools/daachorse"
+repository = "https://github.com/daac-tools/daachorse"
 readme = "README.md"
 keywords = ["search", "text", "aho", "multi", "double-array"]
 categories = ["text-processing", "algorithms", "data-structures", "no-std"]
