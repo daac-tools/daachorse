@@ -34,7 +34,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all -- -D warnings -W clippy::nursery -W clippy::cast_lossless -W clippy::cast_possible_truncation
+          args: --all -- -D warnings -W clippy::nursery -W clippy::cast_lossless -W clippy::cast_possible_truncation -W clippy::cast_possible_wrap
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1

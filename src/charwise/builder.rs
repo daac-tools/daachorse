@@ -216,19 +216,17 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             mapped.sort_by(|(c1, _), (c2, _)| c1.cmp(c2));
 
             let base = self.find_base(&mapped);
-            let max_idx = base + mapped.last().unwrap().0 as i32;
-            assert!(0 <= max_idx);
+            let max_idx = base + i32::try_from(mapped.last().unwrap().0).unwrap();
 
-            let max_idx = max_idx as u32;
+            let max_idx = u32::try_from(max_idx).unwrap();
             if self.states.len() <= max_idx as usize {
                 self.extend_array(max_idx);
             }
 
             for &(c, child_id) in &mapped {
-                let child_idx = base + c as i32;
-                assert!(0 <= child_idx);
+                let child_idx = base + i32::try_from(c).unwrap();
 
-                let child_idx = child_idx as u32;
+                let child_idx = u32::try_from(child_idx).unwrap();
                 self.fix_state(child_idx);
                 self.states[child_idx as usize].set_check(state_idx);
 
@@ -291,19 +289,19 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         let mut idx = self.get_next(DEAD_STATE_IDX);
         while idx != DEAD_STATE_IDX {
             debug_assert!(!self.is_fixed(idx));
-            let base = idx as i32 - edges[0].0 as i32;
+            let base = i32::try_from(idx).unwrap() - i32::try_from(edges[0].0).unwrap();
             if self.verify_base(base, edges) {
                 return base;
             }
             idx = self.get_next(idx);
         }
-        i32::try_from(self.states.len()).unwrap() - edges[0].0 as i32
+        i32::try_from(self.states.len()).unwrap() - i32::try_from(edges[0].0).unwrap()
     }
 
     #[inline(always)]
     fn verify_base(&self, base: i32, edges: &[(u32, u32)]) -> bool {
         for &(c, _) in edges {
-            let idx = base + c as i32;
+            let idx = base + i32::try_from(c).unwrap();
             assert!(0 <= idx);
             let idx = u32::try_from(idx).unwrap();
             if self.states.len() <= idx as usize {
