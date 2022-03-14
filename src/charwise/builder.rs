@@ -302,7 +302,6 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     fn verify_base(&self, base: i32, edges: &[(u32, u32)]) -> bool {
         for &(c, _) in edges {
             let idx = base + i32::try_from(c).unwrap();
-            assert!(0 <= idx);
             let idx = u32::try_from(idx).unwrap();
             if self.states.len() <= idx as usize {
                 return true;
