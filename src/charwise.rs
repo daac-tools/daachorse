@@ -849,6 +849,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Safety
     ///
     /// `state_id` must be smaller than the length of states.
+    #[allow(clippy::cast_possible_wrap)]
     #[inline(always)]
     unsafe fn get_child_index_unchecked(&self, state_id: u32, mapped_c: u32) -> Option<u32> {
         if let Some(base) = self.states.get_unchecked(state_id as usize).base() {
