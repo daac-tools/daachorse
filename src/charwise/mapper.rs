@@ -97,6 +97,6 @@ impl CodeMapper {
             table.push(u32::from_le_bytes(source[0..4].try_into().unwrap()));
             source = &source[4..];
         }
-        (Self { table }, &source)
+        (Self { table }, source)
     }
 }
