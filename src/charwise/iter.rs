@@ -143,13 +143,15 @@ where
 
         for (pos, c) in self.haystack.by_ref() {
             self.pos = pos;
-            let mapped_c = c as u32;
-
-            // self.state_id is always smaller than self.pma.states.len() because
-            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
-            self.state_id = unsafe {
-                self.pma
-                    .get_next_state_id_unchecked(self.state_id, mapped_c)
+            self.state_id = if let Some(mapped_c) = self.pma.mapper.get(c) {
+                // self.state_id is always smaller than self.pma.states.len() because
+                // self.pma.get_next_state_id_unchecked() ensures to return such a value.
+                unsafe {
+                    self.pma
+                        .get_next_state_id_unchecked(self.state_id, mapped_c)
+                }
+            } else {
+                ROOT_STATE_IDX
             };
             if let Some(output_pos) = unsafe {
                 self.pma
@@ -180,11 +182,13 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let mut state_id = ROOT_STATE_IDX;
         for (pos, c) in self.haystack.by_ref() {
-            let mapped_c = c as u32;
-
-            // self.state_id is always smaller than self.pma.states.len() because
-            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
-            state_id = unsafe { self.pma.get_next_state_id_unchecked(state_id, mapped_c) };
+            state_id = if let Some(mapped_c) = self.pma.mapper.get(c) {
+                // self.state_id is always smaller than self.pma.states.len() because
+                // self.pma.get_next_state_id_unchecked() ensures to return such a value.
+                unsafe { self.pma.get_next_state_id_unchecked(state_id, mapped_c) }
+            } else {
+                ROOT_STATE_IDX
+            };
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
@@ -214,13 +218,15 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         for (pos, c) in self.haystack.by_ref() {
-            let mapped_c = c as u32;
-
-            // self.state_id is always smaller than self.pma.states.len() because
-            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
-            self.state_id = unsafe {
-                self.pma
-                    .get_next_state_id_unchecked(self.state_id, mapped_c)
+            self.state_id = if let Some(mapped_c) = self.pma.mapper.get(c) {
+                // self.state_id is always smaller than self.pma.states.len() because
+                // self.pma.get_next_state_id_unchecked() ensures to return such a value.
+                unsafe {
+                    self.pma
+                        .get_next_state_id_unchecked(self.state_id, mapped_c)
+                }
+            } else {
+                ROOT_STATE_IDX
             };
             if let Some(output_pos) = unsafe {
                 self.pma
@@ -256,13 +262,17 @@ where
         let mut skips = 0;
         for c in unsafe { self.haystack.as_ref().get_unchecked(self.pos..) }.chars() {
             skips += c.len_utf8();
-            let mapped_c = c as u32;
-
-            // state_id is always smaller than self.pma.states.len() because
-            // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
-            state_id = unsafe {
-                self.pma
-                    .get_next_state_id_leftmost_unchecked(state_id, mapped_c)
+            state_id = if let Some(mapped_c) = self.pma.mapper.get(c) {
+                // state_id is always smaller than self.pma.states.len() because
+                // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
+                unsafe {
+                    self.pma
+                        .get_next_state_id_leftmost_unchecked(state_id, mapped_c)
+                }
+            } else {
+                // state_id is always smaller than self.pma.states.len() because
+                // self.pma.get_fail_state_id_leftmost_unchecked() ensures to return such a value.
+                unsafe { self.pma.get_fail_state_id_leftmost_unchecked(state_id) }
             };
             if state_id == DEAD_STATE_IDX {
                 debug_assert_ne!(last_output_pos, OUTPUT_POS_INVALID);

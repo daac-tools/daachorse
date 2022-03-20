@@ -45,6 +45,7 @@
 
 mod builder;
 pub mod iter;
+mod mapper;
 
 #[cfg(feature = "std")]
 use std::io::{self, Read, Write};
@@ -58,6 +59,7 @@ use crate::charwise::iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
     FindOverlappingNoSuffixIterator, LestmostFindIterator, StrIterator,
 };
+use crate::charwise::mapper::CodeMapper;
 use crate::errors::Result;
 use crate::{MatchKind, Output};
 
@@ -86,6 +88,7 @@ pub(crate) const DEAD_STATE_IDX: u32 = 1;
 pub struct CharwiseDoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
+    mapper: CodeMapper,
     match_kind: MatchKind,
     num_states: usize,
 }
@@ -607,10 +610,12 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// assert_eq!(pma.heap_bytes(), 144);
+    /// assert_eq!(pma.heap_bytes(), 548);
     /// ```
     pub fn heap_bytes(&self) -> usize {
-        self.states.len() * mem::size_of::<State>() + self.outputs.len() * mem::size_of::<Output>()
+        self.states.len() * mem::size_of::<State>()
+            + self.outputs.len() * mem::size_of::<Output>()
+            + self.mapper.heap_bytes()
     }
 
     /// Serializes the automaton into a given target.
@@ -650,6 +655,7 @@ impl CharwiseDoubleArrayAhoCorasick {
         }
         wtr.write_all(&[self.match_kind as u8])?;
         wtr.write_all(&u32::try_from(self.num_states).unwrap().to_le_bytes())?;
+        self.mapper.serialize(wtr)?;
         Ok(())
     }
 
@@ -669,7 +675,8 @@ impl CharwiseDoubleArrayAhoCorasick {
             mem::size_of::<u32>() * 3
                 + mem::size_of::<u8>()
                 + 16 * self.states.len()
-                + 8 * self.outputs.len(),
+                + 8 * self.outputs.len()
+                + self.mapper.serialized_bytes(),
         );
         result.extend_from_slice(&u32::try_from(self.states.len()).unwrap().to_le_bytes());
         for state in &self.states {
@@ -681,6 +688,7 @@ impl CharwiseDoubleArrayAhoCorasick {
         }
         result.push(self.match_kind as u8);
         result.extend_from_slice(&u32::try_from(self.num_states).unwrap().to_le_bytes());
+        self.mapper.serialize_into_vec(&mut result);
         result
     }
 
@@ -765,9 +773,12 @@ impl CharwiseDoubleArrayAhoCorasick {
         rdr.read_exact(&mut num_states_array)?;
         let num_states = u32::from_le_bytes(num_states_array) as usize;
 
+        let mapper = CodeMapper::deserialize_unchecked(rdr)?;
+
         Ok(Self {
             states,
             outputs,
+            mapper,
             match_kind,
             num_states,
         })
@@ -835,14 +846,18 @@ impl CharwiseDoubleArrayAhoCorasick {
         let num_states_array: [u8; 4] = source[1..5].try_into().unwrap();
         let num_states = u32::from_le_bytes(num_states_array) as usize;
 
+        source = &source[5..];
+        let (mapper, source) = CodeMapper::deserialize_from_slice_unchecked(source);
+
         (
             Self {
                 states,
                 outputs,
+                mapper,
                 match_kind,
                 num_states,
             },
-            &source[5..],
+            source,
         )
     }
 
@@ -892,6 +907,23 @@ impl CharwiseDoubleArrayAhoCorasick {
             if let Some(state_id) = self.get_child_index_unchecked(state_id, mapped_c) {
                 return state_id;
             }
+            if state_id == ROOT_STATE_IDX {
+                return ROOT_STATE_IDX;
+            }
+            let fail_id = self.states.get_unchecked(state_id as usize).fail();
+            if fail_id == DEAD_STATE_IDX {
+                return DEAD_STATE_IDX;
+            }
+            state_id = fail_id;
+        }
+    }
+
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of states.
+    #[inline(always)]
+    unsafe fn get_fail_state_id_leftmost_unchecked(&self, mut state_id: u32) -> u32 {
+        loop {
             if state_id == ROOT_STATE_IDX {
                 return ROOT_STATE_IDX;
             }
