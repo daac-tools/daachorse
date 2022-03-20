@@ -28,6 +28,18 @@ fn criterion_words100000_build(c: &mut Criterion) {
     add_build_benches(&mut group, &patterns);
 }
 
+fn criterion_unidic_build(c: &mut Criterion) {
+    let mut group = c.benchmark_group("unidic/build");
+    group.sample_size(BUILD_SAMPLE_SIZE);
+    group.warm_up_time(BUILD_WARM_UP_TIME);
+    group.measurement_time(BUILD_MEASURE_TIME);
+    group.sampling_mode(SamplingMode::Flat);
+    let mut patterns = load_file("data/unidic/unidic");
+    patterns.sort_unstable();
+
+    add_build_benches(&mut group, &patterns);
+}
+
 fn criterion_unidic_find(c: &mut Criterion) {
     let mut group = c.benchmark_group("unidic/find");
     group.sample_size(SEARCH_SAMPLE_SIZE);
@@ -595,6 +607,7 @@ criterion_group!(
     criterion_unidic_find_overlapping,
     criterion_unidic_leftmost_longest_find,
     criterion_unidic_leftmost_first_find,
+    criterion_unidic_build,
     criterion_words100000_find,
     criterion_words100000_find_overlapping,
     criterion_words100000_leftmost_longest_find,
