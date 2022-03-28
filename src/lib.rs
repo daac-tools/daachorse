@@ -42,13 +42,13 @@
 //! assert_eq!(None, it.next());
 //! ```
 //!
-//! ## Example: Finding non-overlapped occurrences with shortest matching
+//! ## Example: Finding non-overlapped occurrences with standard matching
 //!
 //! If you do not want to allow positional overlap,
 //! use [`DoubleArrayAhoCorasick::find_iter()`] instead.
 //!
-//! It reports the first pattern found in each iteration,
-//! which is the shortest pattern starting from each search position.
+//! It performs the search on the Aho-Corasick automaton and
+//! reports patterns first found in each iteration.
 //!
 //! ```
 //! use daachorse::DoubleArrayAhoCorasick;
