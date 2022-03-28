@@ -77,11 +77,10 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with shortest matching
+### Finding non-overlapped occurrences with standard matching
 
 If you do not want to allow positional overlap, use `find_iter()` instead.
-It reports the first pattern found in each iteration,
-which is the shortest pattern starting from each search position.
+It performs the search on the Aho-Corasick automaton and reports patterns first found in each iteration.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;
