@@ -80,7 +80,8 @@ assert_eq!(None, it.next());
 ### Finding non-overlapped occurrences with standard matching
 
 If you do not want to allow positional overlap, use `find_iter()` instead.
-It performs the search on the Aho-Corasick automaton and reports patterns first found in each iteration.
+It performs the search on the Aho-Corasick automaton
+and reports patterns first found in each iteration.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;
