@@ -7,8 +7,10 @@ use crate::{MatchKind, Output, OUTPUT_POS_INVALID};
 
 // The maximum value of a pattern used as an invalid value.
 pub const VALUE_INVALID: u32 = u32::MAX;
-// The maximum length of a pattern used as an invalid value.
-pub const LENGTH_INVALID: u32 = u32::MAX >> 1;
+// The maximum length of a pattern.
+pub const LENGTH_INVALID: u32 = 0;
+// The length used as an invalid value.
+pub const LENGTH_MAX: u32 = u32::MAX >> 1;
 // The root state id of SparseNFA.
 pub const ROOT_STATE_ID: u32 = 0;
 // The dead state id of SparseNFA.
@@ -90,11 +92,11 @@ where
                 VALUE_INVALID,
             ));
         }
-        if pattern.len() >= LENGTH_INVALID as usize {
+        if pattern.len() > LENGTH_MAX as usize {
             return Err(DaachorseError::invalid_argument(
                 "pattern.len()",
-                "<",
-                LENGTH_INVALID,
+                "<=",
+                LENGTH_MAX,
             ));
         }
         if pattern.is_empty() {
