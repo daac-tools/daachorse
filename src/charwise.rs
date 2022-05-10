@@ -312,7 +312,7 @@ impl CharwiseDoubleArrayAhoCorasick {
             haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
             state_id: ROOT_STATE_IDX,
             pos: 0,
-            output_pos: 0,
+            output_pos: OUTPUT_POS_INVALID as usize,
         }
     }
 
@@ -370,7 +370,7 @@ impl CharwiseDoubleArrayAhoCorasick {
             haystack: CharWithEndOffsetIterator::new(haystack),
             state_id: ROOT_STATE_IDX,
             pos: 0,
-            output_pos: 0,
+            output_pos: OUTPUT_POS_INVALID as usize,
         }
     }
 
@@ -607,7 +607,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// assert_eq!(pma.heap_bytes(), 144);
+    /// assert_eq!(pma.heap_bytes(), 148);
     /// ```
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * mem::size_of::<State>() + self.outputs.len() * mem::size_of::<Output>()
@@ -827,8 +827,8 @@ impl CharwiseDoubleArrayAhoCorasick {
         source = &source[4..];
         let mut outputs = Vec::with_capacity(outputs_len);
         for _ in 0..outputs_len {
-            outputs.push(Output::deserialize(source[0..8].try_into().unwrap()));
-            source = &source[8..];
+            outputs.push(Output::deserialize(source[0..12].try_into().unwrap()));
+            source = &source[12..];
         }
 
         let match_kind = MatchKind::from(source[0]);

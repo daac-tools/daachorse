@@ -631,7 +631,7 @@ impl DoubleArrayAhoCorasick {
             pma: self,
             haystack: U8SliceIterator::new(haystack).enumerate(),
             state_id: ROOT_STATE_IDX,
-            output_pos: 0,
+            output_pos: OUTPUT_POS_INVALID as usize,
             pos: 0,
         }
     }
@@ -682,7 +682,7 @@ impl DoubleArrayAhoCorasick {
             pma: self,
             haystack: haystack.enumerate(),
             state_id: ROOT_STATE_IDX,
-            output_pos: 0,
+            output_pos: OUTPUT_POS_INVALID as usize,
             pos: 0,
         }
     }
@@ -882,7 +882,7 @@ impl DoubleArrayAhoCorasick {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// assert_eq!(pma.heap_bytes(), 3104);
+    /// assert_eq!(pma.heap_bytes(), 3108);
     /// ```
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * mem::size_of::<State>() + self.outputs.len() * mem::size_of::<Output>()
@@ -1118,8 +1118,8 @@ impl DoubleArrayAhoCorasick {
         source = &source[4..];
         let mut outputs = Vec::with_capacity(outputs_len);
         for _ in 0..outputs_len {
-            outputs.push(Output::deserialize(source[0..8].try_into().unwrap()));
-            source = &source[8..];
+            outputs.push(Output::deserialize(source[0..12].try_into().unwrap()));
+            source = &source[12..];
         }
 
         let match_kind = MatchKind::from(source[0]);
