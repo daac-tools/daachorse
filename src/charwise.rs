@@ -752,7 +752,7 @@ impl CharwiseDoubleArrayAhoCorasick {
         let outputs_len = u32::from_le_bytes(outputs_len_array) as usize;
         let mut outputs = Vec::with_capacity(outputs_len);
         for _ in 0..outputs_len {
-            let mut output_array = [0; 8];
+            let mut output_array = [0; 12];
             rdr.read_exact(&mut output_array)?;
             outputs.push(Output::deserialize(output_array));
         }

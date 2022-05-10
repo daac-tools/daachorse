@@ -288,15 +288,17 @@ impl core::fmt::Debug for State {
 #[derive(Copy, Clone, PartialEq, Eq)]
 struct Output {
     value: u32,
-    length: u32, // 1 bit is borrowed by a beginning flag
+    length: u32,
+    parent: u32,
 }
 
 impl Output {
     #[inline(always)]
-    pub fn new(value: u32, length: u32, is_begin: bool) -> Self {
+    pub fn new(value: u32, length: u32, parent: u32) -> Self {
         Self {
             value,
-            length: (length << 1) | u32::from(is_begin),
+            length,
+            parent,
         }
     }
 
@@ -307,27 +309,29 @@ impl Output {
 
     #[inline(always)]
     pub const fn length(self) -> u32 {
-        self.length >> 1
+        self.length
     }
 
     #[inline(always)]
-    pub const fn is_begin(self) -> bool {
-        self.length & 1 == 1
+    pub const fn parent(self) -> u32 {
+        self.parent
     }
 
     #[inline(always)]
-    fn serialize(&self) -> [u8; 8] {
-        let mut result = [0; 8];
+    fn serialize(&self) -> [u8; 12] {
+        let mut result = [0; 12];
         result[0..4].copy_from_slice(&self.value.to_le_bytes());
         result[4..8].copy_from_slice(&self.length.to_le_bytes());
+        result[8..12].copy_from_slice(&self.parent.to_le_bytes());
         result
     }
 
     #[inline(always)]
-    fn deserialize(input: [u8; 8]) -> Self {
+    fn deserialize(input: [u8; 12]) -> Self {
         Self {
             value: u32::from_le_bytes(input[0..4].try_into().unwrap()),
             length: u32::from_le_bytes(input[4..8].try_into().unwrap()),
+            parent: u32::from_le_bytes(input[8..12].try_into().unwrap()),
         }
     }
 }
@@ -337,7 +341,7 @@ impl core::fmt::Debug for Output {
         f.debug_struct("Output")
             .field("value", &self.value())
             .field("length", &self.length())
-            .field("is_begin", &self.is_begin())
+            .field("parent", &self.parent())
             .finish()
     }
 }
@@ -1039,7 +1043,7 @@ impl DoubleArrayAhoCorasick {
         let outputs_len = u32::from_le_bytes(outputs_len_array) as usize;
         let mut outputs = Vec::with_capacity(outputs_len);
         for _ in 0..outputs_len {
-            let mut output_array = [0; 8];
+            let mut output_array = [0; 12];
             rdr.read_exact(&mut output_array)?;
             outputs.push(Output::deserialize(output_array));
         }
