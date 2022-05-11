@@ -247,25 +247,8 @@ where
         Ok(())
     }
 
-    fn set_dummy_outputs(&mut self, q: &[u32], processed: &[bool]) {
-        for &state_id in q {
-            let state_id = state_id as usize;
-            let s = &mut self.states[state_id].borrow_mut();
-            if processed[state_id] {
-                debug_assert_ne!(s.output_pos, OUTPUT_POS_INVALID);
-                continue;
-            }
-            debug_assert_eq!(s.output_pos, OUTPUT_POS_INVALID);
-            debug_assert_eq!(s.output.0, VALUE_INVALID);
-
-            let fail_id = s.fail;
-            if fail_id != DEAD_STATE_ID {
-                s.output_pos = self.states[fail_id as usize].borrow().output_pos;
-            }
-        }
-    }
-
     #[inline(always)]
+    #[allow(clippy::missing_const_for_fn)]
     fn check_outputs_error(outputs: &[Output]) -> Result<()> {
         if outputs.len() > OUTPUT_POS_INVALID as usize {
             Err(DaachorseError::automaton_scale(

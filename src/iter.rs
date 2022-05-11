@@ -16,6 +16,7 @@ impl<P> U8SliceIterator<P>
 where
     P: AsRef<[u8]>,
 {
+    #[allow(clippy::missing_const_for_fn)]
     pub(crate) fn new(inner: P) -> Self {
         Self { inner, pos: 0 }
     }

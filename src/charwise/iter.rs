@@ -16,6 +16,7 @@ impl<P> StrIterator<P>
 where
     P: AsRef<str>,
 {
+    #[allow(clippy::missing_const_for_fn)]
     pub(crate) fn new(inner: P) -> Self {
         Self { inner, pos: 0 }
     }
