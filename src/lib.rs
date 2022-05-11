@@ -285,7 +285,7 @@ impl core::fmt::Debug for State {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 struct Output {
     value: u32,
     length: u32,
@@ -333,16 +333,6 @@ impl Output {
             length: u32::from_le_bytes(input[4..8].try_into().unwrap()),
             parent: u32::from_le_bytes(input[8..12].try_into().unwrap()),
         }
-    }
-}
-
-impl core::fmt::Debug for Output {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Output")
-            .field("value", &self.value())
-            .field("length", &self.length())
-            .field("parent", &self.parent())
-            .finish()
     }
 }
 
