@@ -130,8 +130,6 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        // self.output_pos is always smaller than self.pma.outputs.len() because
-        // State::output_pos() ensures to return such a value when it is Some.
         if let Some(out) = self.pma.outputs.get(self.output_pos) {
             self.output_pos = out.parent() as usize;
             return Some(Match {
