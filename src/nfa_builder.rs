@@ -229,90 +229,26 @@ where
         // But, there is no problem since Daachorse does not allow an empty pattern.
         debug_assert_ne!(q[0], ROOT_STATE_ID);
 
-        let mut processed = vec![false; self.states.len()];
-
-        // Builds an output sequence in which common parts are merged.
-        for &state_id in q.iter().rev() {
-            {
-                let s = &mut self.states[state_id as usize].borrow_mut();
-                if s.output.0 == VALUE_INVALID {
-                    continue;
-                }
-
-                if processed[state_id as usize] {
-                    debug_assert_ne!(s.output_pos, OUTPUT_POS_INVALID);
-                    continue;
-                }
-                debug_assert_eq!(s.output_pos, OUTPUT_POS_INVALID);
-                processed[state_id as usize] = true;
-
-                s.output_pos = self.outputs.len().try_into().unwrap();
-                self.outputs.push(Output::new(s.output.0, s.output.1, true));
-                Self::check_outputs_error(&self.outputs)?;
+        for &state_id in q {
+            let s = &mut self.states[state_id as usize].borrow_mut();
+            if s.output.0 == VALUE_INVALID {
+                s.output_pos = self.states[s.fail as usize].borrow().output_pos;
+                continue;
             }
 
-            let mut fail_id = state_id;
-            loop {
-                fail_id = self.states[fail_id as usize].borrow().fail;
-                if fail_id == ROOT_STATE_ID || fail_id == DEAD_STATE_ID {
-                    break;
-                }
+            s.output_pos = self.outputs.len().try_into().unwrap();
+            let parent = self.states[s.fail as usize].borrow().output_pos;
 
-                let s = &mut self.states[fail_id as usize].borrow_mut();
-                if s.output.0 == VALUE_INVALID {
-                    continue;
-                }
-
-                if processed[fail_id as usize] {
-                    debug_assert_ne!(s.output_pos, OUTPUT_POS_INVALID);
-                    let mut clone_pos = s.output_pos as usize;
-                    debug_assert!(!self.outputs[clone_pos].is_begin());
-                    while !self.outputs[clone_pos].is_begin() {
-                        self.outputs.push(self.outputs[clone_pos]);
-                        clone_pos += 1;
-                    }
-                    Self::check_outputs_error(&self.outputs)?;
-                    break;
-                }
-                processed[fail_id as usize] = true;
-
-                s.output_pos = self.outputs.len().try_into().unwrap();
-                self.outputs
-                    .push(Output::new(s.output.0, s.output.1, false));
-                Self::check_outputs_error(&self.outputs)?;
-            }
+            self.outputs
+                .push(Output::new(s.output.0, s.output.1, parent));
+            Self::check_outputs_error(&self.outputs)?;
         }
-
-        // Puts a sentinel
-        self.outputs
-            .push(Output::new(VALUE_INVALID, LENGTH_INVALID, true));
-        self.outputs.shrink_to_fit();
-        Self::check_outputs_error(&self.outputs)?;
-
-        self.set_dummy_outputs(q, &processed);
 
         Ok(())
     }
 
-    fn set_dummy_outputs(&mut self, q: &[u32], processed: &[bool]) {
-        for &state_id in q {
-            let state_id = state_id as usize;
-            let s = &mut self.states[state_id].borrow_mut();
-            if processed[state_id] {
-                debug_assert_ne!(s.output_pos, OUTPUT_POS_INVALID);
-                continue;
-            }
-            debug_assert_eq!(s.output_pos, OUTPUT_POS_INVALID);
-            debug_assert_eq!(s.output.0, VALUE_INVALID);
-
-            let fail_id = s.fail;
-            if fail_id != DEAD_STATE_ID {
-                s.output_pos = self.states[fail_id as usize].borrow().output_pos;
-            }
-        }
-    }
-
     #[inline(always)]
+    #[allow(clippy::missing_const_for_fn)]
     fn check_outputs_error(outputs: &[Output]) -> Result<()> {
         if outputs.len() > OUTPUT_POS_INVALID as usize {
             Err(DaachorseError::automaton_scale(
