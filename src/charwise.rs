@@ -45,7 +45,7 @@
 
 mod builder;
 pub mod iter;
-mod mapper;
+pub(crate) mod mapper;
 
 #[cfg(feature = "std")]
 use std::io::{self, Read, Write};
