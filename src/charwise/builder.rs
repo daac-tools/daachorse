@@ -150,7 +150,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<str>,
     {
-        let nfa = self.build_original_nfa(patvals)?;
+        let nfa = self.build_original_nfa_and_mapper(patvals)?;
         let num_states = nfa.states.len() - 1; // -1 is for dead state
 
         self.build_double_array(&nfa)?;
@@ -164,7 +164,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         })
     }
 
-    fn build_original_nfa<I, P>(&mut self, patvals: I) -> Result<CharwiseNfaBuilder>
+    fn build_original_nfa_and_mapper<I, P>(&mut self, patvals: I) -> Result<CharwiseNfaBuilder>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<str>,
