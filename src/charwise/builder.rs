@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use crate::charwise::{CharwiseDoubleArrayAhoCorasick, MatchKind, State};
+use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State};
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
 
@@ -13,6 +13,7 @@ type CharwiseNfaBuilder = NfaBuilder<char>;
 /// Builder for [`CharwiseDoubleArrayAhoCorasick`].
 pub struct CharwiseDoubleArrayAhoCorasickBuilder {
     states: Vec<State>,
+    mapper: CodeMapper,
     match_kind: MatchKind,
 }
 
@@ -45,9 +46,10 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             states: vec![],
+            mapper: CodeMapper::default(),
             match_kind: MatchKind::Standard,
         }
     }
@@ -148,33 +150,44 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<str>,
     {
-        let nfa = self.build_original_nfa(patvals)?;
+        let nfa = self.build_original_nfa_and_mapper(patvals)?;
         let num_states = nfa.states.len() - 1; // -1 is for dead state
 
         self.build_double_array(&nfa)?;
 
         Ok(CharwiseDoubleArrayAhoCorasick {
             states: self.states,
+            mapper: self.mapper,
             outputs: nfa.outputs,
             match_kind: self.match_kind,
             num_states,
         })
     }
 
-    fn build_original_nfa<I, P>(&mut self, patvals: I) -> Result<CharwiseNfaBuilder>
+    fn build_original_nfa_and_mapper<I, P>(&mut self, patvals: I) -> Result<CharwiseNfaBuilder>
     where
         I: IntoIterator<Item = (P, u32)>,
         P: AsRef<str>,
     {
         let mut nfa = CharwiseNfaBuilder::new(self.match_kind);
+        let mut freqs = vec![];
         {
             let mut chars = vec![];
             for (pattern, value) in patvals {
                 chars.clear();
                 pattern.as_ref().chars().for_each(|c| chars.push(c));
                 nfa.add(&chars, value)?;
+
+                for &c in &chars {
+                    let c = usize::try_from(u32::from(c)).unwrap();
+                    if freqs.len() <= c {
+                        freqs.resize(c + 1, 0);
+                    }
+                    freqs[c] += 1;
+                }
             }
         }
+        self.mapper = CodeMapper::new(&freqs);
 
         if nfa.len == 0 {
             return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
@@ -211,7 +224,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
             mapped.clear();
             for (&label, &child_id) in &s.edges {
-                mapped.push((label as u32, child_id));
+                mapped.push((self.mapper.get(label).unwrap(), child_id));
             }
             mapped.sort_by(|(c1, _), (c2, _)| c1.cmp(c2));
 
