@@ -182,7 +182,7 @@ use iter::{
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: u32 = u32::MAX;
 // The maximum output position value used as an invalid value.
-pub(crate) const OUTPUT_POS_INVALID: u32 = u32::MAX;
+pub(crate) const OUTPUT_POS_INVALID: u32 = u32::MAX >> 8;
 // The maximum FAIL value.
 pub(crate) const FAIL_MAX: u32 = 0xFF_FFFF;
 // The mask value of FAIL for `State::fach`.
@@ -197,16 +197,16 @@ pub(crate) const DEAD_STATE_IDX: u32 = 1;
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct State {
     base: u32,
-    fach: u32,
-    output_pos: u32,
+    fail: u32,
+    opos_ch: u32,
 }
 
 impl Default for State {
     fn default() -> Self {
         Self {
             base: BASE_INVALID,
-            fach: 0,
-            output_pos: OUTPUT_POS_INVALID,
+            fail: 0,
+            opos_ch: OUTPUT_POS_INVALID << 8,
         }
     }
 }
@@ -220,17 +220,17 @@ impl State {
     #[inline(always)]
     pub const fn check(&self) -> u8 {
         #![allow(clippy::cast_possible_truncation)]
-        (self.fach & 0xFF) as u8
+        (self.opos_ch & CHECK_MASK) as u8
     }
 
     #[inline(always)]
     pub const fn fail(&self) -> u32 {
-        self.fach >> 8
+        self.fail
     }
 
     #[inline(always)]
     pub fn output_pos(&self) -> Option<u32> {
-        Some(self.output_pos).filter(|&x| x != OUTPUT_POS_INVALID)
+        Some(self.opos_ch >> 8).filter(|&x| x != OUTPUT_POS_INVALID)
     }
 
     #[inline(always)]
@@ -240,27 +240,27 @@ impl State {
 
     #[inline(always)]
     pub fn set_check(&mut self, x: u8) {
-        self.fach &= !CHECK_MASK;
-        self.fach |= u32::from(x);
+        self.opos_ch &= !CHECK_MASK;
+        self.opos_ch |= u32::from(x);
     }
 
     #[inline(always)]
     pub fn set_fail(&mut self, x: u32) {
-        self.fach &= !FAIL_MASK;
-        self.fach |= x << 8;
+        self.fail = x;
     }
 
     #[inline(always)]
     pub fn set_output_pos(&mut self, x: u32) {
-        self.output_pos = x;
+        self.opos_ch &= CHECK_MASK;
+        self.opos_ch |= x << 8;
     }
 
     #[inline(always)]
     fn serialize(&self) -> [u8; 12] {
         let mut result = [0; 12];
         result[0..4].copy_from_slice(&self.base.to_le_bytes());
-        result[4..8].copy_from_slice(&self.fach.to_le_bytes());
-        result[8..12].copy_from_slice(&self.output_pos.to_le_bytes());
+        result[4..8].copy_from_slice(&self.fail.to_le_bytes());
+        result[8..12].copy_from_slice(&self.opos_ch.to_le_bytes());
         result
     }
 
@@ -268,8 +268,8 @@ impl State {
     fn deserialize(input: [u8; 12]) -> Self {
         Self {
             base: u32::from_le_bytes(input[0..4].try_into().unwrap()),
-            fach: u32::from_le_bytes(input[4..8].try_into().unwrap()),
-            output_pos: u32::from_le_bytes(input[8..12].try_into().unwrap()),
+            fail: u32::from_le_bytes(input[4..8].try_into().unwrap()),
+            opos_ch: u32::from_le_bytes(input[8..12].try_into().unwrap()),
         }
     }
 }

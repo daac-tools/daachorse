@@ -66,7 +66,7 @@ use crate::{MatchKind, Output};
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: i32 = i32::MAX;
 // The maximum output position value used as an invalid value.
-pub(crate) const OUTPUT_POS_INVALID: u32 = u32::MAX;
+pub(crate) const OUTPUT_POS_INVALID: u32 = u32::MAX >> 8;
 // The root index position.
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
