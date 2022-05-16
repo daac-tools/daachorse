@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
-use crate::{DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, FAIL_MAX, ROOT_STATE_IDX};
+use crate::{DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, ROOT_STATE_IDX};
 
 // The maximum value of each double-array block.
 const BLOCK_MAX: u8 = u8::MAX;
@@ -356,9 +356,6 @@ impl DoubleArrayAhoCorasickBuilder {
             } else {
                 let fail_idx = state_id_map[fail_id as usize];
                 debug_assert_ne!(fail_idx, DEAD_STATE_IDX);
-                if fail_idx > FAIL_MAX {
-                    return Err(DaachorseError::automaton_scale("fail_idx", FAIL_MAX));
-                }
                 self.states[idx].set_fail(fail_idx);
             }
         }

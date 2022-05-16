@@ -183,11 +183,7 @@ use iter::{
 pub(crate) const BASE_INVALID: u32 = u32::MAX;
 // The maximum output position value used as an invalid value.
 pub(crate) const OUTPUT_POS_INVALID: u32 = u32::MAX >> 8;
-// The maximum FAIL value.
-pub(crate) const FAIL_MAX: u32 = 0xFF_FFFF;
-// The mask value of FAIL for `State::fach`.
-const FAIL_MASK: u32 = FAIL_MAX << 8;
-// The mask value of CEHCK for `State::fach`.
+// The mask value of CEHCK for `State::opos_ch`.
 const CHECK_MASK: u32 = 0xFF;
 // The root index position.
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
