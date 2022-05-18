@@ -194,6 +194,7 @@ pub(crate) const DEAD_STATE_IDX: u32 = 1;
 struct State {
     base: u32,
     fail: u32,
+    // 3 bytes for output_pos and 1 byte for check.
     opos_ch: u32,
 }
 
