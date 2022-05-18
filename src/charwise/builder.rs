@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State};
 use crate::errors::{DaachorseError, Result};
-use crate::nfa_builder::NfaBuilder;
+use crate::nfa_builder::{self, NfaBuilder};
 
 use crate::charwise::{DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX};
 use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
@@ -259,7 +259,11 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             debug_assert_ne!(idx, DEAD_STATE_IDX as usize);
 
             let s = &state.borrow();
-            self.states[idx].set_output_pos(s.output_pos);
+            if s.output_pos == nfa_builder::OUTPUT_POS_INVALID {
+                self.states[idx].set_output_pos(OUTPUT_POS_INVALID);
+            } else {
+                self.states[idx].set_output_pos(s.output_pos);
+            }
 
             let fail_id = s.fail;
             if fail_id == DEAD_STATE_ID {
