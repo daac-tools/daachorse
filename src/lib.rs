@@ -173,7 +173,7 @@ use core::mem;
 use alloc::vec::Vec;
 
 pub use builder::DoubleArrayAhoCorasickBuilder;
-use errors::Result;
+use errors::{DaachorseError, Result};
 use iter::{
     FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LestmostFindIterator,
     U8SliceIterator,
@@ -247,9 +247,17 @@ impl State {
     }
 
     #[inline(always)]
-    pub fn set_output_pos(&mut self, x: u32) {
-        self.opos_ch &= CHECK_MASK;
-        self.opos_ch |= x << 8;
+    pub fn set_output_pos(&mut self, x: u32) -> Result<()> {
+        if x <= OUTPUT_POS_INVALID {
+            self.opos_ch &= CHECK_MASK;
+            self.opos_ch |= x << 8;
+            Ok(())
+        } else {
+            Err(DaachorseError::automaton_scale(
+                "outputs.len()",
+                OUTPUT_POS_INVALID,
+            ))
+        }
     }
 
     #[inline(always)]

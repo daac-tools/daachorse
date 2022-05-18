@@ -357,9 +357,9 @@ impl DoubleArrayAhoCorasickBuilder {
 
             let s = &state.borrow();
             if s.output_pos == nfa_builder::OUTPUT_POS_INVALID {
-                self.states[idx].set_output_pos(crate::OUTPUT_POS_INVALID);
+                self.states[idx].set_output_pos(crate::OUTPUT_POS_INVALID)?;
             } else {
-                self.states[idx].set_output_pos(s.output_pos);
+                self.states[idx].set_output_pos(s.output_pos)?;
             }
 
             let fail_id = s.fail;
