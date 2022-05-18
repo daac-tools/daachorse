@@ -2,7 +2,9 @@ use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::{self, NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
-use crate::{DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, ROOT_STATE_IDX};
+use crate::{
+    DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX,
+};
 
 // The maximum value of each double-array block.
 const BLOCK_MAX: u8 = u8::MAX;
@@ -288,6 +290,12 @@ impl DoubleArrayAhoCorasickBuilder {
         }
         if nfa.len == 0 {
             return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
+        }
+        if nfa.len > OUTPUT_POS_INVALID as usize {
+            return Err(DaachorseError::automaton_scale(
+                "patvals.len()",
+                OUTPUT_POS_INVALID,
+            ));
         }
         let q = match self.match_kind {
             MatchKind::Standard => nfa.build_fails(),

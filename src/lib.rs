@@ -386,8 +386,8 @@ impl Match {
 ///
 /// # Limitations
 ///
-/// For memory- and cache-efficiency, a FAIL pointer is represented in 24 bits.
-/// Thus, if a very large pattern set is given,
+/// The maximum number of patterns is limited to 2^24-1.
+/// If a larger number of patterns is given,
 /// [`DaachorseError`](errors::DaachorseError) will be reported.
 pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
