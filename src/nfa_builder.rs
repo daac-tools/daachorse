@@ -3,7 +3,7 @@ use core::cell::RefCell;
 use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
-use crate::{MatchKind, Output, OUTPUT_POS_INVALID};
+use crate::{MatchKind, Output};
 
 // The maximum value of a pattern used as an invalid value.
 pub const VALUE_INVALID: u32 = u32::MAX;
@@ -11,6 +11,8 @@ pub const VALUE_INVALID: u32 = u32::MAX;
 pub const LENGTH_INVALID: u32 = 0;
 // The length used as an invalid value.
 pub const LENGTH_MAX: u32 = u32::MAX >> 1;
+// The maximum output position value used as an invalid value.
+pub const OUTPUT_POS_INVALID: u32 = u32::MAX;
 // The root state id of SparseNFA.
 pub const ROOT_STATE_ID: u32 = 0;
 // The dead state id of SparseNFA.

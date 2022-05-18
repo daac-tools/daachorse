@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
-use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
+use crate::nfa_builder::{self, NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
 use crate::{DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, ROOT_STATE_IDX};
 
 // The maximum value of each double-array block.
@@ -348,7 +348,11 @@ impl DoubleArrayAhoCorasickBuilder {
             debug_assert_ne!(idx, DEAD_STATE_IDX as usize);
 
             let s = &state.borrow();
-            self.states[idx].set_output_pos(s.output_pos);
+            if s.output_pos == nfa_builder::OUTPUT_POS_INVALID {
+                self.states[idx].set_output_pos(crate::OUTPUT_POS_INVALID);
+            } else {
+                self.states[idx].set_output_pos(s.output_pos);
+            }
 
             let fail_id = s.fail;
             if fail_id == DEAD_STATE_ID {
