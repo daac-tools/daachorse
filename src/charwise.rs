@@ -51,6 +51,7 @@ pub(crate) mod mapper;
 use std::io::{self, Read, Write};
 
 use core::mem;
+use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
@@ -65,8 +66,6 @@ use crate::{MatchKind, Output};
 
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: i32 = i32::MAX;
-// an invalid value.
-pub(crate) const OUTPUT_POS_INVALID: u32 = 0;
 // The root index position.
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
@@ -315,7 +314,7 @@ impl CharwiseDoubleArrayAhoCorasick {
             haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
             state_id: ROOT_STATE_IDX,
             pos: 0,
-            output_pos: OUTPUT_POS_INVALID,
+            output_pos: None,
         }
     }
 
@@ -373,7 +372,7 @@ impl CharwiseDoubleArrayAhoCorasick {
             haystack: CharWithEndOffsetIterator::new(haystack),
             state_id: ROOT_STATE_IDX,
             pos: 0,
-            output_pos: OUTPUT_POS_INVALID,
+            output_pos: None,
         }
     }
 
@@ -926,7 +925,7 @@ struct State {
     base: i32,
     check: u32,
     fail: u32,
-    output_pos: u32,
+    output_pos: Option<NonZeroU32>,
 }
 
 impl Default for State {
@@ -935,7 +934,7 @@ impl Default for State {
             base: BASE_INVALID,
             check: DEAD_STATE_IDX,
             fail: DEAD_STATE_IDX,
-            output_pos: OUTPUT_POS_INVALID,
+            output_pos: None,
         }
     }
 }
@@ -957,8 +956,8 @@ impl State {
     }
 
     #[inline(always)]
-    pub fn output_pos(&self) -> Option<u32> {
-        Some(self.output_pos).filter(|&x| x != OUTPUT_POS_INVALID)
+    pub const fn output_pos(&self) -> Option<NonZeroU32> {
+        self.output_pos
     }
 
     #[inline(always)]
@@ -981,7 +980,7 @@ impl State {
 
     #[inline(always)]
     #[allow(dead_code)]
-    pub fn set_output_pos(&mut self, x: u32) {
+    pub fn set_output_pos(&mut self, x: Option<NonZeroU32>) {
         self.output_pos = x;
     }
 
@@ -991,7 +990,8 @@ impl State {
         result[0..4].copy_from_slice(&self.base.to_le_bytes());
         result[4..8].copy_from_slice(&self.check.to_le_bytes());
         result[8..12].copy_from_slice(&self.fail.to_le_bytes());
-        result[12..16].copy_from_slice(&self.output_pos.to_le_bytes());
+        result[12..16]
+            .copy_from_slice(&self.output_pos.map(|x| x.get()).unwrap_or(0).to_le_bytes());
         result
     }
 
@@ -1001,7 +1001,7 @@ impl State {
             base: i32::from_le_bytes(input[0..4].try_into().unwrap()),
             check: u32::from_le_bytes(input[4..8].try_into().unwrap()),
             fail: u32::from_le_bytes(input[8..12].try_into().unwrap()),
-            output_pos: u32::from_le_bytes(input[12..16].try_into().unwrap()),
+            output_pos: NonZeroU32::new(u32::from_le_bytes(input[12..16].try_into().unwrap())),
         }
     }
 }

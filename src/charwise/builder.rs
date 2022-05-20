@@ -1,10 +1,12 @@
+use core::num::NonZeroU32;
+
 use alloc::vec::Vec;
 
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State};
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
 
-use crate::charwise::{DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX};
+use crate::charwise::{DEAD_STATE_IDX, ROOT_STATE_IDX};
 use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
 
 // Specialized [`NfaBuilder`] handling labels of `char`.
@@ -354,7 +356,10 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn get_prev(&self, i: u32) -> u32 {
-        self.states[i as usize].output_pos().unwrap()
+        self.states[i as usize]
+            .output_pos()
+            .map(|x| x.get())
+            .unwrap_or(0)
     }
 
     #[inline(always)]
@@ -364,7 +369,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn set_prev(&mut self, i: u32, x: u32) {
-        self.states[i as usize].set_output_pos(x);
+        self.states[i as usize].set_output_pos(NonZeroU32::new(x));
     }
 
     #[inline(always)]
@@ -376,6 +381,6 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     fn set_fixed(&mut self, i: u32) {
         debug_assert_ne!(i, DEAD_STATE_IDX);
         self.states[i as usize].set_fail(DEAD_STATE_IDX);
-        self.states[i as usize].set_output_pos(OUTPUT_POS_INVALID);
+        self.states[i as usize].set_output_pos(None);
     }
 }
