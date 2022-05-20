@@ -610,7 +610,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// assert_eq!(pma.heap_bytes(), 552);
+    /// assert_eq!(564, pma.heap_bytes());
     /// ```
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * mem::size_of::<State>()

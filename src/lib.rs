@@ -877,7 +877,7 @@ impl DoubleArrayAhoCorasick {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// assert_eq!(pma.heap_bytes(), 3108);
+    /// assert_eq!(3120, pma.heap_bytes());
     /// ```
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * mem::size_of::<State>() + self.outputs.len() * mem::size_of::<Output>()

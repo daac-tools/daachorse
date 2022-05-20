@@ -231,6 +231,9 @@ where
         // But, there is no problem since Daachorse does not allow an empty pattern.
         debug_assert_ne!(q[0], ROOT_STATE_ID);
 
+        // Adds a dummy output so that the output_pos is positive.
+        self.outputs.push(Output::new(0, 0, OUTPUT_POS_INVALID));
+
         for &state_id in q {
             let s = &mut self.states[state_id as usize].borrow_mut();
             if s.output.0 == VALUE_INVALID {
