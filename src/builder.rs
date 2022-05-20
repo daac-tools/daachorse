@@ -1,8 +1,10 @@
 use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
-use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
-use crate::{DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, FAIL_MAX, ROOT_STATE_IDX};
+use crate::nfa_builder::{self, NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
+use crate::{
+    DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX,
+};
 
 // The maximum value of each double-array block.
 const BLOCK_MAX: u8 = u8::MAX;
@@ -289,6 +291,12 @@ impl DoubleArrayAhoCorasickBuilder {
         if nfa.len == 0 {
             return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
         }
+        if nfa.len > OUTPUT_POS_INVALID as usize {
+            return Err(DaachorseError::automaton_scale(
+                "patvals.len()",
+                OUTPUT_POS_INVALID,
+            ));
+        }
         let q = match self.match_kind {
             MatchKind::Standard => nfa.build_fails(),
             MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),
@@ -348,7 +356,11 @@ impl DoubleArrayAhoCorasickBuilder {
             debug_assert_ne!(idx, DEAD_STATE_IDX as usize);
 
             let s = &state.borrow();
-            self.states[idx].set_output_pos(s.output_pos);
+            if s.output_pos == nfa_builder::OUTPUT_POS_INVALID {
+                self.states[idx].set_output_pos(crate::OUTPUT_POS_INVALID)?;
+            } else {
+                self.states[idx].set_output_pos(s.output_pos)?;
+            }
 
             let fail_id = s.fail;
             if fail_id == DEAD_STATE_ID {
@@ -356,9 +368,6 @@ impl DoubleArrayAhoCorasickBuilder {
             } else {
                 let fail_idx = state_id_map[fail_id as usize];
                 debug_assert_ne!(fail_idx, DEAD_STATE_IDX);
-                if fail_idx > FAIL_MAX {
-                    return Err(DaachorseError::automaton_scale("fail_idx", FAIL_MAX));
-                }
                 self.states[idx].set_fail(fail_idx);
             }
         }
