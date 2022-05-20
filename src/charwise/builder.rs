@@ -356,10 +356,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn get_prev(&self, i: u32) -> u32 {
-        self.states[i as usize]
-            .output_pos()
-            .map(|x| x.get())
-            .unwrap_or(0)
+        self.states[i as usize].output_pos().unwrap().get()
     }
 
     #[inline(always)]

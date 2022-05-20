@@ -94,6 +94,8 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(output_pos) = self.output_pos {
+            // output_pos.get() is always smaller than self.pma.outputs.len() because
+            // Output::parent() ensures to return such a value when it is Some.
             let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
             self.output_pos = out.parent();
             return Some(Match {
@@ -113,6 +115,8 @@ where
                     .output_pos()
             } {
                 self.pos = pos + 1;
+                // output_pos.get() is always smaller than self.pma.outputs.len() because
+                // State::output_pos() ensures to return such a value when it is Some.
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
                 self.output_pos = out.parent();
                 return Some(Match {

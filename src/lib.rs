@@ -256,7 +256,7 @@ impl State {
             Ok(())
         } else {
             Err(DaachorseError::automaton_scale(
-                "outputs.len()",
+                "output_pos",
                 OUTPUT_POS_MAX,
             ))
         }
