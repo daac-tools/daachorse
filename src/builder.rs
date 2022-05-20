@@ -291,10 +291,10 @@ impl DoubleArrayAhoCorasickBuilder {
         if nfa.len == 0 {
             return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
         }
-        if nfa.len >= OUTPUT_POS_MAX as usize {
+        if nfa.len > OUTPUT_POS_MAX as usize {
             return Err(DaachorseError::automaton_scale(
                 "patvals.len()",
-                OUTPUT_POS_MAX - 1,
+                OUTPUT_POS_MAX,
             ));
         }
         let q = match self.match_kind {
