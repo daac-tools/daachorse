@@ -181,8 +181,10 @@ use iter::{
 
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: u32 = u32::MAX;
-// The maximum output position value used as an invalid value.
-pub(crate) const OUTPUT_POS_INVALID: u32 = u32::MAX >> 8;
+// an invalid value.
+pub(crate) const OUTPUT_POS_INVALID: u32 = 0;
+// The maximum output position value.
+pub(crate) const OUTPUT_POS_MAX: u32 = u32::MAX >> 8;
 // The mask value of CEHCK for `State::opos_ch`.
 const CHECK_MASK: u32 = 0xFF;
 // The root index position.
@@ -248,14 +250,14 @@ impl State {
 
     #[inline(always)]
     pub fn set_output_pos(&mut self, x: u32) -> Result<()> {
-        if x <= OUTPUT_POS_INVALID {
+        if x <= OUTPUT_POS_MAX {
             self.opos_ch &= CHECK_MASK;
             self.opos_ch |= x << 8;
             Ok(())
         } else {
             Err(DaachorseError::automaton_scale(
                 "outputs.len()",
-                OUTPUT_POS_INVALID,
+                OUTPUT_POS_MAX,
             ))
         }
     }
@@ -626,7 +628,7 @@ impl DoubleArrayAhoCorasick {
             pma: self,
             haystack: U8SliceIterator::new(haystack).enumerate(),
             state_id: ROOT_STATE_IDX,
-            output_pos: OUTPUT_POS_INVALID as usize,
+            output_pos: OUTPUT_POS_INVALID,
             pos: 0,
         }
     }
@@ -677,7 +679,7 @@ impl DoubleArrayAhoCorasick {
             pma: self,
             haystack: haystack.enumerate(),
             state_id: ROOT_STATE_IDX,
-            output_pos: OUTPUT_POS_INVALID as usize,
+            output_pos: OUTPUT_POS_INVALID,
             pos: 0,
         }
     }

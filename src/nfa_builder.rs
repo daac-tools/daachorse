@@ -12,7 +12,7 @@ pub const LENGTH_INVALID: u32 = 0;
 // The length used as an invalid value.
 pub const LENGTH_MAX: u32 = u32::MAX >> 1;
 // The maximum output position value used as an invalid value.
-pub const OUTPUT_POS_INVALID: u32 = u32::MAX;
+pub const OUTPUT_POS_INVALID: u32 = 0;
 // The root state id of SparseNFA.
 pub const ROOT_STATE_ID: u32 = 0;
 // The dead state id of SparseNFA.
@@ -246,23 +246,11 @@ where
 
             self.outputs
                 .push(Output::new(s.output.0, s.output.1, parent));
-            Self::check_outputs_error(&self.outputs)?;
+            // TODO: wrong!
+            //Self::check_outputs_error(&self.outputs)?;
         }
 
         Ok(())
-    }
-
-    #[inline(always)]
-    #[allow(clippy::missing_const_for_fn)]
-    fn check_outputs_error(outputs: &[Output]) -> Result<()> {
-        if outputs.len() > OUTPUT_POS_INVALID as usize {
-            Err(DaachorseError::automaton_scale(
-                "outputs.len()",
-                OUTPUT_POS_INVALID,
-            ))
-        } else {
-            Ok(())
-        }
     }
 
     #[inline(always)]

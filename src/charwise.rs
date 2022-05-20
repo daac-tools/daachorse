@@ -65,8 +65,8 @@ use crate::{MatchKind, Output};
 
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: i32 = i32::MAX;
-// The maximum output position value used as an invalid value.
-pub(crate) const OUTPUT_POS_INVALID: u32 = u32::MAX;
+// an invalid value.
+pub(crate) const OUTPUT_POS_INVALID: u32 = 0;
 // The root index position.
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
@@ -315,7 +315,7 @@ impl CharwiseDoubleArrayAhoCorasick {
             haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
             state_id: ROOT_STATE_IDX,
             pos: 0,
-            output_pos: OUTPUT_POS_INVALID as usize,
+            output_pos: OUTPUT_POS_INVALID,
         }
     }
 
@@ -373,7 +373,7 @@ impl CharwiseDoubleArrayAhoCorasick {
             haystack: CharWithEndOffsetIterator::new(haystack),
             state_id: ROOT_STATE_IDX,
             pos: 0,
-            output_pos: OUTPUT_POS_INVALID as usize,
+            output_pos: OUTPUT_POS_INVALID,
         }
     }
 

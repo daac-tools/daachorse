@@ -99,7 +99,7 @@ pub struct FindOverlappingIterator<'a, P> {
     pub(crate) haystack: CharWithEndOffsetIterator<P>,
     pub(crate) state_id: u32,
     pub(crate) pos: usize,
-    pub(crate) output_pos: usize,
+    pub(crate) output_pos: u32,
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`].
@@ -130,13 +130,15 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(out) = self.pma.outputs.get(self.output_pos) {
-            self.output_pos = out.parent() as usize;
-            return Some(Match {
-                length: out.length() as usize,
-                end: self.pos,
-                value: out.value() as usize,
-            });
+        if self.output_pos != OUTPUT_POS_INVALID {
+            if let Some(out) = self.pma.outputs.get(self.output_pos as usize) {
+                self.output_pos = out.parent();
+                return Some(Match {
+                    length: out.length() as usize,
+                    end: self.pos,
+                    value: out.value() as usize,
+                });
+            }
         }
 
         for (pos, c) in self.haystack.by_ref() {
@@ -152,7 +154,7 @@ where
                     .output_pos()
             } {
                 let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
-                self.output_pos = out.parent() as usize;
+                self.output_pos = out.parent();
                 return Some(Match {
                     length: out.length() as usize,
                     end: pos,
