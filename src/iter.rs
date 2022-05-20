@@ -192,7 +192,7 @@ where
             // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
             state_id = unsafe { self.pma.get_next_state_id_leftmost_unchecked(state_id, c) };
             if state_id == DEAD_STATE_IDX {
-                debug_assert_ne!(last_output_pos, None);
+                debug_assert!(last_output_pos.is_some());
                 break;
             }
 
