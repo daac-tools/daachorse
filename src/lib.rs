@@ -249,7 +249,7 @@ impl State {
 
     #[inline(always)]
     pub fn set_output_pos(&mut self, x: Option<NonZeroU32>) -> Result<()> {
-        let x = x.map(|x| x.get()).unwrap_or(0);
+        let x = x.map_or(0, NonZeroU32::get);
         if x <= OUTPUT_POS_MAX {
             self.opos_ch &= CHECK_MASK;
             self.opos_ch |= x << 8;
@@ -329,7 +329,7 @@ impl Output {
         let mut result = [0; 12];
         result[0..4].copy_from_slice(&self.value.to_le_bytes());
         result[4..8].copy_from_slice(&self.length.to_le_bytes());
-        result[8..12].copy_from_slice(&self.parent.map(|x| x.get()).unwrap_or(0).to_le_bytes());
+        result[8..12].copy_from_slice(&self.parent.map_or(0, NonZeroU32::get).to_le_bytes());
         result
     }
 

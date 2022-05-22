@@ -991,7 +991,7 @@ impl State {
         result[4..8].copy_from_slice(&self.check.to_le_bytes());
         result[8..12].copy_from_slice(&self.fail.to_le_bytes());
         result[12..16]
-            .copy_from_slice(&self.output_pos.map(|x| x.get()).unwrap_or(0).to_le_bytes());
+            .copy_from_slice(&self.output_pos.map_or(0, NonZeroU32::get).to_le_bytes());
         result
     }
 
