@@ -352,18 +352,21 @@ pub struct Match {
 impl Match {
     /// Starting position of the match.
     #[inline(always)]
+    #[must_use]
     pub const fn start(&self) -> usize {
         self.end - self.length
     }
 
     /// Ending position of the match.
     #[inline(always)]
+    #[must_use]
     pub const fn end(&self) -> usize {
         self.end
     }
 
     /// Value associated with the pattern.
     #[inline(always)]
+    #[must_use]
     pub const fn value(&self) -> usize {
         self.value
     }
@@ -879,6 +882,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(pma.heap_bytes(), 3108);
     /// ```
+    #[must_use]
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * mem::size_of::<State>() + self.outputs.len() * mem::size_of::<Output>()
     }
@@ -895,6 +899,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(pma.num_states(), 6);
     /// ```
+    #[must_use]
     pub const fn num_states(&self) -> usize {
         self.num_states
     }
@@ -950,6 +955,7 @@ impl DoubleArrayAhoCorasick {
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     /// let bytes = pma.serialize_to_vec();
     /// ```
+    #[must_use]
     pub fn serialize_to_vec(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
             mem::size_of::<u32>() * 3
@@ -1101,6 +1107,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
+    #[must_use]
     pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
         let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
         source = &source[4..];
