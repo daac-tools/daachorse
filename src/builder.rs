@@ -113,6 +113,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             states: vec![],
@@ -301,7 +302,7 @@ impl DoubleArrayAhoCorasickBuilder {
             MatchKind::Standard => nfa.build_fails(),
             MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),
         };
-        nfa.build_outputs(&q)?;
+        nfa.build_outputs(&q);
         Ok(nfa)
     }
 
