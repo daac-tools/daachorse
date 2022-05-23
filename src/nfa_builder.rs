@@ -1,4 +1,5 @@
 use core::cell::RefCell;
+use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
@@ -11,8 +12,6 @@ pub const VALUE_INVALID: u32 = u32::MAX;
 pub const LENGTH_INVALID: u32 = 0;
 // The length used as an invalid value.
 pub const LENGTH_MAX: u32 = u32::MAX >> 1;
-// The maximum output position value used as an invalid value.
-pub const OUTPUT_POS_INVALID: u32 = u32::MAX;
 // The root state id of SparseNFA.
 pub const ROOT_STATE_ID: u32 = 0;
 // The dead state id of SparseNFA.
@@ -43,7 +42,7 @@ pub struct NfaBuilderState<L> {
     pub(crate) edges: EdgeMap<L>,
     pub(crate) fail: u32,
     pub(crate) output: (u32, u32),
-    pub(crate) output_pos: u32,
+    pub(crate) output_pos: Option<NonZeroU32>,
 }
 
 impl<L> Default for NfaBuilderState<L> {
@@ -52,7 +51,7 @@ impl<L> Default for NfaBuilderState<L> {
             edges: EdgeMap::<L>::default(),
             fail: ROOT_STATE_ID,
             output: (VALUE_INVALID, LENGTH_INVALID),
-            output_pos: OUTPUT_POS_INVALID,
+            output_pos: None,
         }
     }
 }
@@ -231,6 +230,9 @@ where
         // But, there is no problem since Daachorse does not allow an empty pattern.
         debug_assert_ne!(q[0], ROOT_STATE_ID);
 
+        // Adds a dummy output so that the output_pos is positive.
+        self.outputs.push(Output::new(0, 0, None));
+
         for &state_id in q {
             let s = &mut self.states[state_id as usize].borrow_mut();
             if s.output.0 == VALUE_INVALID {
@@ -238,25 +240,11 @@ where
                 continue;
             }
 
-            s.output_pos = self.outputs.len().try_into().unwrap();
+            s.output_pos = NonZeroU32::new(self.outputs.len().try_into().unwrap());
             let parent = self.states[s.fail as usize].borrow().output_pos;
 
             self.outputs
                 .push(Output::new(s.output.0, s.output.1, parent));
-            Self::check_outputs_error(&self.outputs)?;
-        }
-    }
-
-    #[inline(always)]
-    #[allow(clippy::missing_const_for_fn)]
-    fn check_outputs_error(outputs: &[Output]) -> Result<()> {
-        if outputs.len() > OUTPUT_POS_INVALID as usize {
-            Err(DaachorseError::automaton_scale(
-                "outputs.len()",
-                OUTPUT_POS_INVALID,
-            ))
-        } else {
-            Ok(())
         }
     }
 

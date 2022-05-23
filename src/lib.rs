@@ -165,12 +165,13 @@ mod nfa_builder;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "std")]
-use std::io::{self, Read, Write};
-
 use core::mem;
+use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
+
+#[cfg(feature = "std")]
+use std::io::{self, Read, Write};
 
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::{DaachorseError, Result};
@@ -181,8 +182,8 @@ use iter::{
 
 // The maximum BASE value used as an invalid value.
 pub(crate) const BASE_INVALID: u32 = u32::MAX;
-// The maximum output position value used as an invalid value.
-pub(crate) const OUTPUT_POS_INVALID: u32 = u32::MAX >> 8;
+// The maximum output position value.
+pub(crate) const OUTPUT_POS_MAX: u32 = u32::MAX >> 8;
 // The mask value of CEHCK for `State::opos_ch`.
 const CHECK_MASK: u32 = 0xFF;
 // The root index position.
@@ -203,7 +204,7 @@ impl Default for State {
         Self {
             base: BASE_INVALID,
             fail: 0,
-            opos_ch: OUTPUT_POS_INVALID << 8,
+            opos_ch: 0,
         }
     }
 }
@@ -226,8 +227,8 @@ impl State {
     }
 
     #[inline(always)]
-    pub fn output_pos(&self) -> Option<u32> {
-        Some(self.opos_ch >> 8).filter(|&x| x != OUTPUT_POS_INVALID)
+    pub const fn output_pos(&self) -> Option<NonZeroU32> {
+        NonZeroU32::new(self.opos_ch >> 8)
     }
 
     #[inline(always)]
@@ -247,15 +248,16 @@ impl State {
     }
 
     #[inline(always)]
-    pub fn set_output_pos(&mut self, x: u32) -> Result<()> {
-        if x <= OUTPUT_POS_INVALID {
+    pub fn set_output_pos(&mut self, x: Option<NonZeroU32>) -> Result<()> {
+        let x = x.map_or(0, NonZeroU32::get);
+        if x <= OUTPUT_POS_MAX {
             self.opos_ch &= CHECK_MASK;
             self.opos_ch |= x << 8;
             Ok(())
         } else {
             Err(DaachorseError::automaton_scale(
-                "outputs.len()",
-                OUTPUT_POS_INVALID,
+                "output_pos",
+                OUTPUT_POS_MAX,
             ))
         }
     }
@@ -294,12 +296,12 @@ impl core::fmt::Debug for State {
 struct Output {
     value: u32,
     length: u32,
-    parent: u32,
+    parent: Option<NonZeroU32>,
 }
 
 impl Output {
     #[inline(always)]
-    pub const fn new(value: u32, length: u32, parent: u32) -> Self {
+    pub const fn new(value: u32, length: u32, parent: Option<NonZeroU32>) -> Self {
         Self {
             value,
             length,
@@ -318,7 +320,7 @@ impl Output {
     }
 
     #[inline(always)]
-    pub const fn parent(self) -> u32 {
+    pub const fn parent(self) -> Option<NonZeroU32> {
         self.parent
     }
 
@@ -327,7 +329,7 @@ impl Output {
         let mut result = [0; 12];
         result[0..4].copy_from_slice(&self.value.to_le_bytes());
         result[4..8].copy_from_slice(&self.length.to_le_bytes());
-        result[8..12].copy_from_slice(&self.parent.to_le_bytes());
+        result[8..12].copy_from_slice(&self.parent.map_or(0, NonZeroU32::get).to_le_bytes());
         result
     }
 
@@ -336,7 +338,7 @@ impl Output {
         Self {
             value: u32::from_le_bytes(input[0..4].try_into().unwrap()),
             length: u32::from_le_bytes(input[4..8].try_into().unwrap()),
-            parent: u32::from_le_bytes(input[8..12].try_into().unwrap()),
+            parent: NonZeroU32::new(u32::from_le_bytes(input[8..12].try_into().unwrap())),
         }
     }
 }
@@ -629,7 +631,7 @@ impl DoubleArrayAhoCorasick {
             pma: self,
             haystack: U8SliceIterator::new(haystack).enumerate(),
             state_id: ROOT_STATE_IDX,
-            output_pos: OUTPUT_POS_INVALID as usize,
+            output_pos: None,
             pos: 0,
         }
     }
@@ -680,7 +682,7 @@ impl DoubleArrayAhoCorasick {
             pma: self,
             haystack: haystack.enumerate(),
             state_id: ROOT_STATE_IDX,
-            output_pos: OUTPUT_POS_INVALID as usize,
+            output_pos: None,
             pos: 0,
         }
     }
@@ -880,7 +882,7 @@ impl DoubleArrayAhoCorasick {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// assert_eq!(pma.heap_bytes(), 3108);
+    /// assert_eq!(3120, pma.heap_bytes());
     /// ```
     #[must_use]
     pub fn heap_bytes(&self) -> usize {
