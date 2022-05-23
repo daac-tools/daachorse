@@ -49,6 +49,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
+    #[must_use]
     pub fn new() -> Self {
         Self {
             states: vec![],
@@ -157,7 +158,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         let nfa = self.build_original_nfa_and_mapper(patvals)?;
         let num_states = nfa.states.len() - 1; // -1 is for dead state
 
-        self.build_double_array(&nfa)?;
+        self.build_double_array(&nfa);
 
         Ok(CharwiseDoubleArrayAhoCorasick {
             states: self.states,
@@ -200,11 +201,11 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             MatchKind::Standard => nfa.build_fails(),
             MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),
         };
-        nfa.build_outputs(&q)?;
+        nfa.build_outputs(&q);
         Ok(nfa)
     }
 
-    fn build_double_array(&mut self, nfa: &CharwiseNfaBuilder) -> Result<()> {
+    fn build_double_array(&mut self, nfa: &CharwiseNfaBuilder) {
         self.init_array();
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
@@ -270,7 +271,6 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         }
 
         self.states.shrink_to_fit();
-        Ok(())
     }
 
     fn init_array(&mut self) {

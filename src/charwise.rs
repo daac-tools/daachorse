@@ -579,6 +579,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// assert_eq!(pma.num_states(), 6);
     /// ```
+    #[must_use]
     pub const fn num_states(&self) -> usize {
         self.num_states
     }
@@ -595,6 +596,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// assert_eq!(pma.num_elements(), 8);
     /// ```
+    #[must_use]
     pub fn num_elements(&self) -> usize {
         self.states.len()
     }
@@ -611,6 +613,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// assert_eq!(580, pma.heap_bytes());
     /// ```
+    #[must_use]
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * mem::size_of::<State>()
             + self.mapper.heap_bytes()
@@ -669,6 +672,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     /// let bytes = pma.serialize_to_vec();
     /// ```
+    #[must_use]
     pub fn serialize_to_vec(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
             mem::size_of::<u32>() * 3
@@ -826,6 +830,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
+    #[must_use]
     pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
         let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
         source = &source[4..];

@@ -224,7 +224,7 @@ where
         q
     }
 
-    pub(crate) fn build_outputs(&mut self, q: &[u32]) -> Result<()> {
+    pub(crate) fn build_outputs(&mut self, q: &[u32]) {
         // The queue (built in build_fails or _leftmost) will not have the root state id,
         // so in the following processing the output of the root state will not be handled.
         // But, there is no problem since Daachorse does not allow an empty pattern.
@@ -246,8 +246,6 @@ where
             self.outputs
                 .push(Output::new(s.output.0, s.output.1, parent));
         }
-
-        Ok(())
     }
 
     #[inline(always)]
@@ -256,6 +254,6 @@ where
             .borrow()
             .edges
             .get(&c)
-            .cloned()
+            .copied()
     }
 }
