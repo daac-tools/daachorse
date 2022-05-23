@@ -1,10 +1,11 @@
 //! Iterators for [`CharwiseDoubleArrayAhoCorasick`].
 
 use core::iter::Enumerate;
+use core::num::NonZeroU32;
 
 use crate::charwise::CharwiseDoubleArrayAhoCorasick;
 use crate::Match;
-use crate::{DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX};
+use crate::{DEAD_STATE_IDX, ROOT_STATE_IDX};
 
 /// Iterator for some struct that implements [`AsRef<str>`].
 pub struct StrIterator<P> {
@@ -99,7 +100,7 @@ pub struct FindOverlappingIterator<'a, P> {
     pub(crate) haystack: CharWithEndOffsetIterator<P>,
     pub(crate) state_id: u32,
     pub(crate) pos: usize,
-    pub(crate) output_pos: usize,
+    pub(crate) output_pos: Option<NonZeroU32>,
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`].
@@ -130,8 +131,11 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(out) = self.pma.outputs.get(self.output_pos) {
-            self.output_pos = out.parent() as usize;
+        if let Some(output_pos) = self.output_pos {
+            // output_pos.get() is always smaller than self.pma.outputs.len() because
+            // Output::parent() ensures to return such a value when it is Some.
+            let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+            self.output_pos = out.parent();
             return Some(Match {
                 length: out.length() as usize,
                 end: self.pos,
@@ -151,8 +155,10 @@ where
                     .get_unchecked(self.state_id as usize)
                     .output_pos()
             } {
-                let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
-                self.output_pos = out.parent() as usize;
+                // output_pos.get() is always smaller than self.pma.outputs.len() because
+                // State::output_pos() ensures to return such a value when it is Some.
+                let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+                self.output_pos = out.parent();
                 return Some(Match {
                     length: out.length() as usize,
                     end: pos,
@@ -185,7 +191,7 @@ where
             } {
                 // output_pos is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
-                let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
+                let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
                 return Some(Match {
                     length: out.length() as usize,
                     end: pos,
@@ -217,7 +223,7 @@ where
             } {
                 // output_pos is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
-                let out = unsafe { self.pma.outputs.get_unchecked(output_pos as usize) };
+                let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
                 return Some(Match {
                     length: out.length() as usize,
                     end: pos,
@@ -238,7 +244,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         let mut state_id = ROOT_STATE_IDX;
-        let mut last_output_pos = OUTPUT_POS_INVALID;
+        let mut last_output_pos = None;
 
         let mut skips = 0;
         for c in unsafe { self.haystack.as_ref().get_unchecked(self.pos..) }.chars() {
@@ -248,7 +254,7 @@ where
             // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
             state_id = unsafe { self.pma.get_next_state_id_leftmost_unchecked(state_id, c) };
             if state_id == DEAD_STATE_IDX {
-                debug_assert_ne!(last_output_pos, OUTPUT_POS_INVALID);
+                debug_assert!(last_output_pos.is_some());
                 break;
             }
 
@@ -260,23 +266,21 @@ where
                     .get_unchecked(state_id as usize)
                     .output_pos()
             } {
-                last_output_pos = output_pos;
+                last_output_pos.replace(output_pos);
                 self.pos += skips;
                 skips = 0;
             }
         }
 
-        if last_output_pos == OUTPUT_POS_INVALID {
-            None
-        } else {
+        last_output_pos.map(|output_pos| {
             // last_output_pos is always smaller than self.pma.outputs.len() because
             // State::output_pos() ensures to return such a value when it is Some.
-            let out = unsafe { self.pma.outputs.get_unchecked(last_output_pos as usize) };
-            Some(Match {
+            let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+            Match {
                 length: out.length() as usize,
                 end: self.pos,
                 value: out.value() as usize,
-            })
-        }
+            }
+        })
     }
 }

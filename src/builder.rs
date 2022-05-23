@@ -1,9 +1,9 @@
 use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
-use crate::nfa_builder::{self, NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
+use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
 use crate::{
-    DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, OUTPUT_POS_INVALID, ROOT_STATE_IDX,
+    DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, OUTPUT_POS_MAX, ROOT_STATE_IDX,
 };
 
 // The maximum value of each double-array block.
@@ -291,10 +291,10 @@ impl DoubleArrayAhoCorasickBuilder {
         if nfa.len == 0 {
             return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
         }
-        if nfa.len > OUTPUT_POS_INVALID as usize {
+        if nfa.len > OUTPUT_POS_MAX as usize {
             return Err(DaachorseError::automaton_scale(
                 "patvals.len()",
-                OUTPUT_POS_INVALID,
+                OUTPUT_POS_MAX,
             ));
         }
         let q = match self.match_kind {
@@ -356,11 +356,7 @@ impl DoubleArrayAhoCorasickBuilder {
             debug_assert_ne!(idx, DEAD_STATE_IDX as usize);
 
             let s = &state.borrow();
-            if s.output_pos == nfa_builder::OUTPUT_POS_INVALID {
-                self.states[idx].set_output_pos(crate::OUTPUT_POS_INVALID)?;
-            } else {
-                self.states[idx].set_output_pos(s.output_pos)?;
-            }
+            self.states[idx].set_output_pos(s.output_pos)?;
 
             let fail_id = s.fail;
             if fail_id == DEAD_STATE_ID {
