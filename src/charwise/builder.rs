@@ -18,6 +18,7 @@ pub struct CharwiseDoubleArrayAhoCorasickBuilder {
     mapper: CodeMapper,
     match_kind: MatchKind,
     block_len: u32,
+    num_free_blocks: u32,
 }
 
 impl Default for CharwiseDoubleArrayAhoCorasickBuilder {
@@ -56,6 +57,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             mapper: CodeMapper::default(),
             match_kind: MatchKind::Standard,
             block_len: 0,
+            num_free_blocks: 16,
         }
     }
 
@@ -67,6 +69,25 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     #[must_use]
     pub const fn match_kind(mut self, kind: MatchKind) -> Self {
         self.match_kind = kind;
+        self
+    }
+
+    /// Specifies the number of last blocks to search bases.
+    ///
+    /// The smaller the number is, the faster the construction time will be;
+    /// however, the memory efficiency can be degraded.
+    ///
+    /// # Arguments
+    ///
+    /// * `n` - The number of last blocks.
+    ///
+    /// # Panics
+    ///
+    /// `n` must be greater than or equal to 1.
+    #[must_use]
+    pub const fn num_free_blocks(mut self, n: u32) -> Self {
+        assert!(n >= 1);
+        self.num_free_blocks = n;
         self
     }
 
@@ -340,6 +361,11 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         let old_len = u32::try_from(self.states.len()).unwrap();
         let new_len = old_len + self.block_len;
 
+        let num_blocks = old_len / self.block_len;
+        if self.num_free_blocks <= num_blocks {
+            self.close_block(num_blocks - self.num_free_blocks);
+        }
+
         for i in old_len..new_len {
             self.states.push(State::default());
             self.set_next(i, i + 1);
@@ -352,6 +378,19 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         self.set_next(tail_idx, old_len);
         self.set_next(new_len - 1, head_idx);
         self.set_prev(head_idx, new_len - 1);
+    }
+
+    /// Note: Assumes all the previous blocks are closed.
+    fn close_block(&mut self, block_idx: u32) {
+        let beg_idx = block_idx * self.block_len;
+        let end_idx = beg_idx + self.block_len;
+
+        let mut idx = self.get_next(DEAD_STATE_IDX);
+        while idx < end_idx && idx != DEAD_STATE_IDX {
+            let next_idx = self.get_next(idx);
+            self.fix_state(idx);
+            idx = next_idx;
+        }
     }
 
     #[inline(always)]
