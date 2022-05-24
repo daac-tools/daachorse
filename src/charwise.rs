@@ -877,7 +877,7 @@ impl CharwiseDoubleArrayAhoCorasick {
         // child_idx is always smaller than states.len() because
         //  - states.len() is a multiple of (1 << k),
         //    where k is the number of bits needed to represent mapped_c.
-        //  - base() returns smaller than states.len() when it is Some.
+        //  - base() is always smaller than states.len() when it is Some.
         let child_idx = base ^ mapped_c;
         if self.states.get_unchecked(child_idx as usize).check() == state_id {
             Some(child_idx as u32)
