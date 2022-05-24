@@ -6,8 +6,6 @@ use alloc::vec::Vec;
 use crate::errors::{DaachorseError, Result};
 use crate::{MatchKind, Output};
 
-// The maximum value of a pattern used as an invalid value.
-pub const VALUE_INVALID: u32 = u32::MAX;
 // The maximum length of a pattern.
 pub const LENGTH_INVALID: u32 = 0;
 // The length used as an invalid value.
@@ -50,7 +48,7 @@ impl<L> Default for NfaBuilderState<L> {
         Self {
             edges: EdgeMap::<L>::default(),
             fail: ROOT_STATE_ID,
-            output: (VALUE_INVALID, LENGTH_INVALID),
+            output: (0, LENGTH_INVALID),
             output_pos: None,
         }
     }
@@ -82,17 +80,6 @@ where
 
     #[inline(always)]
     pub(crate) fn add(&mut self, pattern: &[L], value: u32) -> Result<()> {
-        // Clippy suggests to use `==` in the following comparison instead, but that is dangerous.
-        // Since `VALUE_INVALID` is defined as a constant variable, so developers may forget to
-        // change this operator when they change the constant value.
-        #[allow(clippy::absurd_extreme_comparisons)]
-        if value >= VALUE_INVALID {
-            return Err(DaachorseError::invalid_argument(
-                "value",
-                "<",
-                VALUE_INVALID,
-            ));
-        }
         if pattern.len() > LENGTH_MAX as usize {
             return Err(DaachorseError::invalid_argument(
                 "pattern.len()",
@@ -109,7 +96,7 @@ where
             if self.match_kind.is_leftmost_first() {
                 // If state_id has an output, the descendants will never searched.
                 let output = &self.states[state_id as usize].borrow().output;
-                if output.0 != VALUE_INVALID {
+                if output.1 != LENGTH_INVALID {
                     return Ok(());
                 }
             }
@@ -130,7 +117,7 @@ where
         }
 
         let output = &mut self.states[state_id as usize].borrow_mut().output;
-        if output.0 != VALUE_INVALID {
+        if output.1 != LENGTH_INVALID {
             return Err(DaachorseError::duplicate_pattern(format!("{:?}", pattern)));
         }
 
@@ -191,7 +178,7 @@ where
             let s = &mut self.states[state_id].borrow_mut();
 
             // Sets the output state to the dead fail.
-            if s.output.0 != VALUE_INVALID {
+            if s.output.1 != LENGTH_INVALID {
                 s.fail = DEAD_STATE_ID;
             }
 
@@ -235,7 +222,7 @@ where
 
         for &state_id in q {
             let s = &mut self.states[state_id as usize].borrow_mut();
-            if s.output.0 == VALUE_INVALID {
+            if s.output.1 == LENGTH_INVALID {
                 s.output_pos = self.states[s.fail as usize].borrow().output_pos;
                 continue;
             }

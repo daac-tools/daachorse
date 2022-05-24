@@ -426,6 +426,10 @@ impl DoubleArrayAhoCorasick {
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
+    /// # Panics
+    ///
+    /// The number of patterns must be smaller than or equal to 2^32.
+    ///
     /// # Examples
     ///
     /// ```

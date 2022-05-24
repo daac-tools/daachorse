@@ -7,7 +7,7 @@ use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
 
 use crate::charwise::{DEAD_STATE_IDX, ROOT_STATE_IDX};
-use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
+use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID};
 
 // Specialized [`NfaBuilder`] handling labels of `char`.
 type CharwiseNfaBuilder = NfaBuilder<char>;
@@ -86,6 +86,10 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
+    /// # Panics
+    ///
+    /// The number of patterns must be smaller than or equal to 2^32.
+    ///
     /// # Examples
     ///
     /// ```
@@ -112,7 +116,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         let patvals = patterns
             .into_iter()
             .enumerate()
-            .map(|(i, p)| (p, i.try_into().unwrap_or(VALUE_INVALID)));
+            .map(|(i, p)| (p, i.try_into().unwrap()));
         self.build_with_values(patvals)
     }
 

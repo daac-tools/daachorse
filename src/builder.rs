@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
-use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
+use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID};
 use crate::{
     DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, OUTPUT_POS_MAX, ROOT_STATE_IDX,
 };
@@ -193,6 +193,10 @@ impl DoubleArrayAhoCorasickBuilder {
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
+    /// # Panics
+    ///
+    /// The number of patterns must be smaller than or equal to 2^32.
+    ///
     /// # Examples
     ///
     /// ```
@@ -221,7 +225,7 @@ impl DoubleArrayAhoCorasickBuilder {
         let patvals = patterns
             .into_iter()
             .enumerate()
-            .map(|(i, p)| (p, i.try_into().unwrap_or(VALUE_INVALID)));
+            .map(|(i, p)| (p, i.try_into().unwrap()));
         self.build_with_values(patvals)
     }
 
