@@ -386,8 +386,3 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         self.states[i as usize].set_output_pos(None);
     }
 }
-
-const fn get_block_shift(alphabet_size: u32) -> u32 {
-    let max_code = alphabet_size - 1;
-    32 - max_code.leading_zeros()
-}
