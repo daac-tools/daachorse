@@ -65,7 +65,7 @@ use crate::errors::Result;
 use crate::{MatchKind, Output};
 
 // The maximum BASE value used as an invalid value.
-pub(crate) const BASE_INVALID: i32 = i32::MAX;
+pub(crate) const BASE_INVALID: u32 = u32::MAX;
 // The root index position.
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
@@ -594,7 +594,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// assert_eq!(pma.num_elements(), 7);
+    /// assert_eq!(pma.num_elements(), 8);
     /// ```
     #[must_use]
     pub fn num_elements(&self) -> usize {
@@ -611,7 +611,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// assert_eq!(564, pma.heap_bytes());
+    /// assert_eq!(580, pma.heap_bytes());
     /// ```
     #[must_use]
     pub fn heap_bytes(&self) -> usize {
@@ -873,19 +873,17 @@ impl CharwiseDoubleArrayAhoCorasick {
     #[inline(always)]
     unsafe fn get_child_index_unchecked(&self, state_id: u32, c: char) -> Option<u32> {
         let mapped_c = self.mapper.get(c)?;
-        if let Some(base) = self.states.get_unchecked(state_id as usize).base() {
-            let child_idx = base + mapped_c as i32;
-            if child_idx < 0 {
-                return None;
-            }
-            // Use `get()` since `child_idx` can be no less than `self.states.len()`.
-            if let Some(child) = self.states.get(child_idx as usize) {
-                if child.check() == state_id {
-                    return Some(child_idx as u32);
-                }
-            }
+        let base = self.states.get_unchecked(state_id as usize).base()?;
+        // child_idx is always smaller than states.len() because
+        //  - states.len() is a multiple of (1 << k),
+        //    where k is the number of bits needed to represent mapped_c.
+        //  - base() is always smaller than states.len() when it is Some.
+        let child_idx = base ^ mapped_c;
+        if self.states.get_unchecked(child_idx as usize).check() == state_id {
+            Some(child_idx as u32)
+        } else {
+            None
         }
-        None
     }
 
     /// # Safety
@@ -927,7 +925,7 @@ impl CharwiseDoubleArrayAhoCorasick {
 
 #[derive(Clone, Copy, Debug)]
 struct State {
-    base: i32,
+    base: u32,
     check: u32,
     fail: u32,
     output_pos: Option<NonZeroU32>,
@@ -946,7 +944,7 @@ impl Default for State {
 
 impl State {
     #[inline(always)]
-    pub fn base(&self) -> Option<i32> {
+    pub fn base(&self) -> Option<u32> {
         Some(self.base).filter(|&x| x != BASE_INVALID)
     }
 
@@ -967,7 +965,7 @@ impl State {
 
     #[inline(always)]
     #[allow(dead_code)]
-    pub fn set_base(&mut self, x: i32) {
+    pub fn set_base(&mut self, x: u32) {
         self.base = x;
     }
 
@@ -1002,7 +1000,7 @@ impl State {
     #[inline(always)]
     fn deserialize(input: [u8; 16]) -> Self {
         Self {
-            base: i32::from_le_bytes(input[0..4].try_into().unwrap()),
+            base: u32::from_le_bytes(input[0..4].try_into().unwrap()),
             check: u32::from_le_bytes(input[4..8].try_into().unwrap()),
             fail: u32::from_le_bytes(input[8..12].try_into().unwrap()),
             output_pos: NonZeroU32::new(u32::from_le_bytes(input[12..16].try_into().unwrap())),

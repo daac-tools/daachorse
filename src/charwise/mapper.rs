@@ -8,6 +8,7 @@ pub const INVALID_CODE: u32 = u32::MAX;
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct CodeMapper {
     table: Vec<u32>,
+    alphabet_size: u32,
 }
 
 impl CodeMapper {
@@ -25,7 +26,10 @@ impl CodeMapper {
         for (i, &(c, _)) in sorted.iter().enumerate() {
             table[c] = i.try_into().unwrap();
         }
-        Self { table }
+        Self {
+            table,
+            alphabet_size: sorted.len().try_into().unwrap(),
+        }
     }
 
     #[inline(always)]
@@ -36,6 +40,11 @@ impl CodeMapper {
             .filter(|&code| code != INVALID_CODE)
     }
 
+    #[inline(always)]
+    pub const fn alphabet_size(&self) -> u32 {
+        self.alphabet_size
+    }
+
     #[inline]
     #[allow(dead_code)]
     pub fn heap_bytes(&self) -> usize {
@@ -43,7 +52,9 @@ impl CodeMapper {
     }
 
     pub fn serialized_bytes(&self) -> usize {
-        core::mem::size_of::<u32>() + self.table.len() * core::mem::size_of::<u32>()
+        core::mem::size_of::<u32>()
+            + self.table.len() * core::mem::size_of::<u32>()
+            + core::mem::size_of::<u32>() // alphabet_size
     }
 
     #[cfg(feature = "std")]
@@ -55,6 +66,7 @@ impl CodeMapper {
         for &x in &self.table {
             wtr.write_all(&x.to_le_bytes())?;
         }
+        wtr.write_all(&self.alphabet_size.to_le_bytes())?;
         Ok(())
     }
 
@@ -63,6 +75,7 @@ impl CodeMapper {
         for &x in &self.table {
             result.extend_from_slice(&x.to_le_bytes());
         }
+        result.extend_from_slice(&self.alphabet_size.to_le_bytes());
     }
 
     #[cfg(feature = "std")]
@@ -79,7 +92,13 @@ impl CodeMapper {
             rdr.read_exact(&mut x)?;
             table.push(u32::from_le_bytes(x));
         }
-        Ok(Self { table })
+        let mut alphabet_size_array = [0; 4];
+        rdr.read_exact(&mut alphabet_size_array)?;
+        let alphabet_size = u32::from_le_bytes(len_array);
+        Ok(Self {
+            table,
+            alphabet_size,
+        })
     }
 
     pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
@@ -90,6 +109,14 @@ impl CodeMapper {
             table.push(u32::from_le_bytes(source[0..4].try_into().unwrap()));
             source = &source[4..];
         }
-        (Self { table }, source)
+        let alphabet_size = u32::from_le_bytes(source[0..4].try_into().unwrap());
+        source = &source[4..];
+        (
+            Self {
+                table,
+                alphabet_size,
+            },
+            source,
+        )
     }
 }
