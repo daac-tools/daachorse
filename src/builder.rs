@@ -193,10 +193,6 @@ impl DoubleArrayAhoCorasickBuilder {
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
-    /// # Panics
-    ///
-    /// The number of patterns must be smaller than or equal to 2^32.
-    ///
     /// # Examples
     ///
     /// ```
@@ -222,10 +218,12 @@ impl DoubleArrayAhoCorasickBuilder {
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
     {
+        // The following code implicitly replaces large indices with 0,
+        // but build_with_values() returns an error variant for such iterators.
         let patvals = patterns
             .into_iter()
             .enumerate()
-            .map(|(i, p)| (p, i.try_into().unwrap()));
+            .map(|(i, p)| (p, i.try_into().unwrap_or(0)));
         self.build_with_values(patvals)
     }
 
