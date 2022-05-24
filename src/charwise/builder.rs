@@ -297,6 +297,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn fix_state(&mut self, idx: u32) {
+        // DEAD_STATE_IDX-th element should be always free.
         debug_assert_ne!(idx, DEAD_STATE_IDX);
         debug_assert!(!self.is_fixed(idx));
 
@@ -337,7 +338,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn extend_array(&mut self) {
-        let old_len = self.states.len() as u32;
+        let old_len = u32::try_from(self.states.len()).unwrap();
         let new_len = old_len + self.block_len;
 
         for i in old_len..new_len {
@@ -346,7 +347,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             self.set_prev(i, i - 1);
         }
 
-        let head_idx = self.get_next(DEAD_STATE_IDX);
+        let head_idx = DEAD_STATE_IDX;
         let tail_idx = self.get_prev(head_idx);
         self.set_prev(old_len, tail_idx);
         self.set_next(tail_idx, old_len);
