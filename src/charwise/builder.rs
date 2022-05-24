@@ -274,8 +274,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     }
 
     fn init_array(&mut self) {
-        let block_shift = get_block_shift(self.mapper.alphabet_size()).max(1);
-        self.block_len = 1 << block_shift;
+        self.block_len = self.mapper.alphabet_size().next_power_of_two().max(2);
 
         self.states
             .resize(self.block_len as usize, State::default());
