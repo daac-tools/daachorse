@@ -7,7 +7,7 @@ use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
 
 use crate::charwise::{DEAD_STATE_IDX, ROOT_STATE_IDX};
-use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID, VALUE_INVALID};
+use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID};
 
 // Specialized [`NfaBuilder`] handling labels of `char`.
 type CharwiseNfaBuilder = NfaBuilder<char>;
@@ -130,10 +130,12 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         I: IntoIterator<Item = P>,
         P: AsRef<str>,
     {
+        // The following code implicitly replaces large indices with 0,
+        // but build_with_values() returns an error variant for such iterators.
         let patvals = patterns
             .into_iter()
             .enumerate()
-            .map(|(i, p)| (p, i.try_into().unwrap_or(VALUE_INVALID)));
+            .map(|(i, p)| (p, i.try_into().unwrap_or(0)));
         self.build_with_values(patvals)
     }
 
