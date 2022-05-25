@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use crate::errors::{DaachorseError, Result};
 use crate::{MatchKind, Output};
 
-// The length used as an invalid value.
+// The maximum length of a pattern.
 pub const LENGTH_MAX: u32 = u32::MAX >> 1;
 // The root state id of SparseNFA.
 pub const ROOT_STATE_ID: u32 = 0;
