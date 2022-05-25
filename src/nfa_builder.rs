@@ -6,10 +6,6 @@ use alloc::vec::Vec;
 use crate::errors::{DaachorseError, Result};
 use crate::{MatchKind, Output};
 
-// The maximum length of a pattern.
-pub const LENGTH_INVALID: u32 = 0;
-// The length used as an invalid value.
-pub const LENGTH_MAX: u32 = u32::MAX >> 1;
 // The root state id of SparseNFA.
 pub const ROOT_STATE_ID: u32 = 0;
 // The dead state id of SparseNFA.
@@ -39,7 +35,7 @@ type EdgeMap<L> = alloc::collections::BTreeMap<L, u32>;
 pub struct NfaBuilderState<L> {
     pub(crate) edges: EdgeMap<L>,
     pub(crate) fail: u32,
-    pub(crate) output: (u32, u32),
+    pub(crate) output: Option<(u32, NonZeroU32)>,
     pub(crate) output_pos: Option<NonZeroU32>,
 }
 
@@ -48,7 +44,7 @@ impl<L> Default for NfaBuilderState<L> {
         Self {
             edges: EdgeMap::<L>::default(),
             fail: ROOT_STATE_ID,
-            output: (0, LENGTH_INVALID),
+            output: None,
             output_pos: None,
         }
     }
@@ -80,23 +76,20 @@ where
 
     #[inline(always)]
     pub(crate) fn add(&mut self, pattern: &[L], value: u32) -> Result<()> {
-        if pattern.len() > LENGTH_MAX as usize {
-            return Err(DaachorseError::invalid_argument(
-                "pattern.len()",
-                "<=",
-                LENGTH_MAX,
-            ));
-        }
-        if pattern.is_empty() {
-            return Err(DaachorseError::invalid_argument("pattern.len()", ">=", 1));
-        }
+        let pattern_len = pattern
+            .iter()
+            .fold(0, |acc, c| acc + c.num_bytes())
+            .try_into()
+            .map_err(|_| DaachorseError::invalid_argument("pattern.len()", "<=", u32::MAX))?;
+        let pattern_len = NonZeroU32::new(pattern_len)
+            .ok_or_else(|| DaachorseError::invalid_argument("pattern.len()", ">=", 1))?;
 
         let mut state_id = ROOT_STATE_ID;
         for &c in pattern {
             if self.match_kind.is_leftmost_first() {
                 // If state_id has an output, the descendants will never searched.
                 let output = &self.states[state_id as usize].borrow().output;
-                if output.1 != LENGTH_INVALID {
+                if output.is_some() {
                     return Ok(());
                 }
             }
@@ -117,18 +110,10 @@ where
         }
 
         let output = &mut self.states[state_id as usize].borrow_mut().output;
-        if output.1 != LENGTH_INVALID {
+        if output.replace((value, pattern_len)).is_some() {
             return Err(DaachorseError::duplicate_pattern(format!("{:?}", pattern)));
         }
 
-        *output = (
-            value,
-            pattern
-                .iter()
-                .fold(0, |acc, c| acc + c.num_bytes())
-                .try_into()
-                .unwrap(),
-        );
         self.len += 1;
         Ok(())
     }
@@ -178,7 +163,7 @@ where
             let s = &mut self.states[state_id].borrow_mut();
 
             // Sets the output state to the dead fail.
-            if s.output.1 != LENGTH_INVALID {
+            if s.output.is_some() {
                 s.fail = DEAD_STATE_ID;
             }
 
@@ -222,16 +207,14 @@ where
 
         for &state_id in q {
             let s = &mut self.states[state_id as usize].borrow_mut();
-            if s.output.1 == LENGTH_INVALID {
+            if let Some(output) = s.output {
+                s.output_pos = NonZeroU32::new(self.outputs.len().try_into().unwrap());
+                let parent = self.states[s.fail as usize].borrow().output_pos;
+                self.outputs
+                    .push(Output::new(output.0, output.1.get(), parent));
+            } else {
                 s.output_pos = self.states[s.fail as usize].borrow().output_pos;
-                continue;
             }
-
-            s.output_pos = NonZeroU32::new(self.outputs.len().try_into().unwrap());
-            let parent = self.states[s.fail as usize].borrow().output_pos;
-
-            self.outputs
-                .push(Output::new(s.output.0, s.output.1, parent));
         }
     }
 
