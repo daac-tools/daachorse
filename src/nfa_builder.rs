@@ -6,8 +6,6 @@ use alloc::vec::Vec;
 use crate::errors::{DaachorseError, Result};
 use crate::{MatchKind, Output};
 
-// The maximum length of a pattern.
-pub const LENGTH_MAX: u32 = u32::MAX >> 1;
 // The root state id of SparseNFA.
 pub const ROOT_STATE_ID: u32 = 0;
 // The dead state id of SparseNFA.
@@ -78,21 +76,13 @@ where
 
     #[inline(always)]
     pub(crate) fn add(&mut self, pattern: &[L], value: u32) -> Result<()> {
-        if pattern.len() > LENGTH_MAX as usize {
-            return Err(DaachorseError::invalid_argument(
-                "pattern.len()",
-                "<=",
-                LENGTH_MAX,
-            ));
-        }
-        let pattern_len = NonZeroU32::new(
-            pattern
-                .iter()
-                .fold(0, |acc, c| acc + c.num_bytes())
-                .try_into()
-                .unwrap(),
-        )
-        .ok_or_else(|| DaachorseError::invalid_argument("pattern.len()", ">=", 1))?;
+        let pattern_len = pattern
+            .iter()
+            .fold(0, |acc, c| acc + c.num_bytes())
+            .try_into()
+            .map_err(|_| DaachorseError::invalid_argument("pattern.len()", "<=", u32::MAX))?;
+        let pattern_len = NonZeroU32::new(pattern_len)
+            .ok_or_else(|| DaachorseError::invalid_argument("pattern.len()", ">=", 1))?;
 
         let mut state_id = ROOT_STATE_ID;
         for &c in pattern {
