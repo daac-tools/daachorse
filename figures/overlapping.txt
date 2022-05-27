@@ -1,4 +1,4 @@
 Library,Word100K [ms],Unidic [ms]
-aho-corasick (NFA),14.032,35.067
-daachorse-bytewise,4.1049,11.657
-daachorse-charwise,4.7338,6.8752
+aho-corasick (NFA),14.140,35.921
+daachorse-bytewise,4.1810,10.989
+daachorse-charwise,3.3278,6.6202
