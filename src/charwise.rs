@@ -871,8 +871,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// `state_id` must be smaller than the length of states.
     #[allow(clippy::cast_possible_wrap)]
     #[inline(always)]
-    unsafe fn get_child_index_unchecked(&self, state_id: u32, c: char) -> Option<u32> {
-        let mapped_c = self.mapper.get(c)?;
+    unsafe fn get_child_index_unchecked(&self, state_id: u32, mapped_c: u32) -> Option<u32> {
         let base = self.states.get_unchecked(state_id as usize).base()?;
         // child_idx is always smaller than states.len() because
         //  - states.len() is a multiple of (1 << k),
@@ -892,13 +891,17 @@ impl CharwiseDoubleArrayAhoCorasick {
     #[inline(always)]
     unsafe fn get_next_state_id_unchecked(&self, mut state_id: u32, c: char) -> u32 {
         loop {
-            if let Some(state_id) = self.get_child_index_unchecked(state_id, c) {
-                return state_id;
-            }
-            if state_id == ROOT_STATE_IDX {
+            if let Some(mapped_c) = self.mapper.get(c) {
+                if let Some(state_id) = self.get_child_index_unchecked(state_id, mapped_c) {
+                    return state_id;
+                }
+                if state_id == ROOT_STATE_IDX {
+                    return ROOT_STATE_IDX;
+                }
+                state_id = self.states.get_unchecked(state_id as usize).fail();
+            } else {
                 return ROOT_STATE_IDX;
             }
-            state_id = self.states.get_unchecked(state_id as usize).fail();
         }
     }
 
@@ -908,8 +911,10 @@ impl CharwiseDoubleArrayAhoCorasick {
     #[inline(always)]
     unsafe fn get_next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: char) -> u32 {
         loop {
-            if let Some(state_id) = self.get_child_index_unchecked(state_id, c) {
-                return state_id;
+            if let Some(mapped_c) = self.mapper.get(c) {
+                if let Some(state_id) = self.get_child_index_unchecked(state_id, mapped_c) {
+                    return state_id;
+                }
             }
             if state_id == ROOT_STATE_IDX {
                 return ROOT_STATE_IDX;
