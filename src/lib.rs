@@ -1199,7 +1199,7 @@ impl DoubleArrayAhoCorasick {
     }
 }
 
-/// An search option of the Aho-Corasick automaton
+/// A search option of the Aho-Corasick automaton
 /// specified in [`DoubleArrayAhoCorasickBuilder::match_kind`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
