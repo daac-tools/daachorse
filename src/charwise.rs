@@ -910,20 +910,22 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
     unsafe fn get_next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: char) -> u32 {
-        loop {
-            if let Some(mapped_c) = self.mapper.get(c) {
+        if let Some(mapped_c) = self.mapper.get(c) {
+            loop {
                 if let Some(state_id) = self.get_child_index_unchecked(state_id, mapped_c) {
                     return state_id;
                 }
+                if state_id == ROOT_STATE_IDX {
+                    return ROOT_STATE_IDX;
+                }
+                let fail_id = self.states.get_unchecked(state_id as usize).fail();
+                if fail_id == DEAD_STATE_IDX {
+                    return ROOT_STATE_IDX;
+                }
+                state_id = fail_id;
             }
-            if state_id == ROOT_STATE_IDX {
-                return ROOT_STATE_IDX;
-            }
-            let fail_id = self.states.get_unchecked(state_id as usize).fail();
-            if fail_id == DEAD_STATE_IDX {
-                return DEAD_STATE_IDX;
-            }
-            state_id = fail_id;
+        } else {
+            ROOT_STATE_IDX
         }
     }
 }

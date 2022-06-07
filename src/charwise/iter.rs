@@ -5,7 +5,7 @@ use core::num::NonZeroU32;
 
 use crate::charwise::CharwiseDoubleArrayAhoCorasick;
 use crate::Match;
-use crate::{DEAD_STATE_IDX, ROOT_STATE_IDX};
+use crate::ROOT_STATE_IDX;
 
 /// Iterator for some struct that implements [`AsRef<str>`].
 pub struct StrIterator<P> {
@@ -244,7 +244,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         let mut state_id = ROOT_STATE_IDX;
-        let mut last_output_pos = None;
+        let mut last_output_pos: Option<NonZeroU32> = None;
 
         let mut skips = 0;
         for c in unsafe { self.haystack.as_ref().get_unchecked(self.pos..) }.chars() {
@@ -253,9 +253,17 @@ where
             // state_id is always smaller than self.pma.states.len() because
             // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
             state_id = unsafe { self.pma.get_next_state_id_leftmost_unchecked(state_id, c) };
-            if state_id == DEAD_STATE_IDX {
-                debug_assert!(last_output_pos.is_some());
-                break;
+            if state_id == ROOT_STATE_IDX {
+                if let Some(output_pos) = last_output_pos {
+                    // last_output_pos is always smaller than self.pma.outputs.len() because
+                    // State::output_pos() ensures to return such a value when it is Some.
+                    let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+                    return Some(Match {
+                        length: out.length() as usize,
+                        end: self.pos,
+                        value: out.value() as usize,
+                    });
+                }
             }
 
             // state_id is always smaller than self.pma.states.len() because
