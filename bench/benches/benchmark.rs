@@ -16,133 +16,202 @@ const SEARCH_SAMPLE_SIZE: usize = 30;
 const SEARCH_WARM_UP_TIME: Duration = Duration::from_secs(5);
 const SEARCH_MEASURE_TIME: Duration = Duration::from_secs(10);
 
-fn criterion_unidic_build(c: &mut Criterion) {
-    let mut group = c.benchmark_group("unidic/build");
-    group.sample_size(BUILD_SAMPLE_SIZE);
-    group.warm_up_time(BUILD_WARM_UP_TIME);
-    group.measurement_time(BUILD_MEASURE_TIME);
-    group.sampling_mode(SamplingMode::Flat);
-    let mut patterns = load_file("data/unidic/unidic");
-    patterns.sort_unstable();
-
-    add_build_benches(&mut group, &patterns);
+macro_rules! define_build_bench {
+    ( $func_name:ident, $group:literal, $corpus:literal ) => {
+        fn $func_name(c: &mut Criterion) {
+            let mut group = c.benchmark_group($group);
+            group.sample_size(BUILD_SAMPLE_SIZE);
+            group.warm_up_time(BUILD_WARM_UP_TIME);
+            group.measurement_time(BUILD_MEASURE_TIME);
+            group.sampling_mode(SamplingMode::Flat);
+            let mut patterns = load_file($corpus);
+            patterns.sort_unstable();
+            add_build_benches(&mut group, &patterns);
+        }
+    };
 }
 
-fn criterion_words100000_build(c: &mut Criterion) {
-    let mut group = c.benchmark_group("words_100000/build");
-    group.sample_size(BUILD_SAMPLE_SIZE);
-    group.warm_up_time(BUILD_WARM_UP_TIME);
-    group.measurement_time(BUILD_MEASURE_TIME);
-    group.sampling_mode(SamplingMode::Flat);
-    let mut patterns = load_file("data/words_100000");
-    patterns.sort_unstable();
-
-    add_build_benches(&mut group, &patterns);
+macro_rules! define_find_bench {
+    ( $func_name:ident, $bench:ident, $group:literal, $corpus:literal, $haystack:literal ) => {
+        fn $func_name(c: &mut Criterion) {
+            let mut group = c.benchmark_group($group);
+            group.sample_size(SEARCH_SAMPLE_SIZE);
+            group.warm_up_time(SEARCH_WARM_UP_TIME);
+            group.measurement_time(SEARCH_MEASURE_TIME);
+            group.sampling_mode(SamplingMode::Flat);
+            let mut patterns = load_file($corpus);
+            patterns.sort_unstable();
+            let haystacks = load_file($haystack);
+            $bench(&mut group, &patterns, &haystacks);
+        }
+    };
 }
 
-fn criterion_unidic_find(c: &mut Criterion) {
-    let mut group = c.benchmark_group("unidic/find");
-    group.sample_size(SEARCH_SAMPLE_SIZE);
-    group.warm_up_time(SEARCH_WARM_UP_TIME);
-    group.measurement_time(SEARCH_MEASURE_TIME);
-    group.sampling_mode(SamplingMode::Flat);
-    let mut patterns = load_file("data/unidic/unidic");
-    patterns.sort_unstable();
-    let haystacks = load_file("data/wagahaiwa_nekodearu.txt");
+define_build_bench!(criterion_unidic_build, "unidic/build", "data/unidic/unidic");
+define_build_bench!(
+    criterion_words_100_build,
+    "words_100/build",
+    "data/words_100"
+);
+define_build_bench!(
+    criterion_words_5000_build,
+    "words_5000/build",
+    "data/words_5000"
+);
+define_build_bench!(
+    criterion_words_15000_build,
+    "words_15000/build",
+    "data/words_15000"
+);
+define_build_bench!(
+    criterion_words_100000_build,
+    "words_100000/build",
+    "data/words_100000"
+);
 
-    add_find_benches(&mut group, &patterns, &haystacks);
-}
+define_find_bench!(
+    criterion_unidic_find,
+    add_find_benches,
+    "unidic/find",
+    "data/unidic/unidic",
+    "data/wagahaiwa_nekodearu.txt"
+);
+define_find_bench!(
+    criterion_words_100_find,
+    add_find_benches,
+    "words_100/find",
+    "data/words_100",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_5000_find,
+    add_find_benches,
+    "words_5000/find",
+    "data/words_5000",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_15000_find,
+    add_find_benches,
+    "words_15000/find",
+    "data/words_15000",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_100000_find,
+    add_find_benches,
+    "words_100000/find",
+    "data/words_100000",
+    "data/sherlock.txt"
+);
 
-fn criterion_words100000_find(c: &mut Criterion) {
-    let mut group = c.benchmark_group("words_100000/find");
-    group.sample_size(SEARCH_SAMPLE_SIZE);
-    group.warm_up_time(SEARCH_WARM_UP_TIME);
-    group.measurement_time(SEARCH_MEASURE_TIME);
-    group.sampling_mode(SamplingMode::Flat);
-    let mut patterns = load_file("data/words_100000");
-    patterns.sort_unstable();
-    let haystacks = load_file("data/sherlock.txt");
+define_find_bench!(
+    criterion_unidic_find_overlapping,
+    add_find_overlapping_benches,
+    "unidic/find_overlapping",
+    "data/unidic/unidic",
+    "data/wagahaiwa_nekodearu.txt"
+);
+define_find_bench!(
+    criterion_words_100_find_overlapping,
+    add_find_overlapping_benches,
+    "words_100/find_overlapping",
+    "data/words_100",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_5000_find_overlapping,
+    add_find_overlapping_benches,
+    "words_5000/find_overlapping",
+    "data/words_5000",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_15000_find_overlapping,
+    add_find_overlapping_benches,
+    "words_15000/find_overlapping",
+    "data/words_15000",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_100000_find_overlapping,
+    add_find_overlapping_benches,
+    "words_100000/find_overlapping",
+    "data/words_100000",
+    "data/sherlock.txt"
+);
 
-    add_find_benches(&mut group, &patterns, &haystacks);
-}
+define_find_bench!(
+    criterion_unidic_find_leftmost_longest,
+    add_find_leftmost_longest_benches,
+    "unidic/find_leftmost_longest",
+    "data/unidic/unidic",
+    "data/wagahaiwa_nekodearu.txt"
+);
+define_find_bench!(
+    criterion_words_100_find_leftmost_longest,
+    add_find_leftmost_longest_benches,
+    "words_100/find_leftmost_longest",
+    "data/words_100",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_5000_find_leftmost_longest,
+    add_find_leftmost_longest_benches,
+    "words_5000/find_leftmost_longest",
+    "data/words_5000",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_15000_find_leftmost_longest,
+    add_find_leftmost_longest_benches,
+    "words_15000/find_leftmost_longest",
+    "data/words_15000",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_100000_find_leftmost_longest,
+    add_find_leftmost_longest_benches,
+    "words_100000/find_leftmost_longest",
+    "data/words_100000",
+    "data/sherlock.txt"
+);
 
-fn criterion_unidic_find_overlapping(c: &mut Criterion) {
-    let mut group = c.benchmark_group("unidic/find_overlapping");
-    group.sample_size(SEARCH_SAMPLE_SIZE);
-    group.warm_up_time(SEARCH_WARM_UP_TIME);
-    group.measurement_time(SEARCH_MEASURE_TIME);
-    group.sampling_mode(SamplingMode::Flat);
-    let mut patterns = load_file("data/unidic/unidic");
-    patterns.sort_unstable();
-    let haystacks = load_file("data/wagahaiwa_nekodearu.txt");
-
-    add_find_overlapping_benches(&mut group, &patterns, &haystacks);
-}
-
-fn criterion_words100000_find_overlapping(c: &mut Criterion) {
-    let mut group = c.benchmark_group("words_100000/find_overlapping");
-    group.sample_size(SEARCH_SAMPLE_SIZE);
-    group.warm_up_time(SEARCH_WARM_UP_TIME);
-    group.measurement_time(SEARCH_MEASURE_TIME);
-    group.sampling_mode(SamplingMode::Flat);
-    let mut patterns = load_file("data/words_100000");
-    patterns.sort_unstable();
-    let haystacks = load_file("data/sherlock.txt");
-
-    add_find_overlapping_benches(&mut group, &patterns, &haystacks);
-}
-
-fn criterion_unidic_leftmost_longest_find(c: &mut Criterion) {
-    let mut group = c.benchmark_group("unidic/leftmost_longest_find");
-    group.sample_size(SEARCH_SAMPLE_SIZE);
-    group.warm_up_time(SEARCH_WARM_UP_TIME);
-    group.measurement_time(SEARCH_MEASURE_TIME);
-    group.sampling_mode(SamplingMode::Flat);
-    let mut patterns = load_file("data/unidic/unidic");
-    patterns.sort_unstable();
-    let haystacks = load_file("data/wagahaiwa_nekodearu.txt");
-
-    add_leftmost_longest_find_benches(&mut group, &patterns, &haystacks);
-}
-
-fn criterion_words100000_leftmost_longest_find(c: &mut Criterion) {
-    let mut group = c.benchmark_group("words_100000/leftmost_longest_find");
-    group.sample_size(SEARCH_SAMPLE_SIZE);
-    group.warm_up_time(SEARCH_WARM_UP_TIME);
-    group.measurement_time(SEARCH_MEASURE_TIME);
-    group.sampling_mode(SamplingMode::Flat);
-    let mut patterns = load_file("data/words_100000");
-    patterns.sort_unstable();
-    let haystacks = load_file("data/sherlock.txt");
-
-    add_leftmost_longest_find_benches(&mut group, &patterns, &haystacks);
-}
-
-fn criterion_unidic_leftmost_first_find(c: &mut Criterion) {
-    let mut group = c.benchmark_group("unidic/leftmost_first_find");
-    group.sample_size(SEARCH_SAMPLE_SIZE);
-    group.warm_up_time(SEARCH_WARM_UP_TIME);
-    group.measurement_time(SEARCH_MEASURE_TIME);
-    group.sampling_mode(SamplingMode::Flat);
-    let mut patterns = load_file("data/unidic/unidic");
-    patterns.sort_unstable();
-    let haystacks = load_file("data/wagahaiwa_nekodearu.txt");
-
-    add_leftmost_first_find_benches(&mut group, &patterns, &haystacks);
-}
-
-fn criterion_words100000_leftmost_first_find(c: &mut Criterion) {
-    let mut group = c.benchmark_group("words_100000/leftmost_first_find");
-    group.sample_size(SEARCH_SAMPLE_SIZE);
-    group.warm_up_time(SEARCH_WARM_UP_TIME);
-    group.measurement_time(SEARCH_MEASURE_TIME);
-    group.sampling_mode(SamplingMode::Flat);
-    let mut patterns = load_file("data/words_100000");
-    patterns.sort_unstable();
-    let haystacks = load_file("data/sherlock.txt");
-
-    add_leftmost_first_find_benches(&mut group, &patterns, &haystacks);
-}
+define_find_bench!(
+    criterion_unidic_find_leftmost_first,
+    add_find_leftmost_first_benches,
+    "unidic/find_leftmost_first",
+    "data/unidic/unidic",
+    "data/wagahaiwa_nekodearu.txt"
+);
+define_find_bench!(
+    criterion_words_100_find_leftmost_first,
+    add_find_leftmost_first_benches,
+    "words_100/find_leftmost_first",
+    "data/words_100",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_5000_find_leftmost_first,
+    add_find_leftmost_first_benches,
+    "words_5000/find_leftmost_first",
+    "data/words_5000",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_15000_find_leftmost_first,
+    add_find_leftmost_first_benches,
+    "words_15000/find_leftmost_first",
+    "data/words_15000",
+    "data/sherlock.txt"
+);
+define_find_bench!(
+    criterion_words_100000_find_leftmost_first,
+    add_find_leftmost_first_benches,
+    "words_100000/find_leftmost_first",
+    "data/words_100000",
+    "data/sherlock.txt"
+);
 
 fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) {
     group.bench_function("daachorse", |b| {
@@ -411,7 +480,7 @@ fn add_find_overlapping_benches(
     });
 }
 
-fn add_leftmost_longest_find_benches(
+fn add_find_leftmost_longest_benches(
     group: &mut BenchmarkGroup<WallTime>,
     patterns: &[String],
     haystacks: &[String],
@@ -488,7 +557,7 @@ fn add_leftmost_longest_find_benches(
     });
 }
 
-fn add_leftmost_first_find_benches(
+fn add_find_leftmost_first_benches(
     group: &mut BenchmarkGroup<WallTime>,
     patterns: &[String],
     haystacks: &[String],
@@ -605,13 +674,28 @@ criterion_group!(
     benches,
     criterion_unidic_find,
     criterion_unidic_find_overlapping,
-    criterion_unidic_leftmost_longest_find,
-    criterion_unidic_leftmost_first_find,
+    criterion_unidic_find_leftmost_longest,
+    criterion_unidic_find_leftmost_first,
+    criterion_words_100_find,
+    criterion_words_100_find_overlapping,
+    criterion_words_100_find_leftmost_longest,
+    criterion_words_100_find_leftmost_first,
+    criterion_words_5000_find,
+    criterion_words_5000_find_overlapping,
+    criterion_words_5000_find_leftmost_longest,
+    criterion_words_5000_find_leftmost_first,
+    criterion_words_15000_find,
+    criterion_words_15000_find_overlapping,
+    criterion_words_15000_find_leftmost_longest,
+    criterion_words_15000_find_leftmost_first,
+    criterion_words_100000_find,
+    criterion_words_100000_find_overlapping,
+    criterion_words_100000_find_leftmost_longest,
+    criterion_words_100000_find_leftmost_first,
     criterion_unidic_build,
-    criterion_words100000_find,
-    criterion_words100000_find_overlapping,
-    criterion_words100000_leftmost_longest_find,
-    criterion_words100000_leftmost_first_find,
-    criterion_words100000_build,
+    criterion_words_100_build,
+    criterion_words_5000_build,
+    criterion_words_15000_build,
+    criterion_words_100000_build,
 );
 criterion_main!(benches);
