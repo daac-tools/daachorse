@@ -6,6 +6,24 @@ use std::path::Path;
 
 fn main() {
     {
+        println!("== data/words_100 ==");
+        let mut patterns = load_file("data/words_100");
+        patterns.sort_unstable();
+        show_memory_stats(&patterns);
+    }
+    {
+        println!("== data/words_5000 ==");
+        let mut patterns = load_file("data/words_5000");
+        patterns.sort_unstable();
+        show_memory_stats(&patterns);
+    }
+    {
+        println!("== data/words_15000 ==");
+        let mut patterns = load_file("data/words_15000");
+        patterns.sort_unstable();
+        show_memory_stats(&patterns);
+    }
+    {
         println!("== data/words_100000 ==");
         let mut patterns = load_file("data/words_100000");
         patterns.sort_unstable();

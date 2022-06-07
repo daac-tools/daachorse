@@ -9,12 +9,12 @@ use criterion::{
 };
 
 const BUILD_SAMPLE_SIZE: usize = 10;
-const BUILD_WARM_UP_TIME: Duration = Duration::from_secs(5);
-const BUILD_MEASURE_TIME: Duration = Duration::from_secs(30);
+const BUILD_WARM_UP_TIME: Duration = Duration::from_millis(500);
+const BUILD_MEASURE_TIME: Duration = Duration::from_secs(2);
 
 const SEARCH_SAMPLE_SIZE: usize = 30;
-const SEARCH_WARM_UP_TIME: Duration = Duration::from_secs(5);
-const SEARCH_MEASURE_TIME: Duration = Duration::from_secs(10);
+const SEARCH_WARM_UP_TIME: Duration = Duration::from_millis(500);
+const SEARCH_MEASURE_TIME: Duration = Duration::from_secs(2);
 
 macro_rules! define_build_bench {
     ( $func_name:ident, $group:literal, $corpus:literal ) => {
