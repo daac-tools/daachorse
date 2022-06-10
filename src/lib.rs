@@ -156,6 +156,7 @@ compile_error!("`target_pointer_width` must be larger than or equal to 32");
 #[macro_use]
 extern crate alloc;
 
+mod build_helper;
 mod builder;
 pub mod charwise;
 pub mod errors;
@@ -173,6 +174,7 @@ use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::io::{self, Read, Write};
 
+use build_helper::BuildHelper;
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::{DaachorseError, Result};
 use iter::{
