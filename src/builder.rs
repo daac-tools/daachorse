@@ -321,7 +321,7 @@ impl DoubleArrayAhoCorasickBuilder {
         self.states
             .resize(usize::try_from(BLOCK_LEN).unwrap(), State::default());
         self.helper = BuildHelper::new(BLOCK_LEN, self.num_free_blocks);
-        self.helper.push_block();
+        self.helper.push_block().unwrap();
         self.helper.use_index(ROOT_STATE_IDX);
         self.helper.use_index(DEAD_STATE_IDX);
     }
@@ -360,7 +360,7 @@ impl DoubleArrayAhoCorasickBuilder {
             self.remove_invalid_checks(closed_block_idx);
         }
 
-        self.helper.push_block();
+        self.helper.push_block()?;
         (0..BLOCK_LEN).for_each(|_| self.states.push(State::default()));
 
         Ok(())

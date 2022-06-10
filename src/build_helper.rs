@@ -2,6 +2,8 @@ use core::ops::Range;
 
 use alloc::vec::Vec;
 
+use crate::errors::{DaachorseError, Result};
+
 const INVALID_IDX: u32 = u32::MAX;
 
 /// Helper class in double-array construction to maintain indices of vacant elements and
@@ -112,7 +114,11 @@ impl BuildHelper {
     }
 
     /// Extends the array by pushing a block back.
-    pub fn push_block(&mut self) {
+    pub fn push_block(&mut self) -> Result<()> {
+        if self.num_elements > u32::MAX - self.block_len {
+            return Err(DaachorseError::automaton_scale("num_elements", u32::MAX));
+        }
+
         if let Some(closed_block) = self.dropped_block() {
             let end_idx = (closed_block + 1) * self.block_len;
             while self.head_idx < end_idx && self.head_idx != INVALID_IDX {
@@ -144,6 +150,8 @@ impl BuildHelper {
             self.get_mut(new_len - 1).set_next(head_idx);
             self.get_mut(head_idx).set_prev(new_len - 1);
         }
+
+        Ok(())
     }
 
     /// Retruns the index of an active block that will be dropped in the next `push_block`.
