@@ -23,7 +23,7 @@ that is the most poplar Aho-Corasick implementation in Rust,
 Daachorse can perform pattern matching **3.3–5.4 times faster**
 while consuming **56–60% smaller** memory, when using a word dictionary of 675K patterns.
 Other experimental results can be found in
-[Wiki](https://github.com/daac-tools/daachorse/wiki).
+[Wiki](https://github.com/daac-tools/daachorse/wiki/Performance-Comparison).
 
 ![](./figures/comparison.svg)
 
