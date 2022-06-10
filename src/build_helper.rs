@@ -35,7 +35,7 @@ impl BuildHelper {
 
     /// Gets the number of current double-array elements.
     #[inline(always)]
-    pub fn num_elements(&self) -> u32 {
+    pub const fn num_elements(&self) -> u32 {
         self.num_elements
     }
 
