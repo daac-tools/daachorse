@@ -39,20 +39,14 @@ impl BuildHelper {
         self.num_elements
     }
 
-    /// Checks if the next `push_block` can drop information of a block.
-    #[inline(always)]
-    pub fn is_full(&self) -> bool {
-        self.capacity() <= self.num_elements()
-    }
-
-    /// Gets the element index range in the active blocks.
+    /// Gets the index range of elements in the active blocks.
     #[inline(always)]
     pub fn active_index_range(&self) -> Range<u32> {
         let start = self.capacity().max(self.num_elements()) - self.capacity();
         start..self.num_elements()
     }
 
-    /// Gets the block position range in the active blocks.
+    /// Gets the block index range in the active blocks.
     #[inline(always)]
     pub fn active_block_range(&self) -> Range<u32> {
         let r = self.active_index_range();
@@ -119,8 +113,7 @@ impl BuildHelper {
 
     /// Extends the array by pushing a block back.
     pub fn push_block(&mut self) {
-        if self.is_full() {
-            let closed_block = self.active_block_range().start;
+        if let Some(closed_block) = self.dropped_block() {
             let end_idx = (closed_block + 1) * self.block_len;
             while self.head_idx < end_idx && self.head_idx != INVALID_IDX {
                 self.use_index(self.head_idx);
@@ -150,6 +143,16 @@ impl BuildHelper {
             self.get_mut(tail_idx).set_next(old_len);
             self.get_mut(new_len - 1).set_next(head_idx);
             self.get_mut(head_idx).set_prev(new_len - 1);
+        }
+    }
+
+    /// Retruns the index of an active block that will be dropped in the next `push_block`.
+    #[inline(always)]
+    pub fn dropped_block(&self) -> Option<u32> {
+        if self.capacity() <= self.num_elements() {
+            Some(self.active_block_range().start)
+        } else {
+            None
         }
     }
 

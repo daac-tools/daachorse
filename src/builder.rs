@@ -356,8 +356,7 @@ impl DoubleArrayAhoCorasickBuilder {
             return Err(DaachorseError::automaton_scale("states.len()", u32::MAX));
         }
 
-        if self.helper.is_full() {
-            let closed_block_idx = self.helper.active_block_range().start;
+        if let Some(closed_block_idx) = self.helper.dropped_block() {
             self.remove_invalid_checks(closed_block_idx);
         }
 
@@ -367,7 +366,8 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(())
     }
 
-    /// Embeds all CHECK values in the block to avoid invalid transitions.
+    /// Embeds valid CHECK values for all vacant elements in the block
+    /// to avoid invalid transitions.
     fn remove_invalid_checks(&mut self, block_idx: u32) {
         if let Some(unused_base) = self.helper.unused_base_in_block(block_idx) {
             for c in 0..=BLOCK_MAX {
