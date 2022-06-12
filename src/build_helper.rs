@@ -4,8 +4,6 @@ use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
 
-const INVALID_IDX: u32 = u32::MAX;
-
 /// Helper class in double-array construction to maintain indices of vacant elements and
 /// unused BASE values.
 ///
@@ -18,7 +16,7 @@ pub struct BuildHelper {
     items: Vec<ListItem>,
     block_len: u32,
     num_elements: u32,
-    head_idx: u32,
+    head_idx: Option<u32>,
 }
 
 impl BuildHelper {
@@ -31,7 +29,7 @@ impl BuildHelper {
             items: vec![ListItem::default(); capacity],
             block_len,
             num_elements: 0,
-            head_idx: INVALID_IDX,
+            head_idx: None,
         }
     }
 
@@ -58,8 +56,10 @@ impl BuildHelper {
     /// Creates an iterator to visit vacant indices in the active blocks.
     #[inline(always)]
     pub fn vacant_iter(&self) -> VacantIter {
-        let idx = Some(self.head_idx).filter(|&x| x != INVALID_IDX);
-        VacantIter { list: self, idx }
+        VacantIter {
+            list: self,
+            idx: self.head_idx,
+        }
     }
 
     /// Gets an unused BASE value in the block.
@@ -104,12 +104,8 @@ impl BuildHelper {
         self.get_mut(prev).set_next(next);
         self.get_mut(next).set_prev(prev);
 
-        if self.head_idx == idx {
-            if next == idx {
-                self.head_idx = INVALID_IDX;
-            } else {
-                self.head_idx = next;
-            }
+        if self.head_idx.unwrap() == idx {
+            self.head_idx = Some(next).filter(|&x| x != idx);
         }
     }
 
@@ -121,8 +117,11 @@ impl BuildHelper {
 
         if let Some(closed_block) = self.dropped_block() {
             let end_idx = (closed_block + 1) * self.block_len;
-            while self.head_idx < end_idx && self.head_idx != INVALID_IDX {
-                self.use_index(self.head_idx);
+            while let Some(head_idx) = self.head_idx {
+                if end_idx <= head_idx {
+                    break;
+                }
+                self.use_index(head_idx);
             }
         }
 
@@ -138,17 +137,16 @@ impl BuildHelper {
             self.get_mut(idx).set_prev(idx.wrapping_sub(1));
         }
 
-        if self.head_idx == INVALID_IDX {
-            self.get_mut(old_len).set_prev(new_len - 1);
-            self.get_mut(new_len - 1).set_next(old_len);
-            self.head_idx = old_len;
-        } else {
-            let head_idx = self.head_idx;
+        if let Some(head_idx) = self.head_idx {
             let tail_idx = self.get_ref(head_idx).get_prev();
             self.get_mut(old_len).set_prev(tail_idx);
             self.get_mut(tail_idx).set_next(old_len);
             self.get_mut(new_len - 1).set_next(head_idx);
             self.get_mut(head_idx).set_prev(new_len - 1);
+        } else {
+            self.get_mut(old_len).set_prev(new_len - 1);
+            self.get_mut(new_len - 1).set_next(old_len);
+            self.head_idx = Some(old_len);
         }
 
         Ok(())
@@ -205,7 +203,9 @@ impl Iterator for VacantIter<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         let curr = self.idx?;
         let next = self.list.get_ref(curr).get_next();
-        self.idx = Some(next).filter(|&x| x != self.list.head_idx);
+        // self.list.head_idx is always Some because, whenever self.list.head_idx is None,
+        // self.idx? of the first line will break this function.
+        self.idx = Some(next).filter(|&x| x != self.list.head_idx.unwrap());
         Some(curr)
     }
 }
