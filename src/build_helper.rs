@@ -53,7 +53,7 @@ impl BuildHelper {
 
     /// Creates an iterator to visit vacant indices in the active blocks.
     #[inline(always)]
-    pub fn vacant_iter(&self) -> VacantIter {
+    pub const fn vacant_iter(&self) -> VacantIter {
         VacantIter {
             list: self,
             idx: self.head_idx,
