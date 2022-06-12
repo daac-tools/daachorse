@@ -42,8 +42,7 @@ impl BuildHelper {
     /// Gets the index range of elements in the active blocks.
     #[inline(always)]
     pub fn active_index_range(&self) -> Range<u32> {
-        let start = self.capacity().max(self.num_elements()) - self.capacity();
-        start..self.num_elements()
+        self.num_elements().saturating_sub(self.capacity())..self.num_elements()
     }
 
     /// Gets the block index range in the active blocks.
@@ -67,12 +66,7 @@ impl BuildHelper {
     pub fn unused_base_in_block(&self, block_idx: u32) -> Option<u32> {
         let start = block_idx * self.block_len;
         let end = start + self.block_len;
-        for base in start..end {
-            if !self.is_used_base(base) {
-                return Some(base);
-            }
-        }
-        None
+        (start..end).find(|&base| !self.is_used_base(base))
     }
 
     /// Checks if the BASE value is used.
@@ -155,11 +149,7 @@ impl BuildHelper {
     /// Retruns the index of an active block that will be dropped in the next `push_block`.
     #[inline(always)]
     pub fn dropped_block(&self) -> Option<u32> {
-        if self.capacity() <= self.num_elements() {
-            Some(self.active_block_range().start)
-        } else {
-            None
-        }
+        (self.capacity() <= self.num_elements()).then(|| self.active_block_range().start)
     }
 
     #[inline(always)]
