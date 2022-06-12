@@ -9,8 +9,8 @@ use crate::errors::{DaachorseError, Result};
 ///
 /// This class manages array elements in fixed-size blocks and supports to extend the array
 /// block by block. Given a constant parameter N, this class maintains information for only
-/// the last N blocks and drops the others according to array extension. We call such last
-/// blocks *active blocks*.
+/// the last N blocks and drops the others according to array extension. Such last blocks are
+/// called *active blocks*.
 #[derive(Default)]
 pub struct BuildHelper {
     items: Vec<ListItem>,
@@ -70,24 +70,40 @@ impl BuildHelper {
     }
 
     /// Checks if the BASE value is used.
+    ///
+    /// # Panic
+    ///
+    /// Panic will arise if active_index_range().contains(&base) == false.
     #[inline(always)]
     pub fn is_used_base(&self, base: u32) -> bool {
         self.get_ref(base).is_used_base()
     }
 
     /// Checks if the index is used.
+    ///
+    /// # Panic
+    ///
+    /// Panic will arise if active_index_range().contains(&idx) == false.
     #[inline(always)]
     pub fn is_used_index(&self, idx: u32) -> bool {
         self.get_ref(idx).is_used_index()
     }
 
     /// Uses the BASE value.
+    ///
+    /// # Panic
+    ///
+    /// Panic will arise if active_index_range().contains(&base) == false.
     #[inline(always)]
     pub fn use_base(&mut self, base: u32) {
         self.get_mut(base).use_base()
     }
 
     /// Uses the index.
+    ///
+    /// # Panic
+    ///
+    /// Panic will arise if active_index_range().contains(&idx) == false.
     #[inline(always)]
     pub fn use_index(&mut self, idx: u32) {
         debug_assert!(!self.get_ref(idx).is_used_index());
@@ -176,7 +192,7 @@ impl BuildHelper {
 
     #[inline(always)]
     fn offset(&self, idx: u32) -> usize {
-        debug_assert!(self.active_index_range().contains(&idx));
+        assert!(self.active_index_range().contains(&idx));
         usize::try_from(idx % self.capacity()).unwrap()
     }
 }
