@@ -11,7 +11,6 @@ use crate::errors::{DaachorseError, Result};
 /// block by block. Given a constant parameter N, this class maintains information for only
 /// the last N blocks and drops the others according to array extension. Such last blocks are
 /// called *active blocks*.
-#[derive(Default)]
 pub struct BuildHelper {
     items: Vec<ListItem>,
     block_len: u32,
