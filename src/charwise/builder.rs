@@ -333,7 +333,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
     #[inline(always)]
     fn extend_array(&mut self, helper: &mut BuildHelper) -> Result<()> {
-        if u32::try_from(self.states.len()).unwrap() > u32::MAX - self.block_len {
+        if self.states.len() > usize::try_from(u32::MAX - self.block_len).unwrap() {
             return Err(DaachorseError::automaton_scale("states.len()", u32::MAX));
         }
 
