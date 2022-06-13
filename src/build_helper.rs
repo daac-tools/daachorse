@@ -14,19 +14,29 @@ use crate::errors::{DaachorseError, Result};
 pub struct BuildHelper {
     items: Vec<ListItem>,
     block_len: u32,
+    block_shift: u32,
     num_elements: u32,
     head_idx: Option<u32>,
 }
 
 impl BuildHelper {
     /// Creates a helper class that handles the last `block_len * num_free_blocks` elements.
+    ///
+    /// # Panics
+    ///
+    /// Panics will arise if
+    ///  - block_len == 0 || num_free_blocks == 0, or
+    ///  - block_len is not a power of two.
     pub fn new(block_len: u32, num_free_blocks: u32) -> Self {
+        assert!(block_len.is_power_of_two());
+
         let capacity = usize::try_from(block_len * num_free_blocks).unwrap();
         assert_ne!(capacity, 0);
 
         Self {
             items: vec![ListItem::default(); capacity],
             block_len,
+            block_shift: 32 - (block_len - 1).leading_zeros(),
             num_elements: 0,
             head_idx: None,
         }
@@ -48,7 +58,7 @@ impl BuildHelper {
     #[inline(always)]
     pub fn active_block_range(&self) -> Range<u32> {
         let r = self.active_index_range();
-        r.start / self.block_len..r.end / self.block_len
+        r.start >> self.block_shift..r.end >> self.block_shift
     }
 
     /// Creates an iterator to visit vacant indices in the active blocks.
@@ -63,7 +73,7 @@ impl BuildHelper {
     /// Gets an unused BASE value in the block.
     #[inline(always)]
     pub fn unused_base_in_block(&self, block_idx: u32) -> Option<u32> {
-        let start = block_idx * self.block_len;
+        let start = block_idx << self.block_shift;
         let end = start + self.block_len;
         (start..end).find(|&base| !self.is_used_base(base))
     }
@@ -125,7 +135,7 @@ impl BuildHelper {
         }
 
         if let Some(closed_block) = self.dropped_block() {
-            let end_idx = (closed_block + 1) * self.block_len;
+            let end_idx = (closed_block + 1) << self.block_shift;
             while let Some(head_idx) = self.head_idx {
                 if end_idx <= head_idx {
                     break;
