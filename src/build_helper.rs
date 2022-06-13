@@ -46,14 +46,14 @@ impl BuildHelper {
 
     /// Gets the index range of elements in the active blocks.
     #[inline(always)]
-    pub fn active_index_range(&self) -> Range<u32> {
+    pub const fn active_index_range(&self) -> Range<u32> {
         let r = self.active_block_range();
         r.start * self.block_len..r.end * self.block_len
     }
 
     /// Gets the block index range in the active blocks.
     #[inline(always)]
-    pub fn active_block_range(&self) -> Range<u32> {
+    pub const fn active_block_range(&self) -> Range<u32> {
         self.num_blocks.saturating_sub(self.num_free_blocks)..self.num_blocks
     }
 
