@@ -2,6 +2,7 @@
 name = "daachorse"
 version = "0.4.3"
 edition = "2021"
+rust-version = "1.58"
 authors = [
     "Koichi Akabe <vbkaisetsu@gmail.com>",
     "Shunsuke Kanda <shnsk.knd@gmail.com>",
