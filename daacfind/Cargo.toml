@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = { version = "3.2", features = ["derive"] }  # MIT or Apache-2.0
+clap = { version = "3.2.1", features = ["derive"] }  # MIT or Apache-2.0
 daachorse = { path = ".." }  # MIT or Apache-2.0
 termcolor = "1.1"  # Unlicense or MIT
