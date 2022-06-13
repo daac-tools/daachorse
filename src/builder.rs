@@ -245,7 +245,7 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     fn build_double_array(&mut self, nfa: &BytewiseNfaBuilder) -> Result<()> {
-        let mut helper = self.init_array();
+        let mut helper = self.init_array()?;
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
         state_id_map[ROOT_STATE_ID as usize] = ROOT_STATE_IDX;
@@ -315,14 +315,14 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(())
     }
 
-    fn init_array(&mut self) -> BuildHelper {
+    fn init_array(&mut self) -> Result<BuildHelper> {
         self.states
             .resize(usize::try_from(BLOCK_LEN).unwrap(), State::default());
-        let mut helper = BuildHelper::new(BLOCK_LEN, self.num_free_blocks);
+        let mut helper = BuildHelper::new(BLOCK_LEN, self.num_free_blocks)?;
         helper.push_block().unwrap();
         helper.use_index(ROOT_STATE_IDX);
         helper.use_index(DEAD_STATE_IDX);
-        helper
+        Ok(helper)
     }
 
     #[inline(always)]

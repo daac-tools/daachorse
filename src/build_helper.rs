@@ -20,16 +20,19 @@ pub struct BuildHelper {
 
 impl BuildHelper {
     /// Creates a helper class that handles the last `block_len * num_free_blocks` elements.
-    pub fn new(block_len: u32, num_free_blocks: u32) -> Self {
-        let capacity = usize::try_from(block_len * num_free_blocks).unwrap();
+    pub fn new(block_len: u32, num_free_blocks: u32) -> Result<Self> {
+        let capacity = block_len.checked_mul(num_free_blocks).ok_or_else(|| {
+            DaachorseError::automaton_scale("block_len * num_free_blocks", u32::MAX)
+        })?;
+        let capacity = usize::try_from(capacity).unwrap();
         assert_ne!(capacity, 0);
 
-        Self {
+        Ok(Self {
             items: vec![ListItem::default(); capacity],
             block_len,
             num_elements: 0,
             head_idx: None,
-        }
+        })
     }
 
     /// Gets the number of current double-array elements.
