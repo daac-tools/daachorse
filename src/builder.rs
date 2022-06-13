@@ -360,7 +360,10 @@ impl DoubleArrayAhoCorasickBuilder {
         }
 
         helper.push_block()?;
-        (0..BLOCK_LEN).for_each(|_| self.states.push(State::default()));
+        self.states.resize(
+            self.states.len() + usize::try_from(BLOCK_LEN).unwrap(),
+            State::default(),
+        );
 
         Ok(())
     }

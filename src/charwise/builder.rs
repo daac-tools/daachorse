@@ -338,7 +338,10 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         }
 
         helper.push_block()?;
-        (0..self.block_len).for_each(|_| self.states.push(State::default()));
+        self.states.resize(
+            self.states.len() + usize::try_from(self.block_len).unwrap(),
+            State::default(),
+        );
 
         Ok(())
     }
