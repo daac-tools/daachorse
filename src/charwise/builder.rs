@@ -1,10 +1,9 @@
-use core::num::NonZeroU32;
-
 use alloc::vec::Vec;
 
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State};
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
+use crate::BuildHelper;
 
 use crate::charwise::{DEAD_STATE_IDX, ROOT_STATE_IDX};
 use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID};
@@ -181,7 +180,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         let nfa = self.build_original_nfa_and_mapper(patvals)?;
         let num_states = nfa.states.len() - 1; // -1 is for dead state
 
-        self.build_double_array(&nfa);
+        self.build_double_array(&nfa)?;
 
         Ok(CharwiseDoubleArrayAhoCorasick {
             states: self.states,
@@ -228,8 +227,8 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         Ok(nfa)
     }
 
-    fn build_double_array(&mut self, nfa: &CharwiseNfaBuilder) {
-        self.init_array();
+    fn build_double_array(&mut self, nfa: &CharwiseNfaBuilder) -> Result<()> {
+        let mut helper = self.init_array();
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
         state_id_map[ROOT_STATE_ID as usize] = ROOT_STATE_IDX;
@@ -256,14 +255,14 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             }
             mapped.sort_by(|(c1, _), (c2, _)| c1.cmp(c2));
 
-            let base = self.find_base(&mapped);
+            let base = self.find_base(&mapped, &helper);
             if self.states.len() <= base as usize {
-                self.extend_array();
+                self.extend_array(&mut helper)?;
             }
 
             for &(c, child_id) in &mapped {
                 let child_idx = base ^ c;
-                self.fix_state(child_idx);
+                helper.use_index(child_idx);
                 self.states[child_idx as usize].set_check(state_idx);
                 state_id_map[child_id as usize] = child_idx;
                 stack.push(child_id);
@@ -294,64 +293,38 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         }
 
         self.states.shrink_to_fit();
+        Ok(())
     }
 
-    fn init_array(&mut self) {
+    fn init_array(&mut self) -> BuildHelper {
         self.block_len = self.mapper.alphabet_size().next_power_of_two().max(2);
-
         self.states
-            .resize(self.block_len as usize, State::default());
-
-        for i in 0..self.block_len {
-            if i == 0 {
-                self.set_prev(i, self.block_len - 1);
-            } else {
-                self.set_prev(i, i - 1);
-            }
-            if i == self.block_len - 1 {
-                self.set_next(i, 0);
-            } else {
-                self.set_next(i, i + 1);
-            }
-        }
-        self.fix_state(ROOT_STATE_IDX);
+            .resize(usize::try_from(self.block_len).unwrap(), State::default());
+        let mut helper = BuildHelper::new(self.block_len, self.num_free_blocks);
+        helper.push_block().unwrap();
+        helper.use_index(ROOT_STATE_IDX);
+        helper.use_index(DEAD_STATE_IDX);
+        helper
     }
 
     #[inline(always)]
-    fn fix_state(&mut self, idx: u32) {
-        // DEAD_STATE_IDX-th element should be always free.
-        debug_assert_ne!(idx, DEAD_STATE_IDX);
-        debug_assert!(!self.is_fixed(idx));
-
-        let next = self.get_next(idx);
-        let prev = self.get_prev(idx);
-        self.set_next(prev, next);
-        self.set_prev(next, prev);
-        self.set_fixed(idx);
-    }
-
-    // edges = [(char, next_id)] sorted by char
-    #[inline(always)]
-    fn find_base(&self, edges: &[(u32, u32)]) -> u32 {
+    fn find_base(&self, edges: &[(u32, u32)], helper: &BuildHelper) -> u32 {
         debug_assert!(!edges.is_empty());
 
-        let mut idx = self.get_next(DEAD_STATE_IDX);
-        while idx != DEAD_STATE_IDX {
-            debug_assert!(!self.is_fixed(idx));
+        for idx in helper.vacant_iter() {
             let base = idx ^ edges[0].0;
-            if self.verify_base(base, edges) {
+            if self.verify_base(base, edges, helper) {
                 return base;
             }
-            idx = self.get_next(idx);
         }
         u32::try_from(self.states.len()).unwrap() ^ edges[0].0
     }
 
     #[inline(always)]
-    fn verify_base(&self, base: u32, edges: &[(u32, u32)]) -> bool {
+    fn verify_base(&self, base: u32, edges: &[(u32, u32)], helper: &BuildHelper) -> bool {
         for &(c, _) in edges {
             let idx = base ^ c;
-            if self.is_fixed(idx) {
+            if helper.is_used_index(idx) {
                 return false;
             }
         }
@@ -359,71 +332,14 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn extend_array(&mut self) {
-        let old_len = u32::try_from(self.states.len()).unwrap();
-        let new_len = old_len + self.block_len;
-
-        let num_blocks = old_len / self.block_len;
-        if self.num_free_blocks <= num_blocks {
-            self.close_block(num_blocks - self.num_free_blocks);
+    fn extend_array(&mut self, helper: &mut BuildHelper) -> Result<()> {
+        if u32::try_from(self.states.len()).unwrap() > u32::MAX - self.block_len {
+            return Err(DaachorseError::automaton_scale("states.len()", u32::MAX));
         }
 
-        for i in old_len..new_len {
-            self.states.push(State::default());
-            self.set_next(i, i + 1);
-            self.set_prev(i, i - 1);
-        }
+        helper.push_block()?;
+        (0..self.block_len).for_each(|_| self.states.push(State::default()));
 
-        let head_idx = DEAD_STATE_IDX;
-        let tail_idx = self.get_prev(head_idx);
-        self.set_prev(old_len, tail_idx);
-        self.set_next(tail_idx, old_len);
-        self.set_next(new_len - 1, head_idx);
-        self.set_prev(head_idx, new_len - 1);
-    }
-
-    /// Note: Assumes all the previous blocks are closed.
-    fn close_block(&mut self, block_idx: u32) {
-        let beg_idx = block_idx * self.block_len;
-        let end_idx = beg_idx + self.block_len;
-
-        let mut idx = self.get_next(DEAD_STATE_IDX);
-        while idx < end_idx && idx != DEAD_STATE_IDX {
-            let next_idx = self.get_next(idx);
-            self.fix_state(idx);
-            idx = next_idx;
-        }
-    }
-
-    #[inline(always)]
-    fn get_next(&self, i: u32) -> u32 {
-        self.states[i as usize].fail()
-    }
-
-    #[inline(always)]
-    fn get_prev(&self, i: u32) -> u32 {
-        self.states[i as usize].output_pos().unwrap().get()
-    }
-
-    #[inline(always)]
-    fn set_next(&mut self, i: u32, x: u32) {
-        self.states[i as usize].set_fail(x);
-    }
-
-    #[inline(always)]
-    fn set_prev(&mut self, i: u32, x: u32) {
-        self.states[i as usize].set_output_pos(NonZeroU32::new(x));
-    }
-
-    #[inline(always)]
-    fn is_fixed(&self, i: u32) -> bool {
-        i == DEAD_STATE_IDX || self.states[i as usize].output_pos().is_none()
-    }
-
-    #[inline(always)]
-    fn set_fixed(&mut self, i: u32) {
-        debug_assert_ne!(i, DEAD_STATE_IDX);
-        self.states[i as usize].set_fail(DEAD_STATE_IDX);
-        self.states[i as usize].set_output_pos(None);
+        Ok(())
     }
 }
