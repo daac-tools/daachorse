@@ -18,8 +18,8 @@ type BytewiseNfaBuilder = NfaBuilder<u8>;
 /// Builder of [`DoubleArrayAhoCorasick`].
 pub struct DoubleArrayAhoCorasickBuilder {
     states: Vec<State>,
-    helper: BuildHelper,
     match_kind: MatchKind,
+    num_free_blocks: u32,
 }
 
 impl Default for DoubleArrayAhoCorasickBuilder {
@@ -55,8 +55,8 @@ impl DoubleArrayAhoCorasickBuilder {
     pub fn new() -> Self {
         Self {
             states: vec![],
-            helper: BuildHelper::new(BLOCK_LEN, 16),
             match_kind: MatchKind::Standard,
+            num_free_blocks: 16,
         }
     }
 
@@ -109,7 +109,7 @@ impl DoubleArrayAhoCorasickBuilder {
     #[must_use]
     pub fn num_free_blocks(mut self, n: u32) -> Self {
         assert!(n >= 1);
-        self.helper = BuildHelper::new(BLOCK_LEN, n);
+        self.num_free_blocks = n;
         self
     }
 
@@ -245,7 +245,7 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     fn build_double_array(&mut self, nfa: &BytewiseNfaBuilder) -> Result<()> {
-        self.init_array();
+        let mut helper = self.init_array();
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
         state_id_map[ROOT_STATE_ID as usize] = ROOT_STATE_IDX;
@@ -269,20 +269,20 @@ impl DoubleArrayAhoCorasickBuilder {
             labels.clear();
             s.edges.keys().for_each(|&k| labels.push(k));
 
-            let base = self.find_base(&labels);
+            let base = self.find_base(&labels, &helper);
             if base as usize >= self.states.len() {
-                self.extend_array()?;
+                self.extend_array(&mut helper)?;
             }
 
             for (&c, &child_id) in &s.edges {
                 let child_idx = base ^ u32::from(c);
-                self.helper.use_index(child_idx);
+                helper.use_index(child_idx);
                 self.states[child_idx as usize].set_check(c);
                 state_id_map[child_id as usize] = child_idx;
                 stack.push(child_id);
             }
             self.states[state_idx].set_base(base);
-            self.helper.use_base(base);
+            helper.use_base(base);
         }
 
         // Sets fail & output_pos values
@@ -307,27 +307,29 @@ impl DoubleArrayAhoCorasickBuilder {
             }
         }
 
-        for closed_block_idx in self.helper.active_block_range() {
-            self.remove_invalid_checks(closed_block_idx);
+        for closed_block_idx in helper.active_block_range() {
+            self.remove_invalid_checks(closed_block_idx, &helper);
         }
         self.states.shrink_to_fit();
 
         Ok(())
     }
 
-    fn init_array(&mut self) {
+    fn init_array(&mut self) -> BuildHelper {
         self.states
             .resize(usize::try_from(BLOCK_LEN).unwrap(), State::default());
-        self.helper.push_block().unwrap();
-        self.helper.use_index(ROOT_STATE_IDX);
-        self.helper.use_index(DEAD_STATE_IDX);
+        let mut helper = BuildHelper::new(BLOCK_LEN, self.num_free_blocks);
+        helper.push_block().unwrap();
+        helper.use_index(ROOT_STATE_IDX);
+        helper.use_index(DEAD_STATE_IDX);
+        helper
     }
 
     #[inline(always)]
-    fn find_base(&self, labels: &[u8]) -> u32 {
-        for idx in self.helper.vacant_iter() {
+    fn find_base(&self, labels: &[u8], helper: &BuildHelper) -> u32 {
+        for idx in helper.vacant_iter() {
             let base = idx ^ u32::from(labels[0]);
-            if self.check_valid_base(base, labels) {
+            if self.check_valid_base(base, labels, helper) {
                 return base;
             }
         }
@@ -335,29 +337,29 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn check_valid_base(&self, base: u32, labels: &[u8]) -> bool {
-        if self.helper.is_used_base(base) {
+    fn check_valid_base(&self, base: u32, labels: &[u8], helper: &BuildHelper) -> bool {
+        if helper.is_used_base(base) {
             return false;
         }
         for &c in labels {
             let idx = base ^ u32::from(c);
-            if self.helper.is_used_index(idx) {
+            if helper.is_used_index(idx) {
                 return false;
             }
         }
         true
     }
 
-    fn extend_array(&mut self) -> Result<()> {
+    fn extend_array(&mut self, helper: &mut BuildHelper) -> Result<()> {
         if u32::try_from(self.states.len()).unwrap() > u32::MAX - BLOCK_LEN {
             return Err(DaachorseError::automaton_scale("states.len()", u32::MAX));
         }
 
-        if let Some(closed_block_idx) = self.helper.dropped_block() {
-            self.remove_invalid_checks(closed_block_idx);
+        if let Some(closed_block_idx) = helper.dropped_block() {
+            self.remove_invalid_checks(closed_block_idx, helper);
         }
 
-        self.helper.push_block()?;
+        helper.push_block()?;
         (0..BLOCK_LEN).for_each(|_| self.states.push(State::default()));
 
         Ok(())
@@ -365,12 +367,11 @@ impl DoubleArrayAhoCorasickBuilder {
 
     /// Embeds valid CHECK values for all vacant elements in the block
     /// to avoid invalid transitions.
-    fn remove_invalid_checks(&mut self, block_idx: u32) {
-        if let Some(unused_base) = self.helper.unused_base_in_block(block_idx) {
+    fn remove_invalid_checks(&mut self, block_idx: u32, helper: &BuildHelper) {
+        if let Some(unused_base) = helper.unused_base_in_block(block_idx) {
             for c in 0..=BLOCK_MAX {
                 let idx = unused_base ^ u32::from(c);
-                if idx == ROOT_STATE_IDX || idx == DEAD_STATE_IDX || !self.helper.is_used_index(idx)
-                {
+                if idx == ROOT_STATE_IDX || idx == DEAD_STATE_IDX || !helper.is_used_index(idx) {
                     self.states[idx as usize].set_check(c);
                 }
             }
