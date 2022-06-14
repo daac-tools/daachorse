@@ -30,27 +30,27 @@ impl FromStr for ArgColor {
 #[clap(name = "daacfind", about = "A program to find patterns in files.")]
 struct Args {
     /// Match patterns separated with new lines.
-    #[clap(short)]
+    #[clap(short, action)]
     patterns: Option<String>,
 
     /// A filename containing patterns.
-    #[clap(short = 'f')]
+    #[clap(short = 'f', action)]
     pattern_file: Option<String>,
 
     /// Suppresses printing filenames.
-    #[clap(short = 'h', long)]
+    #[clap(short = 'h', long, action)]
     no_filename: bool,
 
     /// Prints line numbers.
-    #[clap(short = 'n', long)]
+    #[clap(short = 'n', long, action)]
     line_number: bool,
 
     /// Highlights the matching texts. [never, always, auto]
-    #[clap(long, default_value = "never")]
+    #[clap(long, action, default_value = "never")]
     color: ArgColor,
 
     /// File paths.
-    #[clap(name = "FILE")]
+    #[clap(action, name = "FILE")]
     files: Vec<PathBuf>,
 }
 
