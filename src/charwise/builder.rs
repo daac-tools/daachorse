@@ -228,7 +228,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     }
 
     fn build_double_array(&mut self, nfa: &CharwiseNfaBuilder) -> Result<()> {
-        let mut helper = self.init_array();
+        let mut helper = self.init_array()?;
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
         state_id_map[ROOT_STATE_ID as usize] = ROOT_STATE_IDX;
@@ -296,15 +296,15 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         Ok(())
     }
 
-    fn init_array(&mut self) -> BuildHelper {
+    fn init_array(&mut self) -> Result<BuildHelper> {
         self.block_len = self.mapper.alphabet_size().next_power_of_two().max(2);
         self.states
             .resize(usize::try_from(self.block_len).unwrap(), State::default());
-        let mut helper = BuildHelper::new(self.block_len, self.num_free_blocks);
+        let mut helper = BuildHelper::new(self.block_len, self.num_free_blocks)?;
         helper.push_block().unwrap();
         helper.use_index(ROOT_STATE_IDX);
         helper.use_index(DEAD_STATE_IDX);
-        helper
+        Ok(helper)
     }
 
     #[inline(always)]
