@@ -14,12 +14,17 @@ use crate::errors::{DaachorseError, Result};
 pub struct BuildHelper {
     items: Vec<ListItem>,
     block_len: u32,
-    num_elements: u32,
+    num_free_blocks: u32,
+    num_blocks: u32,
     head_idx: Option<u32>,
 }
 
 impl BuildHelper {
     /// Creates a helper class that handles the last `block_len * num_free_blocks` elements.
+    ///
+    /// # Panics
+    ///
+    /// Panics will arise if block_len == 0 || num_free_blocks == 0.
     pub fn new(block_len: u32, num_free_blocks: u32) -> Self {
         let capacity = usize::try_from(block_len * num_free_blocks).unwrap();
         assert_ne!(capacity, 0);
@@ -27,7 +32,8 @@ impl BuildHelper {
         Self {
             items: vec![ListItem::default(); capacity],
             block_len,
-            num_elements: 0,
+            num_free_blocks,
+            num_blocks: 0,
             head_idx: None,
         }
     }
@@ -35,20 +41,20 @@ impl BuildHelper {
     /// Gets the number of current double-array elements.
     #[inline(always)]
     pub const fn num_elements(&self) -> u32 {
-        self.num_elements
+        self.num_blocks * self.block_len
     }
 
     /// Gets the index range of elements in the active blocks.
     #[inline(always)]
-    pub fn active_index_range(&self) -> Range<u32> {
-        self.num_elements().saturating_sub(self.capacity())..self.num_elements()
+    pub const fn active_index_range(&self) -> Range<u32> {
+        let r = self.active_block_range();
+        r.start * self.block_len..r.end * self.block_len
     }
 
     /// Gets the block index range in the active blocks.
     #[inline(always)]
-    pub fn active_block_range(&self) -> Range<u32> {
-        let r = self.active_index_range();
-        r.start / self.block_len..r.end / self.block_len
+    pub const fn active_block_range(&self) -> Range<u32> {
+        self.num_blocks.saturating_sub(self.num_free_blocks)..self.num_blocks
     }
 
     /// Creates an iterator to visit vacant indices in the active blocks.
@@ -120,7 +126,7 @@ impl BuildHelper {
 
     /// Extends the array by pushing a block back.
     pub fn push_block(&mut self) -> Result<()> {
-        if self.num_elements > u32::MAX - self.block_len {
+        if self.num_elements() > u32::MAX - self.block_len {
             return Err(DaachorseError::automaton_scale("num_elements", u32::MAX));
         }
 
@@ -134,11 +140,11 @@ impl BuildHelper {
             }
         }
 
-        let old_len = self.num_elements;
+        let old_len = self.num_elements();
         let new_len = old_len + self.block_len;
 
         // Update the active index range.
-        self.num_elements = new_len;
+        self.num_blocks += 1;
 
         for idx in old_len..new_len {
             self.reset(idx);
