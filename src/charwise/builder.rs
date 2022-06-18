@@ -322,7 +322,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             }
         }
         // len() is not 0 since states has at least block_len items.
-        // The following value always larger than or equal to len() since block_len is
+        // The following value is always larger than or equal to len() since block_len is
         // alphabet_size().next_power_of_two().
         NonZeroU32::new(u32::try_from(self.states.len()).unwrap() ^ edges[0].0).unwrap()
     }
