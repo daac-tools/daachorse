@@ -182,8 +182,6 @@ use iter::{
     U8SliceIterator,
 };
 
-// The maximum BASE value used as an invalid value.
-pub(crate) const BASE_INVALID: u32 = u32::MAX;
 // The maximum output position value.
 pub(crate) const OUTPUT_POS_MAX: u32 = u32::MAX >> 8;
 // The mask value of CEHCK for `State::opos_ch`.
@@ -195,7 +193,7 @@ pub(crate) const DEAD_STATE_IDX: u32 = 1;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct State {
-    base: u32,
+    base: Option<NonZeroU32>,
     fail: u32,
     // 3 bytes for output_pos and 1 byte for check.
     opos_ch: u32,
@@ -204,7 +202,7 @@ struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            base: BASE_INVALID,
+            base: None,
             fail: 0,
             opos_ch: 0,
         }
@@ -213,8 +211,8 @@ impl Default for State {
 
 impl State {
     #[inline(always)]
-    pub fn base(&self) -> Option<u32> {
-        Some(self.base).filter(|&x| x != BASE_INVALID)
+    pub fn base(&self) -> Option<NonZeroU32> {
+        self.base
     }
 
     #[inline(always)]
@@ -234,8 +232,8 @@ impl State {
     }
 
     #[inline(always)]
-    pub fn set_base(&mut self, x: u32) {
-        self.base = x;
+    pub fn set_base(&mut self, x: NonZeroU32) {
+        self.base = Some(x);
     }
 
     #[inline(always)]
@@ -267,7 +265,7 @@ impl State {
     #[inline(always)]
     fn serialize(&self) -> [u8; 12] {
         let mut result = [0; 12];
-        result[0..4].copy_from_slice(&self.base.to_le_bytes());
+        result[0..4].copy_from_slice(&self.base.map_or(0, |x| x.get()).to_le_bytes());
         result[4..8].copy_from_slice(&self.fail.to_le_bytes());
         result[8..12].copy_from_slice(&self.opos_ch.to_le_bytes());
         result
@@ -276,7 +274,7 @@ impl State {
     #[inline(always)]
     fn deserialize(input: [u8; 12]) -> Self {
         Self {
-            base: u32::from_le_bytes(input[0..4].try_into().unwrap()),
+            base: NonZeroU32::new(u32::from_le_bytes(input[0..4].try_into().unwrap())),
             fail: u32::from_le_bytes(input[4..8].try_into().unwrap()),
             opos_ch: u32::from_le_bytes(input[8..12].try_into().unwrap()),
         }
@@ -1155,7 +1153,7 @@ impl DoubleArrayAhoCorasick {
             .get_unchecked(state_id as usize)
             .base()
             .and_then(|base| {
-                let child_idx = base ^ u32::from(c);
+                let child_idx = base.get() ^ u32::from(c);
                 Some(child_idx).filter(|&x| self.states.get_unchecked(x as usize).check() == c)
             })
     }
