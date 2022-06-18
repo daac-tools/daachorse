@@ -7,6 +7,30 @@ on:
 name: build
 
 jobs:
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          profile: minimal
+
+      - name: Install cargo-msrv
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-msrv
+
+      - name: Check
+        uses: actions-rs/cargo@v1
+        with:
+          command: msrv
+          args: verify
+
   stable:
     name: Stable
     runs-on: ubuntu-latest
