@@ -15,21 +15,14 @@ jobs:
       - name: Install latest stable
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.58
           override: true
           profile: minimal
 
-      - name: Install cargo-msrv
+      - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
-          command: install
-          args: cargo-msrv
-
-      - name: Check
-        uses: actions-rs/cargo@v1
-        with:
-          command: msrv
-          args: verify
+          command: check
 
   stable:
     name: Stable
@@ -41,6 +34,7 @@ jobs:
         with:
           toolchain: stable
           override: true
+          profile: minimal
           components: rustfmt, clippy
 
       - name: Run cargo check
@@ -90,6 +84,7 @@ jobs:
         with:
           toolchain: nightly
           override: true
+          profile: minimal
           components: rustfmt, clippy
 
       - name: Run cargo check
