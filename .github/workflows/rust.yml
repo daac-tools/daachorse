@@ -15,7 +15,7 @@ jobs:
       - name: Install MSRV
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.58
+          toolchain: 1.57
           override: true
           profile: minimal
 
