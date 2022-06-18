@@ -949,7 +949,7 @@ impl Default for State {
 
 impl State {
     #[inline(always)]
-    pub fn base(&self) -> Option<NonZeroU32> {
+    pub const fn base(&self) -> Option<NonZeroU32> {
         self.base
     }
 

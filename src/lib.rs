@@ -191,7 +191,7 @@ pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
 pub(crate) const DEAD_STATE_IDX: u32 = 1;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 struct State {
     base: Option<NonZeroU32>,
     fail: u32,
@@ -199,19 +199,9 @@ struct State {
     opos_ch: u32,
 }
 
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            base: None,
-            fail: 0,
-            opos_ch: 0,
-        }
-    }
-}
-
 impl State {
     #[inline(always)]
-    pub fn base(&self) -> Option<NonZeroU32> {
+    pub const fn base(&self) -> Option<NonZeroU32> {
         self.base
     }
 
