@@ -331,10 +331,8 @@ impl DoubleArrayAhoCorasickBuilder {
     fn find_base(&self, labels: &[u8], helper: &BuildHelper) -> NonZeroU32 {
         for idx in helper.vacant_iter() {
             let base = idx ^ u32::from(labels[0]);
-            if self.check_valid_base(base, labels, helper) {
-                if let Some(base) = NonZeroU32::new(base) {
-                    return base;
-                }
+            if let Some(base) = self.check_valid_base(base, labels, helper) {
+                return base;
             }
         }
         // len() is not 0 since states has at least BLOCK_LEN items.
@@ -342,17 +340,17 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn check_valid_base(&self, base: u32, labels: &[u8], helper: &BuildHelper) -> bool {
+    fn check_valid_base(&self, base: u32, labels: &[u8], helper: &BuildHelper) -> Option<NonZeroU32> {
         if helper.is_used_base(base) {
-            return false;
+            return None;
         }
         for &c in labels {
             let idx = base ^ u32::from(c);
             if helper.is_used_index(idx) {
-                return false;
+                return None;
             }
         }
-        true
+        NonZeroU32::new(base)
     }
 
     fn extend_array(&mut self, helper: &mut BuildHelper) -> Result<()> {

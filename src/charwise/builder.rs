@@ -315,10 +315,8 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
         for idx in helper.vacant_iter() {
             let base = idx ^ edges[0].0;
-            if self.verify_base(base, edges, helper) {
-                if let Some(base) = NonZeroU32::new(base) {
-                    return base;
-                }
+            if let Some(base) = self.verify_base(base, edges, helper) {
+                return base;
             }
         }
         // len() is not 0 since states has at least block_len items.
@@ -328,14 +326,14 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn verify_base(&self, base: u32, edges: &[(u32, u32)], helper: &BuildHelper) -> bool {
+    fn verify_base(&self, base: u32, edges: &[(u32, u32)], helper: &BuildHelper) -> Option<NonZeroU32> {
         for &(c, _) in edges {
             let idx = base ^ c;
             if helper.is_used_index(idx) {
-                return false;
+                return None;
             }
         }
-        true
+        NonZeroU32::new(base)
     }
 
     #[inline(always)]
