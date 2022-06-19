@@ -340,7 +340,12 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn check_valid_base(&self, base: u32, labels: &[u8], helper: &BuildHelper) -> Option<NonZeroU32> {
+    fn check_valid_base(
+        &self,
+        base: u32,
+        labels: &[u8],
+        helper: &BuildHelper,
+    ) -> Option<NonZeroU32> {
         if helper.is_used_base(base) {
             return None;
         }
