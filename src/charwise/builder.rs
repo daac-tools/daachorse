@@ -1,3 +1,5 @@
+use core::num::NonZeroU32;
+
 use alloc::vec::Vec;
 
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State};
@@ -256,12 +258,12 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             mapped.sort_by(|(c1, _), (c2, _)| c1.cmp(c2));
 
             let base = self.find_base(&mapped, &helper);
-            if self.states.len() <= base as usize {
+            if self.states.len() <= base.get() as usize {
                 self.extend_array(&mut helper)?;
             }
 
             for &(c, child_id) in &mapped {
-                let child_idx = base ^ c;
+                let child_idx = base.get() ^ c;
                 helper.use_index(child_idx);
                 self.states[child_idx as usize].set_check(state_idx);
                 state_id_map[child_id as usize] = child_idx;
@@ -308,27 +310,35 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn find_base(&self, edges: &[(u32, u32)], helper: &BuildHelper) -> u32 {
+    fn find_base(&self, edges: &[(u32, u32)], helper: &BuildHelper) -> NonZeroU32 {
         debug_assert!(!edges.is_empty());
 
         for idx in helper.vacant_iter() {
             let base = idx ^ edges[0].0;
-            if self.verify_base(base, edges, helper) {
+            if let Some(base) = self.verify_base(base, edges, helper) {
                 return base;
             }
         }
-        u32::try_from(self.states.len()).unwrap() ^ edges[0].0
+        // len() is not 0 since states has at least block_len items.
+        // The following value is always larger than or equal to len() since block_len is
+        // alphabet_size().next_power_of_two().
+        NonZeroU32::new(u32::try_from(self.states.len()).unwrap() ^ edges[0].0).unwrap()
     }
 
     #[inline(always)]
-    fn verify_base(&self, base: u32, edges: &[(u32, u32)], helper: &BuildHelper) -> bool {
+    fn verify_base(
+        &self,
+        base: u32,
+        edges: &[(u32, u32)],
+        helper: &BuildHelper,
+    ) -> Option<NonZeroU32> {
         for &(c, _) in edges {
             let idx = base ^ c;
             if helper.is_used_index(idx) {
-                return false;
+                return None;
             }
         }
-        true
+        NonZeroU32::new(base)
     }
 
     #[inline(always)]

@@ -64,8 +64,6 @@ use crate::charwise::mapper::CodeMapper;
 use crate::errors::Result;
 use crate::{MatchKind, Output};
 
-// The maximum BASE value used as an invalid value.
-pub(crate) const BASE_INVALID: u32 = u32::MAX;
 // The root index position.
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
@@ -877,7 +875,7 @@ impl CharwiseDoubleArrayAhoCorasick {
         //  - states.len() is a multiple of (1 << k),
         //    where k is the number of bits needed to represent mapped_c.
         //  - base() is always smaller than states.len() when it is Some.
-        let child_idx = base ^ mapped_c;
+        let child_idx = base.get() ^ mapped_c;
         if self.states.get_unchecked(child_idx as usize).check() == state_id {
             Some(child_idx as u32)
         } else {
@@ -932,7 +930,7 @@ impl CharwiseDoubleArrayAhoCorasick {
 
 #[derive(Clone, Copy, Debug)]
 struct State {
-    base: u32,
+    base: Option<NonZeroU32>,
     check: u32,
     fail: u32,
     output_pos: Option<NonZeroU32>,
@@ -941,7 +939,7 @@ struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            base: BASE_INVALID,
+            base: None,
             check: DEAD_STATE_IDX,
             fail: DEAD_STATE_IDX,
             output_pos: None,
@@ -951,8 +949,8 @@ impl Default for State {
 
 impl State {
     #[inline(always)]
-    pub fn base(&self) -> Option<u32> {
-        Some(self.base).filter(|&x| x != BASE_INVALID)
+    pub const fn base(&self) -> Option<NonZeroU32> {
+        self.base
     }
 
     #[inline(always)]
@@ -972,8 +970,8 @@ impl State {
 
     #[inline(always)]
     #[allow(dead_code)]
-    pub fn set_base(&mut self, x: u32) {
-        self.base = x;
+    pub fn set_base(&mut self, x: NonZeroU32) {
+        self.base = Some(x);
     }
 
     #[inline(always)]
@@ -997,7 +995,7 @@ impl State {
     #[inline(always)]
     fn serialize(&self) -> [u8; 16] {
         let mut result = [0; 16];
-        result[0..4].copy_from_slice(&self.base.to_le_bytes());
+        result[0..4].copy_from_slice(&self.base.map_or(0, |x| x.get()).to_le_bytes());
         result[4..8].copy_from_slice(&self.check.to_le_bytes());
         result[8..12].copy_from_slice(&self.fail.to_le_bytes());
         result[12..16].copy_from_slice(&self.output_pos.map_or(0, NonZeroU32::get).to_le_bytes());
@@ -1007,7 +1005,7 @@ impl State {
     #[inline(always)]
     fn deserialize(input: [u8; 16]) -> Self {
         Self {
-            base: u32::from_le_bytes(input[0..4].try_into().unwrap()),
+            base: NonZeroU32::new(u32::from_le_bytes(input[0..4].try_into().unwrap())),
             check: u32::from_le_bytes(input[4..8].try_into().unwrap()),
             fail: u32::from_le_bytes(input[8..12].try_into().unwrap()),
             output_pos: NonZeroU32::new(u32::from_le_bytes(input[12..16].try_into().unwrap())),

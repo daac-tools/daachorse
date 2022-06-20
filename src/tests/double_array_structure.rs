@@ -1,3 +1,5 @@
+use core::num::NonZeroU32;
+
 use crate::*;
 
 #[test]
@@ -19,36 +21,36 @@ fn test_double_array() {
     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
 
     let base_expected = vec![
-        4,            // 0  (state=0)
-        BASE_INVALID, // 1
-        BASE_INVALID, // 2  (state=6)
-        BASE_INVALID, // 3
-        8,            // 4  (state=1)
-        0,            // 5  (state=2)
-        BASE_INVALID, // 6  (state=3)
-        BASE_INVALID, // 7
-        BASE_INVALID, // 8  (state=4)
-        BASE_INVALID, // 9
-        BASE_INVALID, // 10 (state=5)
+        NonZeroU32::new(4), // 0  (state=0)
+        None,               // 1
+        None,               // 2
+        None,               // 3  (state=6)
+        NonZeroU32::new(8), // 4  (state=1)
+        NonZeroU32::new(1), // 5  (state=2)
+        None,               // 6  (state=3)
+        None,               // 7
+        None,               // 8  (state=4)
+        None,               // 9
+        None,               // 10 (state=5)
     ];
     let check_expected = vec![
-        1, // 0  (state=0)
-        0, // 1
-        2, // 2  (state=6)
-        2, // 3
+        0, // 0  (state=0)
+        1, // 1
+        2, // 2
+        2, // 3  (state=6)
         0, // 4  (state=1)
         1, // 5  (state=2)
         2, // 6  (state=3)
-        6, // 7
+        7, // 7
         0, // 8  (state=4)
-        8, // 9
+        9, // 9
         2, // 10 (state=5)
     ];
     let fail_expected = vec![
         ROOT_STATE_IDX, // 0  (state=0)
         ROOT_STATE_IDX, // 1
-        6,              // 2  (state=6)
-        ROOT_STATE_IDX, // 3
+        ROOT_STATE_IDX, // 2
+        6,              // 3  (state=6)
         ROOT_STATE_IDX, // 4  (state=1)
         ROOT_STATE_IDX, // 5  (state=2)
         ROOT_STATE_IDX, // 6  (state=3)
@@ -58,10 +60,7 @@ fn test_double_array() {
         6,              // 10 (state=5)
     ];
 
-    let pma_base: Vec<_> = pma.states[0..11]
-        .iter()
-        .map(|state| state.base().unwrap_or(BASE_INVALID))
-        .collect();
+    let pma_base: Vec<_> = pma.states[0..11].iter().map(|state| state.base()).collect();
     let pma_check: Vec<_> = pma.states[0..11]
         .iter()
         .map(|state| state.check())

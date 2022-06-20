@@ -1,3 +1,4 @@
+use core::num::NonZeroU32;
 use core::ops::Range;
 
 use alloc::vec::Vec;
@@ -103,8 +104,8 @@ impl BuildHelper {
     ///
     /// Panic will arise if active_index_range().contains(&base) == false.
     #[inline(always)]
-    pub fn use_base(&mut self, base: u32) {
-        self.get_mut(base).use_base()
+    pub fn use_base(&mut self, base: NonZeroU32) {
+        self.get_mut(base.get()).use_base()
     }
 
     /// Uses the index.
