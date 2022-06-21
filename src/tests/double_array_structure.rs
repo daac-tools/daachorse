@@ -112,7 +112,7 @@ fn test_n_blocks_1_1() {
     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     assert_eq!(255, pma.num_states());
     assert_eq!(256, pma.states.len());
-    assert_eq!(pma.states[0].base().unwrap().get(), 0xfe);
+    assert_eq!(0xfe, pma.states[0].base().unwrap().get());
 }
 
 #[test]
@@ -129,7 +129,7 @@ fn test_n_blocks_1_2() {
     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     assert_eq!(255, pma.num_states());
     assert_eq!(512, pma.states.len());
-    assert_eq!(pma.states[0].base().unwrap().get(), 0x100);
+    assert_eq!(0x100, pma.states[0].base().unwrap().get());
 }
 
 #[test]
@@ -150,8 +150,8 @@ fn test_n_blocks_2_1() {
     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     assert_eq!(255, pma.num_states());
     assert_eq!(256, pma.states.len());
-    assert_eq!(pma.states[0].base().unwrap().get(), 0x80);
-    assert_eq!(pma.states[0x80].base().unwrap().get(), 0x7e);
+    assert_eq!(0x80, pma.states[0].base().unwrap().get());
+    assert_eq!(0x7e, pma.states[0x80].base().unwrap().get());
 }
 
 #[test]
@@ -174,6 +174,6 @@ fn test_n_blocks_2_2() {
     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     assert_eq!(255, pma.num_states());
     assert_eq!(512, pma.states.len());
-    assert_eq!(pma.states[0].base().unwrap().get(), 0x80);
-    assert_eq!(pma.states[0x80].base().unwrap().get(), 0x100);
+    assert_eq!(0x80, pma.states[0].base().unwrap().get());
+    assert_eq!(0x100, pma.states[0x80].base().unwrap().get());
 }
