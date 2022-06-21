@@ -104,7 +104,7 @@ fn test_n_blocks_1_1() {
     let mut patterns = vec![];
     // state 0: reserved for the root state
     // state 1: reserved for the dead state
-    // base = 0xff; fills 0x02..=0x7f
+    // base = 0xfe; fills 0x02..=0xff
     for i in 0x00..=0xfd {
         let pattern = vec![i];
         patterns.push(pattern);
@@ -112,6 +112,7 @@ fn test_n_blocks_1_1() {
     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     assert_eq!(255, pma.num_states());
     assert_eq!(256, pma.states.len());
+    assert_eq!(pma.states[0].base().unwrap().get(), 0xfe);
 }
 
 #[test]
@@ -128,6 +129,7 @@ fn test_n_blocks_1_2() {
     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     assert_eq!(255, pma.num_states());
     assert_eq!(512, pma.states.len());
+    assert_eq!(pma.states[0].base().unwrap().get(), 0x100);
 }
 
 #[test]
@@ -148,6 +150,8 @@ fn test_n_blocks_2_1() {
     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     assert_eq!(255, pma.num_states());
     assert_eq!(256, pma.states.len());
+    assert_eq!(pma.states[0].base().unwrap().get(), 0x80);
+    assert_eq!(pma.states[0x80].base().unwrap().get(), 0x7e);
 }
 
 #[test]
@@ -170,4 +174,6 @@ fn test_n_blocks_2_2() {
     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     assert_eq!(255, pma.num_states());
     assert_eq!(512, pma.states.len());
+    assert_eq!(pma.states[0].base().unwrap().get(), 0x80);
+    assert_eq!(pma.states[0x80].base().unwrap().get(), 0x100);
 }
