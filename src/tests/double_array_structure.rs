@@ -98,3 +98,77 @@ fn test_input_order() {
     assert_eq!(pma_sorted.states, pma_unsorted.states);
     assert_eq!(pma_sorted.outputs, pma_unsorted.outputs);
 }
+
+#[test]
+fn test_n_blocks_1_1() {
+    let mut patterns = vec![];
+    // state 0: reserved for the root state
+    // state 1: reserved for the dead state
+    // base = 0xff; fills 0x02..=0x7f
+    for i in 0x00..=0xfd {
+        let pattern = vec![i];
+        patterns.push(pattern);
+    }
+    let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    assert_eq!(255, pma.num_states());
+    assert_eq!(256, pma.states.len());
+}
+
+#[test]
+fn test_n_blocks_1_2() {
+    let mut patterns = vec![];
+    // state 0: reserved for the root state
+    // state 1: reserved for the dead state
+    // base = 0x100; fills 0x100, 0x102, 0x104..=0x1ff
+    patterns.push(vec![0x00]);
+    patterns.push(vec![0x02]);
+    for i in 0x04..=0xff {
+        patterns.push(vec![i]);
+    }
+    let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    assert_eq!(255, pma.num_states());
+    assert_eq!(512, pma.states.len());
+}
+
+#[test]
+fn test_n_blocks_2_1() {
+    let mut patterns = vec![];
+    // state 0: reserved for the root state
+    // state 1: reserved for the dead state
+    // base = 0x80; fills 0x80..=0xff
+    for i in 0x00..=0x7f {
+        let pattern = vec![i];
+        patterns.push(pattern);
+    }
+    // base = 0x7e; fills 0x02..=0x7f
+    for i in 0x00..=0x7d {
+        let pattern = vec![0x00, i];
+        patterns.push(pattern);
+    }
+    let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    assert_eq!(255, pma.num_states());
+    assert_eq!(256, pma.states.len());
+}
+
+#[test]
+fn test_n_blocks_2_2() {
+    let mut patterns = vec![];
+    // state 0: reserved for the root state
+    // state 1: reserved for the dead state
+    // base = 0x80; fills 0x80..=0xff
+    for i in 0..=0x7f {
+        let pattern = vec![i];
+        patterns.push(pattern);
+    }
+    // base = 0x80 (fills 0x02..=0x7f)
+    patterns.push(vec![0, 0x00]);
+    patterns.push(vec![0, 0x02]);
+    for i in 0x04..=0x7f {
+        let pattern = vec![0x00, i];
+        patterns.push(pattern);
+    }
+    let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    panic!();
+    assert_eq!(255, pma.num_states());
+    assert_eq!(512, pma.states.len());
+}
