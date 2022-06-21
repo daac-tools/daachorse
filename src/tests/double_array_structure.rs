@@ -168,7 +168,6 @@ fn test_n_blocks_2_2() {
         patterns.push(pattern);
     }
     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-    panic!();
     assert_eq!(255, pma.num_states());
     assert_eq!(512, pma.states.len());
 }
