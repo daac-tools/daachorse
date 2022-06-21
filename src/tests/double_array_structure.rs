@@ -160,7 +160,7 @@ fn test_n_blocks_2_2() {
         let pattern = vec![i];
         patterns.push(pattern);
     }
-    // base = 0x80 (fills 0x02..=0x7f)
+    // base = 0x100; fills 0x100, 0x102, 0x104..=0x17f
     patterns.push(vec![0, 0x00]);
     patterns.push(vec![0, 0x02]);
     for i in 0x04..=0x7f {
