@@ -299,13 +299,13 @@ mod tests {
 
     #[test]
     fn test_char_with_end_offset_iterator() {
-        let test_string = "\u{0000}\u{0001}\u{0002}\u{0004}\u{0008}\u{0010}\u{001f}\u{0020}\u{0040}\
-                           \u{007f}\u{0080}\u{0100}\u{01ff}\u{0200}\u{0400}\u{07ff}\u{0800}\u{1000}\
-                           \u{1fff}\u{2000}\u{4000}\u{8000}\u{ffff}\u{10000}\
-                           \u{1ffff}\u{20000}\u{40000}\u{80000}\u{100000}\u{10ffff}";
-        let mut it = unsafe {
-            CharWithEndOffsetIterator::new(test_string.as_bytes().iter().copied())
-        };
+        let test_string =
+            "\u{0000}\u{0001}\u{0002}\u{0004}\u{0008}\u{0010}\u{001f}\u{0020}\u{0040}\
+             \u{007f}\u{0080}\u{0100}\u{01ff}\u{0200}\u{0400}\u{07ff}\u{0800}\u{1000}\
+             \u{1fff}\u{2000}\u{4000}\u{8000}\u{ffff}\u{10000}\
+             \u{1ffff}\u{20000}\u{40000}\u{80000}\u{100000}\u{10ffff}";
+        let mut it =
+            unsafe { CharWithEndOffsetIterator::new(test_string.as_bytes().iter().copied()) };
 
         // 1 byte
         assert_eq!(Some((1, '\u{0000}')), it.next());
