@@ -118,3 +118,25 @@ jobs:
           args: --release --all-features
         env:
           RUSTDOCFLAGS: "-Dwarnings"
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    if: "startsWith(github.ref, 'refs/tags/')"
+    needs: [ msrv, stable, nightly ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          profile: minimal
+
+      - name: Run cargo publish
+        uses: actions-rs/cargo@v1
+        with:
+          command: publish
+          args: --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
