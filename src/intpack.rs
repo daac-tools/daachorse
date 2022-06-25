@@ -34,7 +34,7 @@ impl U24nU8 {
 
     #[inline(always)]
     pub fn b(self) -> u8 {
-        u8::try_from(self.0 & u8::MAX).unwrap()
+        u8::try_from(self.0 & u32::from(u8::MAX)).unwrap()
     }
 
     #[inline(always)]
