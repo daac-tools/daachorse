@@ -3,10 +3,10 @@ use core::num::NonZeroU32;
 use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
+use crate::intpack::U24;
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID};
 use crate::{
-    BuildHelper, DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, OUTPUT_POS_MAX,
-    ROOT_STATE_IDX,
+    BuildHelper, DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, ROOT_STATE_IDX,
 };
 
 // The maximum value of each double-array block.
@@ -232,11 +232,8 @@ impl DoubleArrayAhoCorasickBuilder {
         if nfa.len == 0 {
             return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
         }
-        if nfa.len > OUTPUT_POS_MAX as usize {
-            return Err(DaachorseError::automaton_scale(
-                "patvals.len()",
-                OUTPUT_POS_MAX,
-            ));
+        if nfa.len > U24::MAX as usize {
+            return Err(DaachorseError::automaton_scale("patvals.len()", U24::MAX));
         }
         let q = match self.match_kind {
             MatchKind::Standard => nfa.build_fails(),

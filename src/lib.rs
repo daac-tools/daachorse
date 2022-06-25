@@ -160,6 +160,7 @@ mod build_helper;
 mod builder;
 pub mod charwise;
 pub mod errors;
+mod intpack;
 pub mod iter;
 mod nfa_builder;
 
@@ -174,15 +175,12 @@ use std::io::{self, Read, Write};
 use build_helper::BuildHelper;
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::{DaachorseError, Result};
+use intpack::{U24nU8, U24};
 use iter::{
     FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LestmostFindIterator,
     U8SliceIterator,
 };
 
-// The maximum output position value.
-pub(crate) const OUTPUT_POS_MAX: u32 = u32::MAX >> 8;
-// The mask value of CEHCK for `State::opos_ch`.
-const CHECK_MASK: u32 = 0xFF;
 // The root index position.
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
@@ -193,7 +191,7 @@ struct State {
     base: Option<NonZeroU32>,
     fail: u32,
     // 3 bytes for output_pos and 1 byte for check.
-    opos_ch: u32,
+    opos_ch: U24nU8,
 }
 
 impl State {
@@ -203,9 +201,8 @@ impl State {
     }
 
     #[inline(always)]
-    pub const fn check(&self) -> u8 {
-        #![allow(clippy::cast_possible_truncation)]
-        (self.opos_ch & CHECK_MASK) as u8
+    pub fn check(&self) -> u8 {
+        self.opos_ch.b()
     }
 
     #[inline(always)]
@@ -215,7 +212,7 @@ impl State {
 
     #[inline(always)]
     pub const fn output_pos(&self) -> Option<NonZeroU32> {
-        NonZeroU32::new(self.opos_ch >> 8)
+        NonZeroU32::new(self.opos_ch.a().get())
     }
 
     #[inline(always)]
@@ -225,8 +222,7 @@ impl State {
 
     #[inline(always)]
     pub fn set_check(&mut self, x: u8) {
-        self.opos_ch &= !CHECK_MASK;
-        self.opos_ch |= u32::from(x);
+        self.opos_ch.set_b(x);
     }
 
     #[inline(always)]
@@ -237,15 +233,11 @@ impl State {
     #[inline(always)]
     pub fn set_output_pos(&mut self, x: Option<NonZeroU32>) -> Result<()> {
         let x = x.map_or(0, NonZeroU32::get);
-        if x <= OUTPUT_POS_MAX {
-            self.opos_ch &= CHECK_MASK;
-            self.opos_ch |= x << 8;
+        if let Ok(x) = U24::try_from(x) {
+            self.opos_ch.set_a(x);
             Ok(())
         } else {
-            Err(DaachorseError::automaton_scale(
-                "output_pos",
-                OUTPUT_POS_MAX,
-            ))
+            Err(DaachorseError::automaton_scale("output_pos", U24::MAX))
         }
     }
 
@@ -263,7 +255,7 @@ impl State {
         Self {
             base: NonZeroU32::new(u32::from_le_bytes(input[0..4].try_into().unwrap())),
             fail: u32::from_le_bytes(input[4..8].try_into().unwrap()),
-            opos_ch: u32::from_le_bytes(input[8..12].try_into().unwrap()),
+            opos_ch: U24nU8::from_le_bytes(input[8..12].try_into().unwrap()),
         }
     }
 }
