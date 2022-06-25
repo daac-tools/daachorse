@@ -160,9 +160,9 @@ mod build_helper;
 mod builder;
 pub mod charwise;
 pub mod errors;
-mod intpack;
 pub mod iter;
 mod nfa_builder;
+mod num;
 
 use core::mem;
 use core::num::NonZeroU32;
@@ -175,11 +175,11 @@ use std::io::{self, Read, Write};
 use build_helper::BuildHelper;
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use errors::{DaachorseError, Result};
-use intpack::{U24nU8, U24};
 use iter::{
     FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LestmostFindIterator,
     U8SliceIterator,
 };
+use num::U24;
 
 // The root index position.
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
@@ -190,8 +190,8 @@ pub(crate) const DEAD_STATE_IDX: u32 = 1;
 struct State {
     base: Option<NonZeroU32>,
     fail: u32,
-    // 3 bytes for output_pos and 1 byte for check.
-    opos_ch: U24nU8,
+    output_pos: U24,
+    check: u8,
 }
 
 impl State {
@@ -202,7 +202,7 @@ impl State {
 
     #[inline(always)]
     pub fn check(&self) -> u8 {
-        self.opos_ch.b()
+        self.check
     }
 
     #[inline(always)]
@@ -211,8 +211,8 @@ impl State {
     }
 
     #[inline(always)]
-    pub const fn output_pos(&self) -> Option<NonZeroU32> {
-        NonZeroU32::new(self.opos_ch.a().get())
+    pub fn output_pos(&self) -> Option<NonZeroU32> {
+        NonZeroU32::new(self.output_pos.get())
     }
 
     #[inline(always)]
@@ -222,7 +222,7 @@ impl State {
 
     #[inline(always)]
     pub fn set_check(&mut self, x: u8) {
-        self.opos_ch.set_b(x);
+        self.check = x;
     }
 
     #[inline(always)]
@@ -234,7 +234,7 @@ impl State {
     pub fn set_output_pos(&mut self, x: Option<NonZeroU32>) -> Result<()> {
         let x = x.map_or(0, NonZeroU32::get);
         if let Ok(x) = U24::try_from(x) {
-            self.opos_ch.set_a(x);
+            self.output_pos = x;
             Ok(())
         } else {
             Err(DaachorseError::automaton_scale("output_pos", U24::MAX))
@@ -246,7 +246,8 @@ impl State {
         let mut result = [0; 12];
         result[0..4].copy_from_slice(&self.base.map_or(0, |x| x.get()).to_le_bytes());
         result[4..8].copy_from_slice(&self.fail.to_le_bytes());
-        result[8..12].copy_from_slice(&self.opos_ch.to_le_bytes());
+        result[8..11].copy_from_slice(&self.output_pos.to_le_bytes());
+        result[11] = self.check;
         result
     }
 
@@ -255,7 +256,8 @@ impl State {
         Self {
             base: NonZeroU32::new(u32::from_le_bytes(input[0..4].try_into().unwrap())),
             fail: u32::from_le_bytes(input[4..8].try_into().unwrap()),
-            opos_ch: U24nU8::from_le_bytes(input[8..12].try_into().unwrap()),
+            output_pos: U24::from_le_bytes(input[8..11].try_into().unwrap()),
+            check: input[11],
         }
     }
 }
