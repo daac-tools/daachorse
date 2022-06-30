@@ -264,11 +264,9 @@ where
                         value: out.value() as usize,
                     });
                 }
-            }
-
             // state_id is always smaller than self.pma.states.len() because
             // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
-            if let Some(output_pos) = unsafe {
+            } else if let Some(output_pos) = unsafe {
                 self.pma
                     .states
                     .get_unchecked(state_id as usize)

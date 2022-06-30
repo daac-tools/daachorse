@@ -1171,7 +1171,7 @@ impl DoubleArrayAhoCorasick {
             }
             let fail_id = self.states.get_unchecked(state_id as usize).fail();
             if fail_id == DEAD_STATE_IDX {
-                return DEAD_STATE_IDX;
+                return ROOT_STATE_IDX;
             }
             state_id = fail_id;
         }
