@@ -1,5 +1,6 @@
-use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
-use daachorse::{DoubleArrayAhoCorasickBuilder, Match, MatchKind};
+use daachorse::{
+    CharwiseDoubleArrayAhoCorasickBuilder, DoubleArrayAhoCorasickBuilder, Match, MatchKind,
+};
 
 /// The following test suites are copied from
 /// [aho-corasick crate](https://github.com/BurntSushi/aho-corasick/blob/master/src/tests.rs),

@@ -1,5 +1,4 @@
-use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
-use daachorse::MatchKind;
+use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
 
 #[test]
 #[should_panic]

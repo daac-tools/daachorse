@@ -2,12 +2,12 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
+use crate::bytewise::{
+    BuildHelper, DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, ROOT_STATE_IDX,
+};
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::U24;
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID};
-use crate::{
-    BuildHelper, DoubleArrayAhoCorasick, MatchKind, State, DEAD_STATE_IDX, ROOT_STATE_IDX,
-};
 
 // The maximum value of each double-array block.
 const BLOCK_MAX: u8 = u8::MAX;
