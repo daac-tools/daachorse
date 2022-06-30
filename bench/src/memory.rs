@@ -96,5 +96,5 @@ where
 {
     let file = File::open(path).unwrap();
     let buf = BufReader::new(file);
-    buf.lines().map(|line| line.unwrap()).collect()
+    buf.lines().map(Result::unwrap).collect()
 }

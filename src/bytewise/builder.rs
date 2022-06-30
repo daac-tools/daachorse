@@ -328,7 +328,7 @@ impl DoubleArrayAhoCorasickBuilder {
     fn find_base(&self, labels: &[u8], helper: &BuildHelper) -> NonZeroU32 {
         for idx in helper.vacant_iter() {
             let base = idx ^ u32::from(labels[0]);
-            if let Some(base) = self.check_valid_base(base, labels, helper) {
+            if let Some(base) = Self::check_valid_base(base, labels, helper) {
                 return base;
             }
         }
@@ -337,12 +337,7 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     #[inline(always)]
-    fn check_valid_base(
-        &self,
-        base: u32,
-        labels: &[u8],
-        helper: &BuildHelper,
-    ) -> Option<NonZeroU32> {
+    fn check_valid_base(base: u32, labels: &[u8], helper: &BuildHelper) -> Option<NonZeroU32> {
         if helper.is_used_base(base) {
             return None;
         }

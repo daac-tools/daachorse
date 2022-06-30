@@ -7,7 +7,7 @@ impl U24 {
         self.0
     }
 
-    pub const MAX: u32 = 0x00ffffff;
+    pub const MAX: u32 = 0x00ff_ffff;
 }
 
 impl TryFrom<u32> for U24 {
