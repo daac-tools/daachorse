@@ -105,7 +105,7 @@ impl BuildHelper {
     /// Panic will arise if active_index_range().contains(&base) == false.
     #[inline(always)]
     pub fn use_base(&mut self, base: NonZeroU32) {
-        self.get_mut(base.get()).use_base()
+        self.get_mut(base.get()).use_base();
     }
 
     /// Uses the index.
