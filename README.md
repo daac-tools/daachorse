@@ -185,7 +185,7 @@ On the other hand, `CharwiseDoubleArrayAhoCorasick` uses code point values of Un
 resulting in reducing the number of transitions and faster matching.
 
 ```rust
-use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+use daachorse::CharwiseDoubleArrayAhoCorasick;
 
 let patterns = vec!["全世界", "世界", "に"];
 let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();

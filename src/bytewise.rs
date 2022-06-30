@@ -54,6 +54,7 @@ const DEAD_STATE_IDX: u32 = 1;
 /// The maximum number of patterns is limited to 2^24-1.
 /// If a larger number of patterns is given,
 /// [`DaachorseError`](super::errors::DaachorseError) will be reported.
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
@@ -851,7 +852,7 @@ impl DoubleArrayAhoCorasick {
     }
 }
 
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, Eq, Hash, PartialEq)]
 struct State {
     base: Option<NonZeroU32>,
     fail: u32,

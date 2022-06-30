@@ -56,7 +56,7 @@ const DEAD_STATE_IDX: u32 = 1;
 ///
 /// - [`CharwiseDoubleArrayAhoCorasick::with_values`] builds an automaton
 ///    from a set of pairs of a UTF-8 string and a `u32` value.
-#[derive(Clone)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct CharwiseDoubleArrayAhoCorasick {
     states: Vec<State>,
     mapper: CodeMapper,
@@ -901,7 +901,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct State {
     base: Option<NonZeroU32>,
     check: u32,

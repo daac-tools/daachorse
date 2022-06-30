@@ -196,7 +196,7 @@ use build_helper::BuildHelper;
 pub use bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
 pub use charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 struct Output {
     value: u32,
     length: u32,
@@ -248,7 +248,7 @@ impl Output {
 }
 
 /// Match result.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Match {
     length: usize,
     end: usize,
@@ -280,7 +280,7 @@ impl Match {
 
 /// A search option of the Aho-Corasick automaton
 /// specified in [`DoubleArrayAhoCorasickBuilder::match_kind`].
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[repr(u8)]
 pub enum MatchKind {
     /// The standard match semantics, which enables

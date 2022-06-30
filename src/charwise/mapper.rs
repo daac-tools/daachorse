@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 
 pub const INVALID_CODE: u32 = u32::MAX;
 
-#[derive(Default, Clone, Debug, PartialEq, Eq)]
+#[derive(Default, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct CodeMapper {
     table: Vec<u32>,
     alphabet_size: u32,

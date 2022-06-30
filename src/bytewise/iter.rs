@@ -9,6 +9,7 @@ use crate::Match;
 use crate::bytewise::ROOT_STATE_IDX;
 
 /// Iterator for some struct that implements [`AsRef<[u8]>`].
+#[doc(hidden)]
 pub struct U8SliceIterator<P> {
     inner: P,
     pos: usize,
