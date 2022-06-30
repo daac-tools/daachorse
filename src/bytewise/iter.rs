@@ -3,9 +3,10 @@
 use core::iter::Enumerate;
 use core::num::NonZeroU32;
 
-use crate::{DoubleArrayAhoCorasick, Match};
+use crate::bytewise::DoubleArrayAhoCorasick;
+use crate::Match;
 
-use crate::ROOT_STATE_IDX;
+use crate::bytewise::ROOT_STATE_IDX;
 
 /// Iterator for some struct that implements [`AsRef<[u8]>`].
 pub struct U8SliceIterator<P> {

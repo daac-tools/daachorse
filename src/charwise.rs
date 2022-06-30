@@ -1,51 +1,8 @@
 //! A character-wise version for faster matching on multibyte characters.
-//!
-//! This sub-module provides a character-wise implementation of Daachorse,
-//! [`CharwiseDoubleArrayAhoCorasick`].
-//! The standard version [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick)
-//! handles strings as UTF-8 sequences
-//! and defines transition labels using byte integers.
-//! On the other hand, the character-wise version uses code point values of Unicode,
-//! resulting in reducing the number of transitions and faster matching on multibyte characters.
-//!
-//! # Features
-//!
-//! Compared to [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick),
-//! [`CharwiseDoubleArrayAhoCorasick`] has the following features
-//! if it is built from multibyte strings such as Japanese:
-//!
-//!  - Faster matching can be expected.
-//!  - The construction time can be slower.
-//!  - The memory efficiency depends on input patterns.
-//!    - If the scale is large, the memory efficiency can be competitive.
-//!    - If the scale is small, the double array can be sparse and memory inefficiency.
-//!
-//! # Examples
-//!
-//! The example finds non-overlapped occurrences with shortest matching
-//! on UTF-8 strings.
-//! Note that byte positions are reported.
-//!
-//! ```rust
-//! use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
-//!
-//! let patterns = vec!["全世界", "世界", "に"];
-//! let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
-//!
-//! let mut it = pma.find_iter("全世界中に");
-//!
-//! let m = it.next().unwrap();
-//! assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
-//!
-//! let m = it.next().unwrap();
-//! assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
-//!
-//! assert_eq!(None, it.next());
-//! ```
 
 mod builder;
 pub mod iter;
-pub(crate) mod mapper;
+mod mapper;
 
 #[cfg(feature = "std")]
 use std::io::{self, Read, Write};
@@ -55,22 +12,40 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
-pub use crate::charwise::builder::CharwiseDoubleArrayAhoCorasickBuilder;
-use crate::charwise::iter::{
+use crate::errors::Result;
+use crate::{MatchKind, Output};
+pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
+use iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
     FindOverlappingNoSuffixIterator, LestmostFindIterator, StrIterator,
 };
-use crate::charwise::mapper::CodeMapper;
-use crate::errors::Result;
-use crate::{MatchKind, Output};
+use mapper::CodeMapper;
 
 // The root index position.
-pub(crate) const ROOT_STATE_IDX: u32 = 0;
+const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
-pub(crate) const DEAD_STATE_IDX: u32 = 1;
+const DEAD_STATE_IDX: u32 = 1;
 
 /// Fast multiple pattern match automaton implemented
 /// with the Aho-Corasick algorithm and character-wise double-array data structure.
+///
+/// The standard version [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick)
+/// handles strings as UTF-8 sequences
+/// and defines transition labels using byte integers.
+/// On the other hand, the character-wise version uses code point values of Unicode,
+/// resulting in reducing the number of transitions and faster matching on multibyte characters.
+///
+/// # Features
+///
+/// Compared to [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick),
+/// [`CharwiseDoubleArrayAhoCorasick`] has the following features
+/// if it is built from multibyte strings such as Japanese:
+///
+///  - Faster matching can be expected.
+///  - The construction time can be slower.
+///  - The memory efficiency depends on input patterns.
+///    - If the scale is large, the memory efficiency can be competitive.
+///    - If the scale is small, the double array can be sparse and memory inefficiency.
 ///
 /// # Build instructions
 ///
@@ -110,7 +85,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -152,7 +127,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patvals = vec![("全世界", 0), ("世界", 10), ("に", 100)];
     /// let pma = CharwiseDoubleArrayAhoCorasick::with_values(patvals).unwrap();
@@ -189,7 +164,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -236,7 +211,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -281,7 +256,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -334,7 +309,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -394,7 +369,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -451,7 +426,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -514,8 +489,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// ## LeftmostLongest
     ///
     /// ```
-    /// use daachorse::MatchKind;
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
+    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
     ///
     /// let patterns = vec!["世界", "世", "世界中に"];
     /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
@@ -534,8 +508,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// ## LeftmostFirst
     ///
     /// ```
-    /// use daachorse::MatchKind;
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder;
+    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
     ///
     /// let patterns = vec!["世界", "世", "世界中に"];
     /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
@@ -570,7 +543,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -587,7 +560,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -604,7 +577,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -631,7 +604,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let mut bytes = vec![];
     ///
@@ -664,7 +637,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
@@ -714,7 +687,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// ```
     /// use std::io::Read;
     ///
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let mut bytes = vec![];
     ///
@@ -805,7 +778,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Examples
     ///
     /// ```
-    /// use daachorse::charwise::CharwiseDoubleArrayAhoCorasick;
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();

@@ -1,5 +1,4 @@
-use daachorse::charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
-use daachorse::MatchKind;
+use daachorse::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
 
 #[test]
 fn test_empty_pattern() {
