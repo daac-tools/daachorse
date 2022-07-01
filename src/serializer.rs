@@ -1,5 +1,6 @@
 //! Utilities for serializing/deserializing data.
 
+use core::mem;
 use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
@@ -65,4 +66,11 @@ where
         src = rest;
     }
     (dst, src)
+}
+
+pub fn serialized_bytes<S>(src: &[S]) -> usize
+where
+    S: Serialize,
+{
+    mem::size_of::<u32>() + mem::size_of::<S>() * src.len()
 }

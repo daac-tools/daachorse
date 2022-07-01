@@ -10,7 +10,9 @@ use core::num::NonZeroU32;
 use alloc::vec::Vec;
 
 use crate::errors::Result;
-use crate::serializer::{deserialize_vec, serialize_slice, Deserialize, Serialize};
+use crate::serializer::{
+    deserialize_vec, serialize_slice, serialized_bytes, Deserialize, Serialize,
+};
 use crate::{MatchKind, Output};
 pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
 use iter::{
@@ -604,11 +606,11 @@ impl CharwiseDoubleArrayAhoCorasick {
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
-            mem::size_of::<u32>() * 3
-                + mem::size_of::<u8>()
-                + 16 * self.states.len()
+            serialized_bytes(&self.states)
+                + serialized_bytes(&self.outputs)
                 + self.mapper.serialized_bytes()
-                + 8 * self.outputs.len(),
+                + mem::size_of::<u8>()
+                + mem::size_of::<u32>(),
         );
         serialize_slice(&self.states, &mut result);
         serialize_slice(&self.outputs, &mut result);
