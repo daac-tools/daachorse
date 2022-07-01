@@ -26,33 +26,30 @@ const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
 const DEAD_STATE_IDX: u32 = 1;
 
-/// Fast multiple pattern match automaton implemented
-/// with the Aho-Corasick algorithm and compact double-array data structure.
+/// Fast multiple pattern match automaton implemented with the Aho-Corasick algorithm and compact
+/// double-array data structure.
 ///
-/// [`DoubleArrayAhoCorasick`] implements a pattern match automaton based on
-/// the [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855),
-/// supporting linear-time pattern matching.
-/// The internal data structure employs
-/// the [compact double-array structure](https://doi.org/10.1016/j.ipm.2006.04.004)
-/// that is the fastest trie representation technique.
-/// It supports constant-time state-to-state traversal,
-/// allowing for very fast pattern matching.
-/// Moreover, each state is represented in a compact space of only 12 bytes.
+/// [`DoubleArrayAhoCorasick`] implements a pattern match automaton based on the
+/// [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855), supporting linear-time
+/// pattern matching. The internal data structure employs the
+/// [compact double-array structure](https://doi.org/10.1016/j.ipm.2006.04.004) that is the fastest
+/// trie representation technique. It supports constant-time state-to-state traversal, allowing for
+/// very fast pattern matching. Moreover, each state is represented in a compact space of only 12
+/// bytes.
 ///
 /// # Build instructions
 ///
 /// [`DoubleArrayAhoCorasick`] supports the following two types of input data:
 ///
-/// - [`DoubleArrayAhoCorasick::new`] builds an automaton from a set of byte strings
-///    while assigning unique identifiers in the input order.
+/// - [`DoubleArrayAhoCorasick::new`] builds an automaton from a set of byte strings while
+///   assigning unique identifiers in the input order.
 ///
-/// - [`DoubleArrayAhoCorasick::with_values`] builds an automaton
-///    from a set of pairs of a byte string and a `u32` value.
+/// - [`DoubleArrayAhoCorasick::with_values`] builds an automaton from a set of pairs of a byte
+///   string and a [`u32`] value.
 ///
 /// # Limitations
 ///
-/// The maximum number of patterns is limited to 2^24-1.
-/// If a larger number of patterns is given,
+/// The maximum number of patterns is limited to 2^24-1. If a larger number of patterns is given,
 /// [`DaachorseError`](super::errors::DaachorseError) will be reported.
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct DoubleArrayAhoCorasick {
@@ -63,8 +60,8 @@ pub struct DoubleArrayAhoCorasick {
 }
 
 impl DoubleArrayAhoCorasick {
-    /// Creates a new [`DoubleArrayAhoCorasick`] from input patterns.
-    /// The value `i` is automatically associated with `patterns[i]`.
+    /// Creates a new [`DoubleArrayAhoCorasick`] from input patterns. The value `i` is
+    /// automatically associated with `patterns[i]`.
     ///
     /// # Arguments
     ///
@@ -109,7 +106,8 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Arguments
     ///
-    /// * `patvals` - List of pattern-value pairs, in which the value is of type `u32` and less than `u32::MAX`.
+    /// * `patvals` - List of pattern-value pairs, in which the value is of type [`u32`] and less
+    /// than [`u32::MAX`].
     ///
     /// # Errors
     ///
@@ -157,8 +155,8 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -200,8 +198,8 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -245,8 +243,8 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -297,8 +295,8 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -354,8 +352,8 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -407,8 +405,8 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -451,10 +449,11 @@ impl DoubleArrayAhoCorasick {
     /// Returns an iterator of leftmost matches in the given haystack.
     ///
     /// The leftmost match greedily searches the longest possible match at each iteration, and
-    /// the match results do not overlap positionally such as [`DoubleArrayAhoCorasick::find_iter()`].
+    /// the match results do not overlap positionally such as
+    /// [`DoubleArrayAhoCorasick::find_iter()`].
     ///
-    /// According to the [`MatchKind`] option you specified in the construction,
-    /// the behavior is changed for multiple possible matches, as follows.
+    /// According to the [`MatchKind`] option you specified in the construction, the behavior is
+    /// changed for multiple possible matches, as follows.
     ///
     ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match
     ///    corresponding to the longest pattern.
@@ -468,8 +467,8 @@ impl DoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you do not specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::LeftmostFirst`] or [`MatchKind::LeftmostLongest`] in
+    /// the construction, the iterator is not supported and the function will panic.
     ///
     /// # Examples
     ///

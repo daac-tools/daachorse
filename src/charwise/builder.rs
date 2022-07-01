@@ -75,8 +75,8 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
     /// Specifies the number of last blocks to search bases.
     ///
-    /// The smaller the number is, the faster the construction time will be;
-    /// however, the memory efficiency can be degraded.
+    /// The smaller the number is, the faster the construction time will be; however, the memory
+    /// efficiency can be degraded.
     ///
     /// # Arguments
     ///
@@ -92,8 +92,8 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         self
     }
 
-    /// Builds and returns a new [`CharwiseDoubleArrayAhoCorasick`] from input patterns.
-    /// The value `i` is automatically associated with `patterns[i]`.
+    /// Builds and returns a new [`CharwiseDoubleArrayAhoCorasick`] from input patterns. The value
+    /// `i` is automatically associated with `patterns[i]`.
     ///
     /// # Arguments
     ///
@@ -144,7 +144,8 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     ///
     /// # Arguments
     ///
-    /// * `patvals` - List of pattern-value pairs, where the value is of type `u32` and less than `u32::MAX`.
+    /// * `patvals` - List of pattern-value pairs, where the value is of type [`u32`] and less than
+    /// [`u32::MAX`].
     ///
     /// # Errors
     ///
