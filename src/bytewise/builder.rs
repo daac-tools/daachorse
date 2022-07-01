@@ -98,8 +98,8 @@ impl DoubleArrayAhoCorasickBuilder {
     /// however, the memory efficiency can be degraded.
     ///
     /// A fixed length of memory is allocated in proportion to this value in construction. If an
-    /// allocation error occurs during building the automaton even though the pattern set is small, try
-    /// setting a smaller value.
+    /// allocation error occurs during building the automaton even though the pattern set is small,
+    /// try setting a smaller value.
     ///
     /// # Arguments
     ///
