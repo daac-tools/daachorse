@@ -593,7 +593,7 @@ impl DoubleArrayAhoCorasick {
         for output in &self.outputs {
             wtr.write_all(&output.serialize())?;
         }
-        wtr.write_all(&[self.match_kind.into()])?;
+        wtr.write_all(&[u8::from(self.match_kind)])?;
         wtr.write_all(&u32::try_from(self.num_states).unwrap().to_le_bytes())?;
         Ok(())
     }
@@ -625,7 +625,7 @@ impl DoubleArrayAhoCorasick {
         for output in &self.outputs {
             result.extend_from_slice(&output.serialize());
         }
-        result.push(self.match_kind.into());
+        result.push(u8::from(self.match_kind));
         result.extend_from_slice(&u32::try_from(self.num_states).unwrap().to_le_bytes());
         result
     }
@@ -763,18 +763,16 @@ impl DoubleArrayAhoCorasick {
     /// ```
     #[must_use]
     pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap())
-            .try_into()
-            .unwrap();
+        let states_len =
+            usize::try_from(u32::from_le_bytes(source[0..4].try_into().unwrap())).unwrap();
         source = &source[4..];
         let mut states = Vec::with_capacity(states_len);
         for _ in 0..states_len {
             states.push(State::deserialize(source[0..12].try_into().unwrap()));
             source = &source[12..];
         }
-        let outputs_len = u32::from_le_bytes(source[0..4].try_into().unwrap())
-            .try_into()
-            .unwrap();
+        let outputs_len =
+            usize::try_from(u32::from_le_bytes(source[0..4].try_into().unwrap())).unwrap();
         source = &source[4..];
         let mut outputs = Vec::with_capacity(outputs_len);
         for _ in 0..outputs_len {

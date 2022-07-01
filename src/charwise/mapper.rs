@@ -102,9 +102,7 @@ impl CodeMapper {
     }
 
     pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let len = u32::from_le_bytes(source[0..4].try_into().unwrap())
-            .try_into()
-            .unwrap();
+        let len = usize::try_from(u32::from_le_bytes(source[0..4].try_into().unwrap())).unwrap();
         source = &source[4..];
         let mut table = Vec::with_capacity(len);
         for _ in 0..len {
