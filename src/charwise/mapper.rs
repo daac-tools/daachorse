@@ -1,6 +1,10 @@
+use core::mem;
+
 use alloc::vec::Vec;
 
-use crate::serializer::{deserialize_vec, serialize_slice, Deserialize, Serialize};
+use crate::serializer::{
+    deserialize_vec, serialize_slice, serialized_bytes, Deserialize, Serialize,
+};
 
 pub const INVALID_CODE: u32 = u32::MAX;
 
@@ -51,9 +55,7 @@ impl CodeMapper {
     }
 
     pub fn serialized_bytes(&self) -> usize {
-        core::mem::size_of::<u32>()
-            + self.table.len() * core::mem::size_of::<u32>()
-            + core::mem::size_of::<u32>() // alphabet_size
+        serialized_bytes(&self.table) + mem::size_of::<u32>()
     }
 
     pub fn serialize(&self, result: &mut Vec<u8>) {
