@@ -21,9 +21,9 @@ exclude = [".*"]
 [dev-dependencies]
 
 [features]
-default = ["std"]
+default = ["alloc"]
 
-std = []
+alloc = []
 
 [package.metadata.docs.rs]
 all-features = true

@@ -175,7 +175,10 @@
 
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(not(feature = "alloc"))]
+compile_error!("`alloc` feature is currently required to build this crate");
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("`target_pointer_width` must be larger than or equal to 32");

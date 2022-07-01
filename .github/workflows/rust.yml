@@ -77,7 +77,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release --no-default-features
+          args: --release --no-default-features --features alloc
 
       - name: Run cargo doc
         uses: actions-rs/cargo@v1
@@ -121,7 +121,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release --no-default-features
+          args: --release --no-default-features --features alloc
 
 
       - name: Run cargo doc

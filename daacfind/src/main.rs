@@ -135,7 +135,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    let pma = DoubleArrayAhoCorasick::new(patterns)?;
+    let pma = DoubleArrayAhoCorasick::new(patterns).map_err(|e| format!("{}", e))?;
 
     // Initialize the stream of termcolor.
     let mut stdout = match args.color {
