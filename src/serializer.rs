@@ -24,8 +24,7 @@ impl Serialize for u32 {
 impl Deserialize for u32 {
     #[inline(always)]
     fn from_slice(src: &[u8]) -> (Self, &[u8]) {
-        // Safety:
-        // unwrap_unchecked never fails since a 4-byte slice is always converted.
+        // unwrap_unchecked is safe since a 4-byte slice is always converted.
         let x = unsafe { u32::from_le_bytes(src[..4].try_into().unwrap_unchecked()) };
         (x, &src[4..])
     }
