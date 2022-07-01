@@ -10,6 +10,7 @@ use core::num::NonZeroU32;
 use alloc::vec::Vec;
 
 use crate::errors::Result;
+use crate::serializer::{deserialize_vec, serialize_slice, Deserialize, Serialize};
 use crate::{MatchKind, Output};
 pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
 use iter::{
@@ -609,17 +610,11 @@ impl CharwiseDoubleArrayAhoCorasick {
                 + self.mapper.serialized_bytes()
                 + 8 * self.outputs.len(),
         );
-        result.extend_from_slice(&u32::try_from(self.states.len()).unwrap().to_le_bytes());
-        for state in &self.states {
-            result.extend_from_slice(&state.serialize());
-        }
+        serialize_slice(&self.states, &mut result);
+        serialize_slice(&self.outputs, &mut result);
         self.mapper.serialize(&mut result);
-        result.extend_from_slice(&u32::try_from(self.outputs.len()).unwrap().to_le_bytes());
-        for output in &self.outputs {
-            result.extend_from_slice(&output.serialize());
-        }
         result.push(self.match_kind as u8);
-        result.extend_from_slice(&u32::try_from(self.num_states).unwrap().to_le_bytes());
+        u32::try_from(self.num_states).unwrap().to_vec(&mut result);
         result
     }
 
@@ -665,38 +660,21 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
-        source = &source[4..];
-        let mut states = Vec::with_capacity(states_len);
-        for _ in 0..states_len {
-            states.push(State::deserialize(source[0..16].try_into().unwrap()));
-            source = &source[16..];
-        }
-
-        let (mapper, mut source) = CodeMapper::deserialize_unchecked(source);
-
-        let outputs_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
-        source = &source[4..];
-        let mut outputs = Vec::with_capacity(outputs_len);
-        for _ in 0..outputs_len {
-            outputs.push(Output::deserialize(source[0..12].try_into().unwrap()));
-            source = &source[12..];
-        }
-
+    pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
+        let (states, source) = deserialize_vec::<State>(source);
+        let (outputs, source) = deserialize_vec::<Output>(source);
+        let (mapper, source) = CodeMapper::deserialize_unchecked(source);
         let match_kind = MatchKind::from(source[0]);
-        let num_states_array: [u8; 4] = source[1..5].try_into().unwrap();
-        let num_states = u32::from_le_bytes(num_states_array) as usize;
-
+        let (num_states, source) = u32::from_slice(&source[1..]);
         (
             Self {
                 states,
                 mapper,
                 outputs,
                 match_kind,
-                num_states,
+                num_states: usize::try_from(num_states).unwrap(),
             },
-            &source[5..],
+            source,
         )
     }
 
@@ -827,24 +805,33 @@ impl State {
     pub fn set_output_pos(&mut self, x: Option<NonZeroU32>) {
         self.output_pos = x;
     }
+}
 
+impl Serialize for State {
     #[inline(always)]
-    fn serialize(&self) -> [u8; 16] {
-        let mut result = [0; 16];
-        result[0..4].copy_from_slice(&self.base.map_or(0, NonZeroU32::get).to_le_bytes());
-        result[4..8].copy_from_slice(&self.check.to_le_bytes());
-        result[8..12].copy_from_slice(&self.fail.to_le_bytes());
-        result[12..16].copy_from_slice(&self.output_pos.map_or(0, NonZeroU32::get).to_le_bytes());
-        result
+    fn to_vec(&self, dst: &mut Vec<u8>) {
+        self.base.to_vec(dst);
+        self.check.to_vec(dst);
+        self.fail.to_vec(dst);
+        self.output_pos.to_vec(dst);
     }
+}
 
+impl Deserialize for State {
     #[inline(always)]
-    fn deserialize(input: [u8; 16]) -> Self {
-        Self {
-            base: NonZeroU32::new(u32::from_le_bytes(input[0..4].try_into().unwrap())),
-            check: u32::from_le_bytes(input[4..8].try_into().unwrap()),
-            fail: u32::from_le_bytes(input[8..12].try_into().unwrap()),
-            output_pos: NonZeroU32::new(u32::from_le_bytes(input[12..16].try_into().unwrap())),
-        }
+    fn from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (base, src) = Option::<NonZeroU32>::from_slice(src);
+        let (check, src) = u32::from_slice(src);
+        let (fail, src) = u32::from_slice(src);
+        let (output_pos, src) = Option::<NonZeroU32>::from_slice(src);
+        (
+            Self {
+                base,
+                check,
+                fail,
+                output_pos,
+            },
+            src,
+        )
     }
 }

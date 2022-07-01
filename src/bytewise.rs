@@ -11,6 +11,7 @@ use alloc::vec::Vec;
 use crate::build_helper::BuildHelper;
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
+use crate::serializer::{deserialize_vec, serialize_slice, Deserialize, Serialize};
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use iter::{
@@ -574,16 +575,10 @@ impl DoubleArrayAhoCorasick {
                 + 12 * self.states.len()
                 + 8 * self.outputs.len(),
         );
-        result.extend_from_slice(&u32::try_from(self.states.len()).unwrap().to_le_bytes());
-        for state in &self.states {
-            result.extend_from_slice(&state.serialize());
-        }
-        result.extend_from_slice(&u32::try_from(self.outputs.len()).unwrap().to_le_bytes());
-        for output in &self.outputs {
-            result.extend_from_slice(&output.serialize());
-        }
+        serialize_slice(&self.states, &mut result);
+        serialize_slice(&self.outputs, &mut result);
         result.push(self.match_kind as u8);
-        result.extend_from_slice(&u32::try_from(self.num_states).unwrap().to_le_bytes());
+        u32::try_from(self.num_states).unwrap().to_vec(&mut result);
         result
     }
 
@@ -629,34 +624,19 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
-        source = &source[4..];
-        let mut states = Vec::with_capacity(states_len);
-        for _ in 0..states_len {
-            states.push(State::deserialize(source[0..12].try_into().unwrap()));
-            source = &source[12..];
-        }
-        let outputs_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
-        source = &source[4..];
-        let mut outputs = Vec::with_capacity(outputs_len);
-        for _ in 0..outputs_len {
-            outputs.push(Output::deserialize(source[0..12].try_into().unwrap()));
-            source = &source[12..];
-        }
-
+    pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
+        let (states, source) = deserialize_vec::<State>(source);
+        let (outputs, source) = deserialize_vec::<Output>(source);
         let match_kind = MatchKind::from(source[0]);
-        let num_states_array: [u8; 4] = source[1..5].try_into().unwrap();
-        let num_states = u32::from_le_bytes(num_states_array) as usize;
-
+        let (num_states, source) = u32::from_slice(&source[1..]);
         (
             Self {
                 states,
                 outputs,
                 match_kind,
-                num_states,
+                num_states: usize::try_from(num_states).unwrap(),
             },
-            &source[5..],
+            source,
         )
     }
 
@@ -772,23 +752,31 @@ impl State {
             Err(DaachorseError::automaton_scale("output_pos", U24::MAX))
         }
     }
+}
 
+impl Serialize for State {
     #[inline(always)]
-    fn serialize(&self) -> [u8; 12] {
-        let mut result = [0; 12];
-        result[0..4].copy_from_slice(&self.base.map_or(0, NonZeroU32::get).to_le_bytes());
-        result[4..8].copy_from_slice(&self.fail.to_le_bytes());
-        result[8..12].copy_from_slice(&self.opos_ch.to_le_bytes());
-        result
+    fn to_vec(&self, dst: &mut Vec<u8>) {
+        self.base.to_vec(dst);
+        self.fail.to_vec(dst);
+        self.opos_ch.to_vec(dst);
     }
+}
 
+impl Deserialize for State {
     #[inline(always)]
-    fn deserialize(input: [u8; 12]) -> Self {
-        Self {
-            base: NonZeroU32::new(u32::from_le_bytes(input[0..4].try_into().unwrap())),
-            fail: u32::from_le_bytes(input[4..8].try_into().unwrap()),
-            opos_ch: U24nU8::from_le_bytes(input[8..12].try_into().unwrap()),
-        }
+    fn from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (base, src) = Option::<NonZeroU32>::from_slice(src);
+        let (fail, src) = u32::from_slice(src);
+        let (opos_ch, src) = U24nU8::from_slice(src);
+        (
+            Self {
+                base,
+                fail,
+                opos_ch,
+            },
+            src,
+        )
     }
 }
 

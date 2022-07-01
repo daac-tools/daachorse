@@ -1,5 +1,7 @@
 use alloc::vec::Vec;
 
+use crate::serializer::{deserialize_vec, serialize_slice, Deserialize, Serialize};
+
 pub const INVALID_CODE: u32 = u32::MAX;
 
 #[derive(Default, Clone, Debug, Eq, Hash, PartialEq)]
@@ -55,23 +57,13 @@ impl CodeMapper {
     }
 
     pub fn serialize(&self, result: &mut Vec<u8>) {
-        result.extend_from_slice(&u32::try_from(self.table.len()).unwrap().to_le_bytes());
-        for &x in &self.table {
-            result.extend_from_slice(&x.to_le_bytes());
-        }
-        result.extend_from_slice(&self.alphabet_size.to_le_bytes());
+        serialize_slice(&self.table, result);
+        self.alphabet_size.to_vec(result);
     }
 
-    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
-        source = &source[4..];
-        let mut table = Vec::with_capacity(len);
-        for _ in 0..len {
-            table.push(u32::from_le_bytes(source[0..4].try_into().unwrap()));
-            source = &source[4..];
-        }
-        let alphabet_size = u32::from_le_bytes(source[0..4].try_into().unwrap());
-        source = &source[4..];
+    pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
+        let (table, source) = deserialize_vec::<u32>(source);
+        let (alphabet_size, source) = u32::from_slice(source);
         (
             Self {
                 table,

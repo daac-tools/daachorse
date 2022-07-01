@@ -192,12 +192,16 @@ pub mod charwise;
 pub mod errors;
 mod intpack;
 mod nfa_builder;
+mod serializer;
 
 use core::num::NonZeroU32;
+
+use alloc::vec::Vec;
 
 use build_helper::BuildHelper;
 pub use bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
 pub use charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
+use serializer::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 struct Output {
@@ -230,23 +234,31 @@ impl Output {
     pub const fn parent(self) -> Option<NonZeroU32> {
         self.parent
     }
+}
 
+impl Serialize for Output {
     #[inline(always)]
-    fn serialize(&self) -> [u8; 12] {
-        let mut result = [0; 12];
-        result[0..4].copy_from_slice(&self.value.to_le_bytes());
-        result[4..8].copy_from_slice(&self.length.to_le_bytes());
-        result[8..12].copy_from_slice(&self.parent.map_or(0, NonZeroU32::get).to_le_bytes());
-        result
+    fn to_vec(&self, dst: &mut Vec<u8>) {
+        self.value.to_vec(dst);
+        self.length.to_vec(dst);
+        self.parent.to_vec(dst);
     }
+}
 
+impl Deserialize for Output {
     #[inline(always)]
-    fn deserialize(input: [u8; 12]) -> Self {
-        Self {
-            value: u32::from_le_bytes(input[0..4].try_into().unwrap()),
-            length: u32::from_le_bytes(input[4..8].try_into().unwrap()),
-            parent: NonZeroU32::new(u32::from_le_bytes(input[8..12].try_into().unwrap())),
-        }
+    fn from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (value, src) = u32::from_slice(src);
+        let (length, src) = u32::from_slice(src);
+        let (parent, src) = Option::<NonZeroU32>::from_slice(src);
+        (
+            Self {
+                value,
+                length,
+                parent,
+            },
+            src,
+        )
     }
 }
 
