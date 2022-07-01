@@ -600,8 +600,7 @@ impl DoubleArrayAhoCorasick {
     /// # Safety
     ///
     /// The given data must be a correct automaton exported by
-    /// [`DoubleArrayAhoCorasick::serialize()`] or
-    /// [`DoubleArrayAhoCorasick::serialize_to_vec()`] functions.
+    /// [`DoubleArrayAhoCorasick::serialize_to_vec()`] function.
     ///
     /// # Examples
     ///

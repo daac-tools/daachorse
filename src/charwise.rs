@@ -636,8 +636,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Safety
     ///
     /// The given data must be a correct automaton exported by
-    /// [`CharwiseDoubleArrayAhoCorasick::serialize()`] or
-    /// [`CharwiseDoubleArrayAhoCorasick::serialize_to_vec()`] functions.
+    /// [`CharwiseDoubleArrayAhoCorasick::serialize_to_vec()`] function.
     ///
     /// # Examples
     ///
