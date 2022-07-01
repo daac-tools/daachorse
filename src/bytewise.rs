@@ -564,10 +564,10 @@ impl DoubleArrayAhoCorasick {
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-    /// let bytes = pma.serialize_to_vec();
+    /// let bytes = pma.serialize();
     /// ```
     #[must_use]
-    pub fn serialize_to_vec(&self) -> Vec<u8> {
+    pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
             mem::size_of::<u32>() * 3
                 + mem::size_of::<u8>()
@@ -600,7 +600,7 @@ impl DoubleArrayAhoCorasick {
     /// # Safety
     ///
     /// The given data must be a correct automaton exported by
-    /// [`DoubleArrayAhoCorasick::serialize_to_vec()`] function.
+    /// [`DoubleArrayAhoCorasick::serialize()`] function.
     ///
     /// # Examples
     ///
@@ -609,10 +609,10 @@ impl DoubleArrayAhoCorasick {
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-    /// let bytes = pma.serialize_to_vec();
+    /// let bytes = pma.serialize();
     ///
     /// let (pma, _) = unsafe {
-    ///     DoubleArrayAhoCorasick::deserialize_from_slice_unchecked(&bytes)
+    ///     DoubleArrayAhoCorasick::deserialize_unchecked(&bytes)
     /// };
     ///
     /// let mut it = pma.find_overlapping_iter("abcd");
@@ -629,7 +629,7 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
+    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
         let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
         source = &source[4..];
         let mut states = Vec::with_capacity(states_len);

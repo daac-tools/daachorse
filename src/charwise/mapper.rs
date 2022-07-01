@@ -54,7 +54,7 @@ impl CodeMapper {
             + core::mem::size_of::<u32>() // alphabet_size
     }
 
-    pub fn serialize_into_vec(&self, result: &mut Vec<u8>) {
+    pub fn serialize(&self, result: &mut Vec<u8>) {
         result.extend_from_slice(&u32::try_from(self.table.len()).unwrap().to_le_bytes());
         for &x in &self.table {
             result.extend_from_slice(&x.to_le_bytes());
@@ -62,7 +62,7 @@ impl CodeMapper {
         result.extend_from_slice(&self.alphabet_size.to_le_bytes());
     }
 
-    pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
+    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
         let len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
         source = &source[4..];
         let mut table = Vec::with_capacity(len);

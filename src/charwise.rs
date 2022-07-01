@@ -598,10 +598,10 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
-    /// let bytes = pma.serialize_to_vec();
+    /// let bytes = pma.serialize();
     /// ```
     #[must_use]
-    pub fn serialize_to_vec(&self) -> Vec<u8> {
+    pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
             mem::size_of::<u32>() * 3
                 + mem::size_of::<u8>()
@@ -613,7 +613,7 @@ impl CharwiseDoubleArrayAhoCorasick {
         for state in &self.states {
             result.extend_from_slice(&state.serialize());
         }
-        self.mapper.serialize_into_vec(&mut result);
+        self.mapper.serialize(&mut result);
         result.extend_from_slice(&u32::try_from(self.outputs.len()).unwrap().to_le_bytes());
         for output in &self.outputs {
             result.extend_from_slice(&output.serialize());
@@ -636,7 +636,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// # Safety
     ///
     /// The given data must be a correct automaton exported by
-    /// [`CharwiseDoubleArrayAhoCorasick::serialize_to_vec()`] function.
+    /// [`CharwiseDoubleArrayAhoCorasick::serialize()`] function.
     ///
     /// # Examples
     ///
@@ -645,10 +645,10 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
-    /// let bytes = pma.serialize_to_vec();
+    /// let bytes = pma.serialize();
     ///
     /// let (pma, _) = unsafe {
-    ///     CharwiseDoubleArrayAhoCorasick::deserialize_from_slice_unchecked(&bytes)
+    ///     CharwiseDoubleArrayAhoCorasick::deserialize_unchecked(&bytes)
     /// };
     ///
     /// let mut it = pma.find_overlapping_iter("全世界中に");
@@ -665,7 +665,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
+    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
         let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
         source = &source[4..];
         let mut states = Vec::with_capacity(states_len);
@@ -674,7 +674,7 @@ impl CharwiseDoubleArrayAhoCorasick {
             source = &source[16..];
         }
 
-        let (mapper, mut source) = CodeMapper::deserialize_from_slice_unchecked(source);
+        let (mapper, mut source) = CodeMapper::deserialize_unchecked(source);
 
         let outputs_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
         source = &source[4..];
