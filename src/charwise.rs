@@ -4,9 +4,6 @@ mod builder;
 pub mod iter;
 mod mapper;
 
-#[cfg(feature = "std")]
-use std::io::{self, Read, Write};
-
 use core::mem;
 use core::num::NonZeroU32;
 
@@ -592,47 +589,6 @@ impl CharwiseDoubleArrayAhoCorasick {
             + self.outputs.len() * mem::size_of::<Output>()
     }
 
-    /// Serializes the automaton into a given target.
-    ///
-    /// # Arguments
-    ///
-    /// * `wtr` - A writable target.
-    ///
-    /// # Errors
-    ///
-    /// This function will return errors thrown by the given `wtr`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
-    ///
-    /// let mut bytes = vec![];
-    ///
-    /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
-    /// pma.serialize(&mut bytes).unwrap();
-    /// ```
-    #[cfg(feature = "std")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-    pub fn serialize<W>(&self, mut wtr: W) -> io::Result<()>
-    where
-        W: Write,
-    {
-        wtr.write_all(&u32::try_from(self.states.len()).unwrap().to_le_bytes())?;
-        for state in &self.states {
-            wtr.write_all(&state.serialize())?;
-        }
-        self.mapper.serialize(&mut wtr)?;
-        wtr.write_all(&u32::try_from(self.outputs.len()).unwrap().to_le_bytes())?;
-        for output in &self.outputs {
-            wtr.write_all(&output.serialize())?;
-        }
-        wtr.write_all(&[self.match_kind as u8])?;
-        wtr.write_all(&u32::try_from(self.num_states).unwrap().to_le_bytes())?;
-        Ok(())
-    }
-
     /// Serializes the automaton into a [`Vec`].
     ///
     /// # Examples
@@ -665,99 +621,6 @@ impl CharwiseDoubleArrayAhoCorasick {
         result.push(self.match_kind as u8);
         result.extend_from_slice(&u32::try_from(self.num_states).unwrap().to_le_bytes());
         result
-    }
-
-    /// Deserializes the automaton from a given source.
-    ///
-    /// # Arguments
-    ///
-    /// * `rdr` - A readable source.
-    ///
-    /// # Errors
-    ///
-    /// This function will return errors thrown by the given `rdr`.
-    ///
-    /// # Safety
-    ///
-    /// The given data must be a correct automaton exported by
-    /// [`CharwiseDoubleArrayAhoCorasick::serialize()`] or
-    /// [`CharwiseDoubleArrayAhoCorasick::serialize_to_vec()`] functions.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::io::Read;
-    ///
-    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
-    ///
-    /// let mut bytes = vec![];
-    ///
-    /// {
-    ///     let patterns = vec!["全世界", "世界", "に"];
-    ///     let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
-    ///     pma.serialize(&mut bytes).unwrap();
-    /// }
-    ///
-    /// let pma = unsafe {
-    ///     CharwiseDoubleArrayAhoCorasick::deserialize_unchecked(&mut bytes.as_slice()).unwrap()
-    /// };
-    ///
-    /// let mut it = pma.find_overlapping_iter("全世界中に");
-    ///
-    /// let m = it.next().unwrap();
-    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
-    ///
-    /// let m = it.next().unwrap();
-    /// assert_eq!((3, 9, 1), (m.start(), m.end(), m.value()));
-    ///
-    /// let m = it.next().unwrap();
-    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
-    ///
-    /// assert_eq!(None, it.next());
-    /// ```
-    #[cfg(feature = "std")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-    pub unsafe fn deserialize_unchecked<R>(mut rdr: R) -> io::Result<Self>
-    where
-        R: Read,
-    {
-        let mut states_len_array = [0; 4];
-        rdr.read_exact(&mut states_len_array)?;
-        let states_len = u32::from_le_bytes(states_len_array) as usize;
-        let mut states = Vec::with_capacity(states_len);
-        for _ in 0..states_len {
-            let mut state_array = [0; 16];
-            rdr.read_exact(&mut state_array)?;
-            states.push(State::deserialize(state_array));
-        }
-
-        let mapper = CodeMapper::deserialize_unchecked(&mut rdr)?;
-
-        let mut outputs_len_array = [0; 4];
-        rdr.read_exact(&mut outputs_len_array)?;
-        let outputs_len = u32::from_le_bytes(outputs_len_array) as usize;
-        let mut outputs = Vec::with_capacity(outputs_len);
-        for _ in 0..outputs_len {
-            let mut output_array = [0; 12];
-            rdr.read_exact(&mut output_array)?;
-            outputs.push(Output::deserialize(output_array));
-        }
-
-        let mut match_kind_array = [0];
-        rdr.read_exact(&mut match_kind_array)?;
-        let match_kind = MatchKind::from(match_kind_array[0]);
-
-        let mut num_states_array = [0; 4];
-        rdr.read_exact(&mut num_states_array)?;
-        let num_states = u32::from_le_bytes(num_states_array) as usize;
-
-        Ok(Self {
-            states,
-            mapper,
-            outputs,
-            match_kind,
-            num_states,
-        })
     }
 
     /// Deserializes the automaton from a given slice.
