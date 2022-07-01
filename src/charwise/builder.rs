@@ -136,7 +136,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         let patvals = patterns
             .into_iter()
             .enumerate()
-            .map(|(i, p)| (p, i.try_into().unwrap_or(0)));
+            .map(|(i, p)| (p, u32::try_from(i).unwrap_or(0)));
         self.build_with_values(patvals)
     }
 
@@ -234,7 +234,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         let mut helper = self.init_array()?;
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
-        state_id_map[ROOT_STATE_ID as usize] = ROOT_STATE_IDX;
+        state_id_map[usize::try_from(ROOT_STATE_ID).unwrap()] = ROOT_STATE_IDX;
 
         // Arranges base & check values
         let mut stack = vec![ROOT_STATE_ID];
@@ -242,9 +242,9 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
         while let Some(state_id) = stack.pop() {
             debug_assert_ne!(state_id, DEAD_STATE_ID);
-            let state = &nfa.states[state_id as usize];
+            let state = &nfa.states[usize::try_from(state_id).unwrap()];
 
-            let state_idx = state_id_map[state_id as usize];
+            let state_idx = state_id_map[usize::try_from(state_id).unwrap()];
             debug_assert_ne!(state_idx, DEAD_STATE_IDX);
 
             let s = &state.borrow();
@@ -259,28 +259,28 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             mapped.sort_by(|(c1, _), (c2, _)| c1.cmp(c2));
 
             let base = self.find_base(&mapped, &helper);
-            if self.states.len() <= base.get() as usize {
+            if self.states.len() <= usize::try_from(base.get()).unwrap() {
                 self.extend_array(&mut helper)?;
             }
 
             for &(c, child_id) in &mapped {
                 let child_idx = base.get() ^ c;
                 helper.use_index(child_idx);
-                self.states[child_idx as usize].set_check(state_idx);
-                state_id_map[child_id as usize] = child_idx;
+                self.states[usize::try_from(child_idx).unwrap()].set_check(state_idx);
+                state_id_map[usize::try_from(child_id).unwrap()] = child_idx;
                 stack.push(child_id);
             }
-            self.states[state_idx as usize].set_base(base);
+            self.states[usize::try_from(state_idx).unwrap()].set_base(base);
         }
 
         // Sets fail & output_pos values
         for (i, state) in nfa.states.iter().enumerate() {
-            if i == DEAD_STATE_ID as usize {
+            if i == usize::try_from(DEAD_STATE_ID).unwrap() {
                 continue;
             }
 
-            let idx = state_id_map[i] as usize;
-            debug_assert_ne!(idx, DEAD_STATE_IDX as usize);
+            let idx = usize::try_from(state_id_map[i]).unwrap();
+            debug_assert_ne!(idx, usize::try_from(DEAD_STATE_IDX).unwrap());
 
             let s = &state.borrow();
             self.states[idx].set_output_pos(s.output_pos);
@@ -289,7 +289,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             if fail_id == DEAD_STATE_ID {
                 self.states[idx].set_fail(DEAD_STATE_IDX);
             } else {
-                let fail_idx = state_id_map[fail_id as usize];
+                let fail_idx = state_id_map[usize::try_from(fail_id).unwrap()];
                 debug_assert_ne!(fail_idx, DEAD_STATE_IDX);
                 self.states[idx].set_fail(fail_idx);
             }

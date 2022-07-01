@@ -9,10 +9,8 @@ use crate::errors::{DaachorseError, Result};
 use crate::intpack::U24;
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID};
 
-// The maximum value of each double-array block.
-const BLOCK_MAX: u8 = u8::MAX;
 // The length of each double-array block.
-const BLOCK_LEN: u32 = BLOCK_MAX as u32 + 1;
+const BLOCK_LEN: u32 = 256;
 
 // Specialized [`NfaBuilder`] handling labels of `u8`.
 type BytewiseNfaBuilder = NfaBuilder<u8>;
@@ -161,7 +159,7 @@ impl DoubleArrayAhoCorasickBuilder {
         let patvals = patterns
             .into_iter()
             .enumerate()
-            .map(|(i, p)| (p, i.try_into().unwrap_or(0)));
+            .map(|(i, p)| (p, u32::try_from(i).unwrap_or(0)));
         self.build_with_values(patvals)
     }
 
@@ -233,7 +231,7 @@ impl DoubleArrayAhoCorasickBuilder {
         if nfa.len == 0 {
             return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
         }
-        if nfa.len > U24::MAX as usize {
+        if nfa.len > usize::try_from(U24::MAX).unwrap() {
             return Err(DaachorseError::automaton_scale("patvals.len()", U24::MAX));
         }
         let q = match self.match_kind {
@@ -248,7 +246,7 @@ impl DoubleArrayAhoCorasickBuilder {
         let mut helper = self.init_array()?;
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
-        state_id_map[ROOT_STATE_ID as usize] = ROOT_STATE_IDX;
+        state_id_map[usize::try_from(ROOT_STATE_ID).unwrap()] = ROOT_STATE_IDX;
 
         // Arranges base & check values
         let mut stack = vec![ROOT_STATE_ID];
@@ -256,10 +254,11 @@ impl DoubleArrayAhoCorasickBuilder {
 
         while let Some(state_id) = stack.pop() {
             debug_assert_ne!(state_id, DEAD_STATE_ID);
-            let state = &nfa.states[state_id as usize];
+            let state = &nfa.states[usize::try_from(state_id).unwrap()];
 
-            let state_idx = state_id_map[state_id as usize] as usize;
-            debug_assert_ne!(state_idx, DEAD_STATE_IDX as usize);
+            let state_idx =
+                usize::try_from(state_id_map[usize::try_from(state_id).unwrap()]).unwrap();
+            debug_assert_ne!(state_idx, usize::try_from(DEAD_STATE_IDX).unwrap());
 
             let s = &state.borrow();
             if s.edges.is_empty() {
@@ -270,15 +269,15 @@ impl DoubleArrayAhoCorasickBuilder {
             s.edges.keys().for_each(|&k| labels.push(k));
 
             let base = self.find_base(&labels, &helper);
-            if base.get() as usize >= self.states.len() {
+            if usize::try_from(base.get()).unwrap() >= self.states.len() {
                 self.extend_array(&mut helper)?;
             }
 
             for (&c, &child_id) in &s.edges {
                 let child_idx = base.get() ^ u32::from(c);
                 helper.use_index(child_idx);
-                self.states[child_idx as usize].set_check(c);
-                state_id_map[child_id as usize] = child_idx;
+                self.states[usize::try_from(child_idx).unwrap()].set_check(c);
+                state_id_map[usize::try_from(child_id).unwrap()] = child_idx;
                 stack.push(child_id);
             }
             self.states[state_idx].set_base(base);
@@ -287,12 +286,12 @@ impl DoubleArrayAhoCorasickBuilder {
 
         // Sets fail & output_pos values
         for (i, state) in nfa.states.iter().enumerate() {
-            if i == DEAD_STATE_ID as usize {
+            if i == usize::try_from(DEAD_STATE_ID).unwrap() {
                 continue;
             }
 
-            let idx = state_id_map[i] as usize;
-            debug_assert_ne!(idx, DEAD_STATE_IDX as usize);
+            let idx = usize::try_from(state_id_map[i]).unwrap();
+            debug_assert_ne!(idx, usize::try_from(DEAD_STATE_IDX).unwrap());
 
             let s = &state.borrow();
             self.states[idx].set_output_pos(s.output_pos)?;
@@ -301,7 +300,7 @@ impl DoubleArrayAhoCorasickBuilder {
             if fail_id == DEAD_STATE_ID {
                 self.states[idx].set_fail(DEAD_STATE_IDX);
             } else {
-                let fail_idx = state_id_map[fail_id as usize];
+                let fail_idx = state_id_map[usize::try_from(fail_id).unwrap()];
                 debug_assert_ne!(fail_idx, DEAD_STATE_IDX);
                 self.states[idx].set_fail(fail_idx);
             }
@@ -334,7 +333,7 @@ impl DoubleArrayAhoCorasickBuilder {
             }
         }
         // len() is not 0 since states has at least BLOCK_LEN items.
-        NonZeroU32::new(self.states.len().try_into().unwrap()).unwrap()
+        NonZeroU32::new(u32::try_from(self.states.len()).unwrap()).unwrap()
     }
 
     #[inline(always)]
@@ -372,10 +371,10 @@ impl DoubleArrayAhoCorasickBuilder {
     /// Embeds valid CHECK values for all vacant elements in the block to avoid invalid transitions.
     fn remove_invalid_checks(&mut self, block_idx: u32, helper: &BuildHelper) {
         if let Some(unused_base) = helper.unused_base_in_block(block_idx) {
-            for c in 0..=BLOCK_MAX {
+            for c in u8::MIN..=u8::MAX {
                 let idx = unused_base ^ u32::from(c);
                 if idx == ROOT_STATE_IDX || idx == DEAD_STATE_IDX || !helper.is_used_index(idx) {
-                    self.states[idx as usize].set_check(c);
+                    self.states[usize::try_from(idx).unwrap()].set_check(c);
                 }
             }
         }

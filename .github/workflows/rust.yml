@@ -66,6 +66,7 @@ jobs:
             -W clippy::unnecessary-wraps
             -W clippy::unreadable-literal
             -W clippy::unused-self
+            -W clippy::as-conversions
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1

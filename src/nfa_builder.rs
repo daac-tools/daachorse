@@ -88,7 +88,9 @@ where
         for &c in pattern {
             if self.match_kind.is_leftmost_first() {
                 // If state_id has an output, the descendants will never searched.
-                let output = &self.states[state_id as usize].borrow().output;
+                let output = &self.states[usize::try_from(state_id).unwrap()]
+                    .borrow()
+                    .output;
                 if output.is_some() {
                     return Ok(());
                 }
@@ -96,8 +98,8 @@ where
 
             if let Some(next_state_id) = self.get_child_id(state_id, c) {
                 state_id = next_state_id;
-            } else if let Ok(next_state_id) = self.states.len().try_into() {
-                self.states[state_id as usize]
+            } else if let Ok(next_state_id) = u32::try_from(self.states.len()) {
+                self.states[usize::try_from(state_id).unwrap()]
                     .borrow_mut()
                     .edges
                     .insert(c, next_state_id);
@@ -109,7 +111,9 @@ where
             }
         }
 
-        let output = &mut self.states[state_id as usize].borrow_mut().output;
+        let output = &mut self.states[usize::try_from(state_id).unwrap()]
+            .borrow_mut()
+            .output;
         if output.replace((value, pattern_len)).is_some() {
             return Err(DaachorseError::duplicate_pattern(format!("{:?}", pattern)));
         }
@@ -120,13 +124,17 @@ where
 
     pub(crate) fn build_fails(&mut self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
-        for &child_id in self.states[ROOT_STATE_ID as usize].borrow().edges.values() {
+        for &child_id in self.states[usize::try_from(ROOT_STATE_ID).unwrap()]
+            .borrow()
+            .edges
+            .values()
+        {
             q.push(child_id);
         }
 
         let mut qi = 0;
         while qi < q.len() {
-            let state_id = q[qi] as usize;
+            let state_id = usize::try_from(q[qi]).unwrap();
             qi += 1;
 
             let s = &self.states[state_id].borrow();
@@ -136,13 +144,15 @@ where
                     if let Some(child_fail_id) = self.get_child_id(fail_id, c) {
                         break child_fail_id;
                     }
-                    let next_fail_id = self.states[fail_id as usize].borrow().fail;
+                    let next_fail_id = self.states[usize::try_from(fail_id).unwrap()].borrow().fail;
                     if fail_id == ROOT_STATE_ID && next_fail_id == ROOT_STATE_ID {
                         break ROOT_STATE_ID;
                     }
                     fail_id = next_fail_id;
                 };
-                self.states[child_id as usize].borrow_mut().fail = new_fail_id;
+                self.states[usize::try_from(child_id).unwrap()]
+                    .borrow_mut()
+                    .fail = new_fail_id;
                 q.push(child_id);
             }
         }
@@ -151,13 +161,17 @@ where
 
     pub(crate) fn build_fails_leftmost(&mut self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
-        for &child_id in self.states[ROOT_STATE_ID as usize].borrow().edges.values() {
+        for &child_id in self.states[usize::try_from(ROOT_STATE_ID).unwrap()]
+            .borrow()
+            .edges
+            .values()
+        {
             q.push(child_id);
         }
 
         let mut qi = 0;
         while qi < q.len() {
-            let state_id = q[qi] as usize;
+            let state_id = usize::try_from(q[qi]).unwrap();
             qi += 1;
 
             let s = &mut self.states[state_id].borrow_mut();
@@ -178,7 +192,8 @@ where
                         if let Some(child_fail_id) = self.get_child_id(fail_id, c) {
                             break child_fail_id;
                         }
-                        let next_fail_id = self.states[fail_id as usize].borrow().fail;
+                        let next_fail_id =
+                            self.states[usize::try_from(fail_id).unwrap()].borrow().fail;
                         if next_fail_id == DEAD_STATE_ID {
                             break DEAD_STATE_ID;
                         }
@@ -189,7 +204,9 @@ where
                     }
                 };
 
-                self.states[child_id as usize].borrow_mut().fail = new_fail_id;
+                self.states[usize::try_from(child_id).unwrap()]
+                    .borrow_mut()
+                    .fail = new_fail_id;
                 q.push(child_id);
             }
         }
@@ -206,21 +223,25 @@ where
         self.outputs.push(Output::new(0, 0, None));
 
         for &state_id in q {
-            let s = &mut self.states[state_id as usize].borrow_mut();
+            let s = &mut self.states[usize::try_from(state_id).unwrap()].borrow_mut();
             if let Some(output) = s.output {
-                s.output_pos = NonZeroU32::new(self.outputs.len().try_into().unwrap());
-                let parent = self.states[s.fail as usize].borrow().output_pos;
+                s.output_pos = NonZeroU32::new(u32::try_from(self.outputs.len()).unwrap());
+                let parent = self.states[usize::try_from(s.fail).unwrap()]
+                    .borrow()
+                    .output_pos;
                 self.outputs
                     .push(Output::new(output.0, output.1.get(), parent));
             } else {
-                s.output_pos = self.states[s.fail as usize].borrow().output_pos;
+                s.output_pos = self.states[usize::try_from(s.fail).unwrap()]
+                    .borrow()
+                    .output_pos;
             }
         }
     }
 
     #[inline(always)]
     fn get_child_id(&self, state_id: u32, c: L) -> Option<u32> {
-        self.states[state_id as usize]
+        self.states[usize::try_from(state_id).unwrap()]
             .borrow()
             .edges
             .get(&c)

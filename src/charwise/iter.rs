@@ -137,12 +137,16 @@ where
         if let Some(output_pos) = self.output_pos {
             // output_pos.get() is always smaller than self.pma.outputs.len() because
             // Output::parent() ensures to return such a value when it is Some.
-            let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+            let out = unsafe {
+                self.pma
+                    .outputs
+                    .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+            };
             self.output_pos = out.parent();
             return Some(Match {
-                length: out.length() as usize,
+                length: usize::try_from(out.length()).unwrap(),
                 end: self.pos,
-                value: out.value() as usize,
+                value: usize::try_from(out.value()).unwrap(),
             });
         }
 
@@ -155,17 +159,21 @@ where
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(self.state_id as usize)
+                    .get_unchecked(usize::try_from(self.state_id).unwrap())
                     .output_pos()
             } {
                 // output_pos.get() is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
-                let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+                let out = unsafe {
+                    self.pma
+                        .outputs
+                        .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+                };
                 self.output_pos = out.parent();
                 return Some(Match {
-                    length: out.length() as usize,
+                    length: usize::try_from(out.length()).unwrap(),
                     end: pos,
-                    value: out.value() as usize,
+                    value: usize::try_from(out.value()).unwrap(),
                 });
             }
         }
@@ -189,16 +197,20 @@ where
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(state_id as usize)
+                    .get_unchecked(usize::try_from(state_id).unwrap())
                     .output_pos()
             } {
                 // output_pos is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
-                let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+                let out = unsafe {
+                    self.pma
+                        .outputs
+                        .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+                };
                 return Some(Match {
-                    length: out.length() as usize,
+                    length: usize::try_from(out.length()).unwrap(),
                     end: pos,
-                    value: out.value() as usize,
+                    value: usize::try_from(out.value()).unwrap(),
                 });
             }
         }
@@ -221,16 +233,20 @@ where
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(self.state_id as usize)
+                    .get_unchecked(usize::try_from(self.state_id).unwrap())
                     .output_pos()
             } {
                 // output_pos is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
-                let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+                let out = unsafe {
+                    self.pma
+                        .outputs
+                        .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+                };
                 return Some(Match {
-                    length: out.length() as usize,
+                    length: usize::try_from(out.length()).unwrap(),
                     end: pos,
-                    value: out.value() as usize,
+                    value: usize::try_from(out.value()).unwrap(),
                 });
             }
         }
@@ -260,11 +276,15 @@ where
                 if let Some(output_pos) = last_output_pos {
                     // last_output_pos is always smaller than self.pma.outputs.len() because
                     // State::output_pos() ensures to return such a value when it is Some.
-                    let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+                    let out = unsafe {
+                        self.pma
+                            .outputs
+                            .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+                    };
                     return Some(Match {
-                        length: out.length() as usize,
+                        length: usize::try_from(out.length()).unwrap(),
                         end: self.pos,
-                        value: out.value() as usize,
+                        value: usize::try_from(out.value()).unwrap(),
                     });
                 }
             // state_id is always smaller than self.pma.states.len() because
@@ -272,7 +292,7 @@ where
             } else if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(state_id as usize)
+                    .get_unchecked(usize::try_from(state_id).unwrap())
                     .output_pos()
             } {
                 last_output_pos.replace(output_pos);
@@ -284,11 +304,15 @@ where
         last_output_pos.map(|output_pos| {
             // last_output_pos is always smaller than self.pma.outputs.len() because
             // State::output_pos() ensures to return such a value when it is Some.
-            let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+            let out = unsafe {
+                self.pma
+                    .outputs
+                    .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+            };
             Match {
-                length: out.length() as usize,
+                length: usize::try_from(out.length()).unwrap(),
                 end: self.pos,
-                value: out.value() as usize,
+                value: usize::try_from(out.value()).unwrap(),
             }
         })
     }

@@ -329,3 +329,13 @@ impl From<u8> for MatchKind {
         }
     }
 }
+
+impl From<MatchKind> for u8 {
+    fn from(src: MatchKind) -> Self {
+        match src {
+            MatchKind::Standard => 0,
+            MatchKind::LeftmostLongest => 1,
+            MatchKind::LeftmostFirst => 2,
+        }
+    }
+}

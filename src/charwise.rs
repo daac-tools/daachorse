@@ -628,7 +628,7 @@ impl CharwiseDoubleArrayAhoCorasick {
         for output in &self.outputs {
             wtr.write_all(&output.serialize())?;
         }
-        wtr.write_all(&[self.match_kind as u8])?;
+        wtr.write_all(&[self.match_kind.into()])?;
         wtr.write_all(&u32::try_from(self.num_states).unwrap().to_le_bytes())?;
         Ok(())
     }
@@ -662,7 +662,7 @@ impl CharwiseDoubleArrayAhoCorasick {
         for output in &self.outputs {
             result.extend_from_slice(&output.serialize());
         }
-        result.push(self.match_kind as u8);
+        result.push(self.match_kind.into());
         result.extend_from_slice(&u32::try_from(self.num_states).unwrap().to_le_bytes());
         result
     }
@@ -723,7 +723,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     {
         let mut states_len_array = [0; 4];
         rdr.read_exact(&mut states_len_array)?;
-        let states_len = u32::from_le_bytes(states_len_array) as usize;
+        let states_len = usize::try_from(u32::from_le_bytes(states_len_array)).unwrap();
         let mut states = Vec::with_capacity(states_len);
         for _ in 0..states_len {
             let mut state_array = [0; 16];
@@ -735,7 +735,7 @@ impl CharwiseDoubleArrayAhoCorasick {
 
         let mut outputs_len_array = [0; 4];
         rdr.read_exact(&mut outputs_len_array)?;
-        let outputs_len = u32::from_le_bytes(outputs_len_array) as usize;
+        let outputs_len = usize::try_from(u32::from_le_bytes(outputs_len_array)).unwrap();
         let mut outputs = Vec::with_capacity(outputs_len);
         for _ in 0..outputs_len {
             let mut output_array = [0; 12];
@@ -749,7 +749,7 @@ impl CharwiseDoubleArrayAhoCorasick {
 
         let mut num_states_array = [0; 4];
         rdr.read_exact(&mut num_states_array)?;
-        let num_states = u32::from_le_bytes(num_states_array) as usize;
+        let num_states = usize::try_from(u32::from_le_bytes(num_states_array)).unwrap();
 
         Ok(Self {
             states,
@@ -804,7 +804,9 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// ```
     #[must_use]
     pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
+        let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap())
+            .try_into()
+            .unwrap();
         source = &source[4..];
         let mut states = Vec::with_capacity(states_len);
         for _ in 0..states_len {
@@ -814,7 +816,9 @@ impl CharwiseDoubleArrayAhoCorasick {
 
         let (mapper, mut source) = CodeMapper::deserialize_from_slice_unchecked(source);
 
-        let outputs_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
+        let outputs_len = u32::from_le_bytes(source[0..4].try_into().unwrap())
+            .try_into()
+            .unwrap();
         source = &source[4..];
         let mut outputs = Vec::with_capacity(outputs_len);
         for _ in 0..outputs_len {
@@ -824,7 +828,7 @@ impl CharwiseDoubleArrayAhoCorasick {
 
         let match_kind = MatchKind::from(source[0]);
         let num_states_array: [u8; 4] = source[1..5].try_into().unwrap();
-        let num_states = u32::from_le_bytes(num_states_array) as usize;
+        let num_states = usize::try_from(u32::from_le_bytes(num_states_array)).unwrap();
 
         (
             Self {
@@ -844,14 +848,22 @@ impl CharwiseDoubleArrayAhoCorasick {
     #[allow(clippy::cast_possible_wrap)]
     #[inline(always)]
     unsafe fn get_child_index_unchecked(&self, state_id: u32, mapped_c: u32) -> Option<u32> {
-        let base = self.states.get_unchecked(state_id as usize).base()?;
+        let base = self
+            .states
+            .get_unchecked(usize::try_from(state_id).unwrap())
+            .base()?;
         // child_idx is always smaller than states.len() because
         //  - states.len() is a multiple of (1 << k),
         //    where k is the number of bits needed to represent mapped_c.
         //  - base() is always smaller than states.len() when it is Some.
         let child_idx = base.get() ^ mapped_c;
-        if self.states.get_unchecked(child_idx as usize).check() == state_id {
-            Some(child_idx as u32)
+        if self
+            .states
+            .get_unchecked(usize::try_from(child_idx).unwrap())
+            .check()
+            == state_id
+        {
+            Some(child_idx)
         } else {
             None
         }
@@ -870,7 +882,10 @@ impl CharwiseDoubleArrayAhoCorasick {
                 if state_id == ROOT_STATE_IDX {
                     return ROOT_STATE_IDX;
                 }
-                state_id = self.states.get_unchecked(state_id as usize).fail();
+                state_id = self
+                    .states
+                    .get_unchecked(usize::try_from(state_id).unwrap())
+                    .fail();
             }
         } else {
             ROOT_STATE_IDX
@@ -890,7 +905,10 @@ impl CharwiseDoubleArrayAhoCorasick {
                 if state_id == ROOT_STATE_IDX {
                     return ROOT_STATE_IDX;
                 }
-                let fail_id = self.states.get_unchecked(state_id as usize).fail();
+                let fail_id = self
+                    .states
+                    .get_unchecked(usize::try_from(state_id).unwrap())
+                    .fail();
                 if fail_id == DEAD_STATE_IDX {
                     return ROOT_STATE_IDX;
                 }

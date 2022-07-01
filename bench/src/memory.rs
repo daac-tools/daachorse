@@ -62,7 +62,7 @@ fn show_memory_stats(patterns: &[String]) {
                 .iter()
                 .cloned()
                 .enumerate()
-                .map(|(i, pattern)| (pattern, i as u64)),
+                .map(|(i, pattern)| (pattern, u64::try_from(i).unwrap())),
         )
         .unwrap();
         format_memory("fst", fst.as_bytes().len());
@@ -81,6 +81,7 @@ fn show_memory_stats(patterns: &[String]) {
     }
 }
 
+#[allow(clippy::as_conversions)]
 fn format_memory(title: &str, bytes: usize) {
     println!(
         "{}: {} bytes, {:.3} MiB",

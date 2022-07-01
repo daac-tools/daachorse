@@ -24,11 +24,11 @@ impl CodeMapper {
         };
         let mut table = vec![INVALID_CODE; freqs.len()];
         for (i, &(c, _)) in sorted.iter().enumerate() {
-            table[c] = i.try_into().unwrap();
+            table[c] = u32::try_from(i).unwrap();
         }
         Self {
             table,
-            alphabet_size: sorted.len().try_into().unwrap(),
+            alphabet_size: u32::try_from(sorted.len()).unwrap(),
         }
     }
 
@@ -85,7 +85,7 @@ impl CodeMapper {
     {
         let mut len_array = [0; 4];
         rdr.read_exact(&mut len_array)?;
-        let len = u32::from_le_bytes(len_array) as usize;
+        let len = usize::try_from(u32::from_le_bytes(len_array)).unwrap();
         let mut table = Vec::with_capacity(len);
         for _ in 0..len {
             let mut x = [0; 4];
@@ -102,7 +102,9 @@ impl CodeMapper {
     }
 
     pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
+        let len = u32::from_le_bytes(source[0..4].try_into().unwrap())
+            .try_into()
+            .unwrap();
         source = &source[4..];
         let mut table = Vec::with_capacity(len);
         for _ in 0..len {
