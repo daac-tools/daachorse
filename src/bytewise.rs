@@ -14,6 +14,7 @@ use std::io::{self, Read, Write};
 use crate::build_helper::BuildHelper;
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
+use crate::serializer::{Deserialize, Serialize};
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use iter::{
@@ -586,16 +587,22 @@ impl DoubleArrayAhoCorasick {
     where
         W: Write,
     {
-        wtr.write_all(&u32::try_from(self.states.len()).unwrap().to_le_bytes())?;
+        u32::try_from(self.states.len())
+            .unwrap()
+            .to_writer(&mut wtr)?;
         for state in &self.states {
-            wtr.write_all(&state.serialize())?;
+            state.to_writer(&mut wtr)?;
         }
-        wtr.write_all(&u32::try_from(self.outputs.len()).unwrap().to_le_bytes())?;
+        u32::try_from(self.outputs.len())
+            .unwrap()
+            .to_writer(&mut wtr)?;
         for output in &self.outputs {
-            wtr.write_all(&output.serialize())?;
+            output.to_writer(&mut wtr)?;
         }
         wtr.write_all(&[self.match_kind as u8])?;
-        wtr.write_all(&u32::try_from(self.num_states).unwrap().to_le_bytes())?;
+        u32::try_from(self.num_states)
+            .unwrap()
+            .to_writer(&mut wtr)?;
         Ok(())
     }
 
@@ -685,32 +692,22 @@ impl DoubleArrayAhoCorasick {
     where
         R: Read,
     {
-        let mut states_len_array = [0; 4];
-        rdr.read_exact(&mut states_len_array)?;
-        let states_len = u32::from_le_bytes(states_len_array) as usize;
+        let states_len = u32::from_reader(&mut rdr)? as usize;
         let mut states = Vec::with_capacity(states_len);
         for _ in 0..states_len {
-            let mut state_array = [0; 12];
-            rdr.read_exact(&mut state_array)?;
-            states.push(State::deserialize(state_array));
+            states.push(State::from_reader(&mut rdr)?);
         }
-        let mut outputs_len_array = [0; 4];
-        rdr.read_exact(&mut outputs_len_array)?;
-        let outputs_len = u32::from_le_bytes(outputs_len_array) as usize;
+        let outputs_len = u32::from_reader(&mut rdr)? as usize;
         let mut outputs = Vec::with_capacity(outputs_len);
         for _ in 0..outputs_len {
-            let mut output_array = [0; 12];
-            rdr.read_exact(&mut output_array)?;
-            outputs.push(Output::deserialize(output_array));
+            outputs.push(Output::from_reader(&mut rdr)?);
         }
 
         let mut match_kind_array = [0];
         rdr.read_exact(&mut match_kind_array)?;
         let match_kind = MatchKind::from(match_kind_array[0]);
 
-        let mut num_states_array = [0; 4];
-        rdr.read_exact(&mut num_states_array)?;
-        let num_states = u32::from_le_bytes(num_states_array) as usize;
+        let num_states = u32::from_reader(&mut rdr)? as usize;
 
         Ok(Self {
             states,
@@ -763,20 +760,20 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
-        source = &source[4..];
-        let mut states = Vec::with_capacity(states_len);
+    pub unsafe fn deserialize_from_slice_unchecked(source: &[u8]) -> (Self, &[u8]) {
+        let (states_len, mut source) = u32::from_slice(source);
+        let mut states = Vec::with_capacity(usize::try_from(states_len).unwrap());
         for _ in 0..states_len {
-            states.push(State::deserialize(source[0..12].try_into().unwrap()));
-            source = &source[12..];
+            let (state, next_source) = State::from_slice(source);
+            states.push(state);
+            source = next_source;
         }
-        let outputs_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
-        source = &source[4..];
-        let mut outputs = Vec::with_capacity(outputs_len);
+        let (outputs_len, mut source) = u32::from_slice(source);
+        let mut outputs = Vec::with_capacity(usize::try_from(outputs_len).unwrap());
         for _ in 0..outputs_len {
-            outputs.push(Output::deserialize(source[0..12].try_into().unwrap()));
-            source = &source[12..];
+            let (output, next_source) = Output::from_slice(source);
+            outputs.push(output);
+            source = next_source;
         }
 
         let match_kind = MatchKind::from(source[0]);
@@ -923,6 +920,47 @@ impl State {
             fail: u32::from_le_bytes(input[4..8].try_into().unwrap()),
             opos_ch: U24nU8::from_le_bytes(input[8..12].try_into().unwrap()),
         }
+    }
+}
+
+impl Serialize for State {
+    #[cfg(feature = "std")]
+    fn to_writer<W>(&self, mut wtr: W) -> io::Result<()>
+    where
+        W: Write,
+    {
+        self.base.to_writer(&mut wtr)?;
+        self.fail.to_writer(&mut wtr)?;
+        self.opos_ch.to_writer(&mut wtr)?;
+        Ok(())
+    }
+}
+
+impl Deserialize for State {
+    #[cfg(feature = "std")]
+    unsafe fn from_reader<R>(mut rdr: R) -> io::Result<Self>
+    where
+        R: Read,
+    {
+        Ok(Self {
+            base: NonZeroU32::new(u32::from_reader(&mut rdr)?),
+            fail: u32::from_reader(&mut rdr)?,
+            opos_ch: U24nU8::from_reader(&mut rdr)?,
+        })
+    }
+
+    unsafe fn from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (base, src) = u32::from_slice(src);
+        let (fail, src) = u32::from_slice(src);
+        let (opos_ch, src) = U24nU8::from_slice(src);
+        (
+            Self {
+                base: NonZeroU32::new(base),
+                fail,
+                opos_ch,
+            },
+            src,
+        )
     }
 }
 

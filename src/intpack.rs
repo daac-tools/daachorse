@@ -1,3 +1,8 @@
+#[cfg(feature = "std")]
+use std::io::{self, Read, Write};
+
+use crate::serializer::{Deserialize, Serialize};
+
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
 pub struct U24(u32);
 
@@ -55,5 +60,30 @@ impl U24nU8 {
     #[inline(always)]
     pub const fn from_le_bytes(bytes: [u8; 4]) -> Self {
         Self(u32::from_le_bytes(bytes))
+    }
+}
+
+impl Serialize for U24nU8 {
+    #[cfg(feature = "std")]
+    fn to_writer<W>(&self, wtr: W) -> io::Result<()>
+    where
+        W: Write,
+    {
+        self.0.to_writer(wtr)
+    }
+}
+
+impl Deserialize for U24nU8 {
+    #[cfg(feature = "std")]
+    unsafe fn from_reader<R>(rdr: R) -> io::Result<Self>
+    where
+        R: Read,
+    {
+        Ok(Self(u32::from_reader(rdr)?))
+    }
+
+    unsafe fn from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (x, src) = u32::from_slice(src);
+        (Self(x), src)
     }
 }

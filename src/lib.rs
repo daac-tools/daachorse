@@ -189,12 +189,17 @@ pub mod charwise;
 pub mod errors;
 mod intpack;
 mod nfa_builder;
+mod serializer;
 
 use core::num::NonZeroU32;
+
+#[cfg(feature = "std")]
+use std::io::{self, Read, Write};
 
 use build_helper::BuildHelper;
 pub use bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
 pub use charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
+use serializer::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 struct Output {
@@ -244,6 +249,47 @@ impl Output {
             length: u32::from_le_bytes(input[4..8].try_into().unwrap()),
             parent: NonZeroU32::new(u32::from_le_bytes(input[8..12].try_into().unwrap())),
         }
+    }
+}
+
+impl Serialize for Output {
+    #[cfg(feature = "std")]
+    fn to_writer<W>(&self, mut wtr: W) -> io::Result<()>
+    where
+        W: Write,
+    {
+        self.value.to_writer(&mut wtr)?;
+        self.length.to_writer(&mut wtr)?;
+        self.parent.to_writer(&mut wtr)?;
+        Ok(())
+    }
+}
+
+impl Deserialize for Output {
+    #[cfg(feature = "std")]
+    unsafe fn from_reader<R>(mut rdr: R) -> io::Result<Self>
+    where
+        R: Read,
+    {
+        Ok(Self {
+            value: u32::from_reader(&mut rdr)?,
+            length: u32::from_reader(&mut rdr)?,
+            parent: Option::<NonZeroU32>::from_reader(&mut rdr)?,
+        })
+    }
+
+    unsafe fn from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (value, src) = u32::from_slice(src);
+        let (length, src) = u32::from_slice(src);
+        let (parent, src) = Option::<NonZeroU32>::from_slice(src);
+        (
+            Self {
+                value,
+                length,
+                parent,
+            },
+            src,
+        )
     }
 }
 
