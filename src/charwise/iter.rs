@@ -9,6 +9,7 @@ use crate::charwise::ROOT_STATE_IDX;
 use crate::Match;
 
 /// Iterator for some struct that implements [`AsRef<str>`].
+#[doc(hidden)]
 pub struct StrIterator<P> {
     inner: P,
     pos: usize,
@@ -39,6 +40,7 @@ where
 }
 
 /// Iterator for UTF-8 strings with end positions.
+#[doc(hidden)]
 pub struct CharWithEndOffsetIterator<I> {
     inner: Enumerate<I>,
 }
