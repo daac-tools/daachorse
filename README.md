@@ -203,7 +203,7 @@ assert_eq!(None, it.next());
 
 ## `no_std`
 
-Daachorse has no dependency on `std`.
+Daachorse has no dependency on `std` (but requires a global allocator with the `alloc` crate).
 
 ## CLI
 
