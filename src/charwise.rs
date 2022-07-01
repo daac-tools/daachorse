@@ -26,14 +26,13 @@ const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
 const DEAD_STATE_IDX: u32 = 1;
 
-/// Fast multiple pattern match automaton implemented
-/// with the Aho-Corasick algorithm and character-wise double-array data structure.
+/// Fast multiple pattern match automaton implemented with the Aho-Corasick algorithm and
+/// character-wise double-array data structure.
 ///
-/// The standard version [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick)
-/// handles strings as UTF-8 sequences
-/// and defines transition labels using byte integers.
-/// On the other hand, the character-wise version uses code point values of Unicode,
-/// resulting in reducing the number of transitions and faster matching on multibyte characters.
+/// The standard version [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick) handles strings
+/// as UTF-8 sequences and defines transition labels using byte integers. On the other hand, the
+/// character-wise version uses code point values of Unicode, resulting in reducing the number of
+/// transitions and faster matching on multibyte characters.
 ///
 /// # Features
 ///
@@ -51,11 +50,11 @@ const DEAD_STATE_IDX: u32 = 1;
 ///
 /// [`CharwiseDoubleArrayAhoCorasick`] supports the following two types of input data:
 ///
-/// - [`CharwiseDoubleArrayAhoCorasick::new`] builds an automaton from a set of UTF-8 strings
-///    while assigning unique identifiers in the input order.
+/// - [`CharwiseDoubleArrayAhoCorasick::new`] builds an automaton from a set of UTF-8 strings while
+///   assigning unique identifiers in the input order.
 ///
 /// - [`CharwiseDoubleArrayAhoCorasick::with_values`] builds an automaton
-///    from a set of pairs of a UTF-8 string and a `u32` value.
+///   from a set of pairs of a UTF-8 string and a [`u32`] value.
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct CharwiseDoubleArrayAhoCorasick {
     states: Vec<State>,
@@ -66,8 +65,8 @@ pub struct CharwiseDoubleArrayAhoCorasick {
 }
 
 impl CharwiseDoubleArrayAhoCorasick {
-    /// Creates a new [`CharwiseDoubleArrayAhoCorasick`] from input patterns.
-    /// The value `i` is automatically associated with `patterns[i]`.
+    /// Creates a new [`CharwiseDoubleArrayAhoCorasick`] from input patterns. The value `i` is
+    /// automatically associated with `patterns[i]`.
     ///
     /// # Arguments
     ///
@@ -112,7 +111,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Arguments
     ///
-    /// * `patvals` - List of pattern-value pairs, in which the value is of type `u32` and less than `u32::MAX`.
+    /// * `patvals` - List of pattern-value pairs, in which the value is of type [`u32`] and less
+    /// than [`u32::MAX`].
     ///
     /// # Errors
     ///
@@ -158,8 +158,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -201,8 +201,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Safety
     ///
@@ -250,8 +250,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -299,8 +299,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Safety
     ///
@@ -363,8 +363,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will call panic!.
     ///
     /// # Examples
     ///
@@ -416,8 +416,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
     ///
     /// # Safety
     ///
@@ -463,11 +463,12 @@ impl CharwiseDoubleArrayAhoCorasick {
 
     /// Returns an iterator of leftmost matches in the given haystack.
     ///
-    /// The leftmost match greedily searches the longest possible match at each iteration, and
-    /// the match results do not overlap positionally such as [`CharwiseDoubleArrayAhoCorasick::find_iter()`].
+    /// The leftmost match greedily searches the longest possible match at each iteration, and the
+    /// match results do not overlap positionally such as
+    /// [`CharwiseDoubleArrayAhoCorasick::find_iter()`].
     ///
-    /// According to the [`MatchKind`] option you specified in the construction,
-    /// the behavior is changed for multiple possible matches, as follows.
+    /// According to the [`MatchKind`] option you specified in the construction, the behavior is
+    /// changed for multiple possible matches, as follows.
     ///
     ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match
     ///    corresponding to the longest pattern.
@@ -481,8 +482,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// # Panics
     ///
-    /// When you do not specify `MatchKind::{LeftmostFirst,LeftmostLongest}` in the construction,
-    /// the iterator is not supported and the function will call panic!.
+    /// If you do not specify [`MatchKind::LeftmostFirst`] or [`MatchKind::LeftmostLongest`] in the
+    /// construction, the iterator is not supported and the function will call panic!.
     ///
     /// # Examples
     ///

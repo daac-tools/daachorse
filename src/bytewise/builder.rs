@@ -97,9 +97,9 @@ impl DoubleArrayAhoCorasickBuilder {
     /// The smaller the number is, the faster the construction time will be;
     /// however, the memory efficiency can be degraded.
     ///
-    /// A fixed length of memory is allocated in proportion to this value in construction.
-    /// If an allocation error occurs during building the automaton even though the pattern set is
-    /// small, try setting a smaller value.
+    /// A fixed length of memory is allocated in proportion to this value in construction. If an
+    /// allocation error occurs during building the automaton even though the pattern set is small,
+    /// try setting a smaller value.
     ///
     /// # Arguments
     ///
@@ -115,8 +115,8 @@ impl DoubleArrayAhoCorasickBuilder {
         self
     }
 
-    /// Builds and returns a new [`DoubleArrayAhoCorasick`] from input patterns.
-    /// The value `i` is automatically associated with `patterns[i]`.
+    /// Builds and returns a new [`DoubleArrayAhoCorasick`] from input patterns. The value `i` is
+    /// automatically associated with `patterns[i]`.
     ///
     /// # Arguments
     ///
@@ -169,7 +169,8 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// # Arguments
     ///
-    /// * `patvals` - List of pattern-value pairs, where the value is of type `u32` and less than `u32::MAX`.
+    /// * `patvals` - List of pattern-value pairs, where the value is of type [`u32`] and less than
+    /// [`u32::MAX`].
     ///
     /// # Errors
     ///
@@ -368,8 +369,7 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(())
     }
 
-    /// Embeds valid CHECK values for all vacant elements in the block
-    /// to avoid invalid transitions.
+    /// Embeds valid CHECK values for all vacant elements in the block to avoid invalid transitions.
     fn remove_invalid_checks(&mut self, block_idx: u32, helper: &BuildHelper) {
         if let Some(unused_base) = helper.unused_base_in_block(block_idx) {
             for c in 0..=BLOCK_MAX {
