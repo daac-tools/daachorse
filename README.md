@@ -204,7 +204,7 @@ assert_eq!(None, it.next());
 
 ## `no_std`
 
-To use this crate in a `no_std` environment, disable feature `std`.
+Daachorse has no dependency on `std` (but requires a global allocator with the `alloc` crate).
 
 ## CLI
 
