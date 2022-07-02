@@ -11,6 +11,7 @@ use alloc::vec::Vec;
 use crate::build_helper::BuildHelper;
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
+use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use iter::{
@@ -53,7 +54,7 @@ pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
     match_kind: MatchKind,
-    num_states: usize,
+    num_states: u32,
 }
 
 impl DoubleArrayAhoCorasick {
@@ -551,8 +552,8 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(pma.num_states(), 6);
     /// ```
     #[must_use]
-    pub const fn num_states(&self) -> usize {
-        self.num_states
+    pub fn num_states(&self) -> usize {
+        usize::from_u32(self.num_states)
     }
 
     /// Serializes the automaton into a [`Vec`].
@@ -566,6 +567,8 @@ impl DoubleArrayAhoCorasick {
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     /// ```
+    // Both states.len() and outputs.len() are less than or equal to u32::MAX.
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
@@ -583,7 +586,7 @@ impl DoubleArrayAhoCorasick {
             result.extend_from_slice(&output.serialize());
         }
         result.push(u8::from(self.match_kind));
-        result.extend_from_slice(&u32::try_from(self.num_states).unwrap().to_le_bytes());
+        result.extend_from_slice(&self.num_states.to_le_bytes());
         result
     }
 
@@ -630,25 +633,32 @@ impl DoubleArrayAhoCorasick {
     /// ```
     #[must_use]
     pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
+        let states_len = usize::from_u32(u32::from_le_bytes(
+            source[0..4].try_into().unwrap_unchecked(),
+        ));
         source = &source[4..];
         let mut states = Vec::with_capacity(states_len);
         for _ in 0..states_len {
-            states.push(State::deserialize(source[0..12].try_into().unwrap()));
+            states.push(State::deserialize(
+                source[0..12].try_into().unwrap_unchecked(),
+            ));
             source = &source[12..];
         }
-        let outputs_len =
-            usize::try_from(u32::from_le_bytes(source[0..4].try_into().unwrap())).unwrap();
+        let outputs_len = usize::from_u32(u32::from_le_bytes(
+            source[0..4].try_into().unwrap_unchecked(),
+        ));
         source = &source[4..];
         let mut outputs = Vec::with_capacity(outputs_len);
         for _ in 0..outputs_len {
-            outputs.push(Output::deserialize(source[0..12].try_into().unwrap()));
+            outputs.push(Output::deserialize(
+                source[0..12].try_into().unwrap_unchecked(),
+            ));
             source = &source[12..];
         }
 
         let match_kind = MatchKind::from(source[0]);
-        let num_states_array: [u8; 4] = source[1..5].try_into().unwrap();
-        let num_states = usize::try_from(u32::from_le_bytes(num_states_array)).unwrap();
+        let num_states_array: [u8; 4] = source[1..5].try_into().unwrap_unchecked();
+        let num_states = u32::from_le_bytes(num_states_array);
 
         (
             Self {
@@ -670,16 +680,12 @@ impl DoubleArrayAhoCorasick {
         //  - states.len() is 256 * k for some integer k, and
         //  - base() returns smaller than states.len() when it is Some.
         self.states
-            .get_unchecked(usize::try_from(state_id).unwrap())
+            .get_unchecked(usize::from_u32(state_id))
             .base()
             .and_then(|base| {
                 let child_idx = base.get() ^ u32::from(c);
-                Some(child_idx).filter(|&x| {
-                    self.states
-                        .get_unchecked(usize::try_from(x).unwrap())
-                        .check()
-                        == c
-                })
+                Some(child_idx)
+                    .filter(|&x| self.states.get_unchecked(usize::from_u32(x)).check() == c)
             })
     }
 
@@ -697,10 +703,7 @@ impl DoubleArrayAhoCorasick {
             if state_id == ROOT_STATE_IDX {
                 return ROOT_STATE_IDX;
             }
-            state_id = self
-                .states
-                .get_unchecked(usize::try_from(state_id).unwrap())
-                .fail();
+            state_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
         }
     }
 
@@ -718,10 +721,7 @@ impl DoubleArrayAhoCorasick {
             if state_id == ROOT_STATE_IDX {
                 return ROOT_STATE_IDX;
             }
-            let fail_id = self
-                .states
-                .get_unchecked(usize::try_from(state_id).unwrap())
-                .fail();
+            let fail_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
             if fail_id == DEAD_STATE_IDX {
                 return ROOT_STATE_IDX;
             }

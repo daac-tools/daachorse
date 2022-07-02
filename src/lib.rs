@@ -192,6 +192,7 @@ pub mod charwise;
 pub mod errors;
 mod intpack;
 mod nfa_builder;
+mod utils;
 
 use core::num::NonZeroU32;
 

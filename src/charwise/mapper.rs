@@ -1,5 +1,7 @@
 use alloc::vec::Vec;
 
+use crate::utils::FromU32;
+
 pub const INVALID_CODE: u32 = u32::MAX;
 
 #[derive(Default, Clone, Debug, Eq, Hash, PartialEq)]
@@ -32,7 +34,7 @@ impl CodeMapper {
     #[inline(always)]
     pub fn get(&self, c: char) -> Option<u32> {
         self.table
-            .get(usize::try_from(u32::from(c)).unwrap())
+            .get(usize::from_u32(u32::from(c)))
             .copied()
             .filter(|&code| code != INVALID_CODE)
     }
@@ -63,7 +65,7 @@ impl CodeMapper {
     }
 
     pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
+        let len = usize::from_u32(u32::from_le_bytes(source[0..4].try_into().unwrap()));
         source = &source[4..];
         let mut table = Vec::with_capacity(len);
         for _ in 0..len {

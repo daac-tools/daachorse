@@ -4,6 +4,7 @@ use core::ops::Range;
 use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
+use crate::utils::FromU32;
 
 /// Helper class in double-array construction to maintain indices of vacant elements and
 /// unused BASE values.
@@ -30,7 +31,7 @@ impl BuildHelper {
         let capacity = block_len.checked_mul(num_free_blocks).ok_or_else(|| {
             DaachorseError::automaton_scale("block_len * num_free_blocks", u32::MAX)
         })?;
-        let capacity = usize::try_from(capacity).unwrap();
+        let capacity = usize::from_u32(capacity);
         assert_ne!(capacity, 0);
 
         Ok(Self {
@@ -202,7 +203,7 @@ impl BuildHelper {
     #[inline(always)]
     fn offset(&self, idx: u32) -> usize {
         assert!(self.active_index_range().contains(&idx));
-        usize::try_from(idx % self.capacity()).unwrap()
+        usize::from_u32(idx % self.capacity())
     }
 }
 

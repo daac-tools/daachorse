@@ -7,6 +7,7 @@ use crate::bytewise::DoubleArrayAhoCorasick;
 use crate::Match;
 
 use crate::bytewise::ROOT_STATE_IDX;
+use crate::utils::FromU32;
 
 /// Iterator for some struct that implements [`AsRef<[u8]>`].
 #[doc(hidden)]
@@ -61,7 +62,7 @@ where
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(usize::try_from(state_id).unwrap())
+                    .get_unchecked(usize::from_u32(state_id))
                     .output_pos()
             } {
                 // output_pos is always smaller than self.pma.outputs.len() because
@@ -69,12 +70,12 @@ where
                 let out = unsafe {
                     self.pma
                         .outputs
-                        .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+                        .get_unchecked(usize::from_u32(output_pos.get()))
                 };
                 return Some(Match {
-                    length: usize::try_from(out.length()).unwrap(),
+                    length: usize::from_u32(out.length()),
                     end: pos + 1,
-                    value: usize::try_from(out.value()).unwrap(),
+                    value: usize::from_u32(out.value()),
                 });
             }
         }
@@ -105,13 +106,13 @@ where
             let out = unsafe {
                 self.pma
                     .outputs
-                    .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+                    .get_unchecked(usize::from_u32(output_pos.get()))
             };
             self.output_pos = out.parent();
             return Some(Match {
-                length: usize::try_from(out.length()).unwrap(),
+                length: usize::from_u32(out.length()),
                 end: self.pos,
-                value: usize::try_from(out.value()).unwrap(),
+                value: usize::from_u32(out.value()),
             });
         }
         for (pos, c) in self.haystack.by_ref() {
@@ -121,7 +122,7 @@ where
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(usize::try_from(self.state_id).unwrap())
+                    .get_unchecked(usize::from_u32(self.state_id))
                     .output_pos()
             } {
                 self.pos = pos + 1;
@@ -130,13 +131,13 @@ where
                 let out = unsafe {
                     self.pma
                         .outputs
-                        .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+                        .get_unchecked(usize::from_u32(output_pos.get()))
                 };
                 self.output_pos = out.parent();
                 return Some(Match {
-                    length: usize::try_from(out.length()).unwrap(),
+                    length: usize::from_u32(out.length()),
                     end: self.pos,
-                    value: usize::try_from(out.value()).unwrap(),
+                    value: usize::from_u32(out.value()),
                 });
             }
         }
@@ -166,7 +167,7 @@ where
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(usize::try_from(self.state_id).unwrap())
+                    .get_unchecked(usize::from_u32(self.state_id))
                     .output_pos()
             } {
                 // output_pos is always smaller than self.pma.outputs.len() because
@@ -174,12 +175,12 @@ where
                 let out = unsafe {
                     self.pma
                         .outputs
-                        .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+                        .get_unchecked(usize::from_u32(output_pos.get()))
                 };
                 return Some(Match {
-                    length: usize::try_from(out.length()).unwrap(),
+                    length: usize::from_u32(out.length()),
                     end: pos + 1,
-                    value: usize::try_from(out.value()).unwrap(),
+                    value: usize::from_u32(out.value()),
                 });
             }
         }
@@ -220,12 +221,12 @@ where
                     let out = unsafe {
                         self.pma
                             .outputs
-                            .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+                            .get_unchecked(usize::from_u32(output_pos.get()))
                     };
                     return Some(Match {
-                        length: usize::try_from(out.length()).unwrap(),
+                        length: usize::from_u32(out.length()),
                         end: self.pos,
-                        value: usize::try_from(out.value()).unwrap(),
+                        value: usize::from_u32(out.value()),
                     });
                 }
             // state_id is always smaller than self.pma.states.len() because
@@ -233,7 +234,7 @@ where
             } else if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(usize::try_from(state_id).unwrap())
+                    .get_unchecked(usize::from_u32(state_id))
                     .output_pos()
             } {
                 last_output_pos.replace(output_pos);
@@ -247,12 +248,12 @@ where
             let out = unsafe {
                 self.pma
                     .outputs
-                    .get_unchecked(usize::try_from(output_pos.get()).unwrap())
+                    .get_unchecked(usize::from_u32(output_pos.get()))
             };
             Match {
-                length: usize::try_from(out.length()).unwrap(),
+                length: usize::from_u32(out.length()),
                 end: self.pos,
-                value: usize::try_from(out.value()).unwrap(),
+                value: usize::from_u32(out.value()),
             }
         })
     }
