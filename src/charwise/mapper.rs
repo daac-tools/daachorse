@@ -1,6 +1,3 @@
-#[cfg(feature = "std")]
-use std::io::{self, Read, Write};
-
 use alloc::vec::Vec;
 
 pub const INVALID_CODE: u32 = u32::MAX;
@@ -57,20 +54,7 @@ impl CodeMapper {
             + core::mem::size_of::<u32>() // alphabet_size
     }
 
-    #[cfg(feature = "std")]
-    pub fn serialize<W>(&self, mut wtr: W) -> io::Result<()>
-    where
-        W: Write,
-    {
-        wtr.write_all(&u32::try_from(self.table.len()).unwrap().to_le_bytes())?;
-        for &x in &self.table {
-            wtr.write_all(&x.to_le_bytes())?;
-        }
-        wtr.write_all(&self.alphabet_size.to_le_bytes())?;
-        Ok(())
-    }
-
-    pub fn serialize_into_vec(&self, result: &mut Vec<u8>) {
+    pub fn serialize(&self, result: &mut Vec<u8>) {
         result.extend_from_slice(&u32::try_from(self.table.len()).unwrap().to_le_bytes());
         for &x in &self.table {
             result.extend_from_slice(&x.to_le_bytes());
@@ -78,31 +62,8 @@ impl CodeMapper {
         result.extend_from_slice(&self.alphabet_size.to_le_bytes());
     }
 
-    #[cfg(feature = "std")]
-    pub unsafe fn deserialize_unchecked<R>(mut rdr: R) -> io::Result<Self>
-    where
-        R: Read,
-    {
-        let mut len_array = [0; 4];
-        rdr.read_exact(&mut len_array)?;
-        let len = usize::try_from(u32::from_le_bytes(len_array)).unwrap();
-        let mut table = Vec::with_capacity(len);
-        for _ in 0..len {
-            let mut x = [0; 4];
-            rdr.read_exact(&mut x)?;
-            table.push(u32::from_le_bytes(x));
-        }
-        let mut alphabet_size_array = [0; 4];
-        rdr.read_exact(&mut alphabet_size_array)?;
-        let alphabet_size = u32::from_le_bytes(len_array);
-        Ok(Self {
-            table,
-            alphabet_size,
-        })
-    }
-
-    pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let len = usize::try_from(u32::from_le_bytes(source[0..4].try_into().unwrap())).unwrap();
+    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
+        let len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
         source = &source[4..];
         let mut table = Vec::with_capacity(len);
         for _ in 0..len {

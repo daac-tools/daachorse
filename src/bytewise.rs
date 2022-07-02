@@ -8,9 +8,6 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
-#[cfg(feature = "std")]
-use std::io::{self, Read, Write};
-
 use crate::build_helper::BuildHelper;
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
@@ -558,46 +555,6 @@ impl DoubleArrayAhoCorasick {
         self.num_states
     }
 
-    /// Serializes the automaton into a given target.
-    ///
-    /// # Arguments
-    ///
-    /// * `wtr` - A writable target.
-    ///
-    /// # Errors
-    ///
-    /// This function will return errors thrown by the given `wtr`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use daachorse::DoubleArrayAhoCorasick;
-    ///
-    /// let mut bytes = vec![];
-    ///
-    /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-    /// pma.serialize(&mut bytes).unwrap();
-    /// ```
-    #[cfg(feature = "std")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-    pub fn serialize<W>(&self, mut wtr: W) -> io::Result<()>
-    where
-        W: Write,
-    {
-        wtr.write_all(&u32::try_from(self.states.len()).unwrap().to_le_bytes())?;
-        for state in &self.states {
-            wtr.write_all(&state.serialize())?;
-        }
-        wtr.write_all(&u32::try_from(self.outputs.len()).unwrap().to_le_bytes())?;
-        for output in &self.outputs {
-            wtr.write_all(&output.serialize())?;
-        }
-        wtr.write_all(&[u8::from(self.match_kind)])?;
-        wtr.write_all(&u32::try_from(self.num_states).unwrap().to_le_bytes())?;
-        Ok(())
-    }
-
     /// Serializes the automaton into a [`Vec`].
     ///
     /// # Examples
@@ -607,10 +564,10 @@ impl DoubleArrayAhoCorasick {
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-    /// let bytes = pma.serialize_to_vec();
+    /// let bytes = pma.serialize();
     /// ```
     #[must_use]
-    pub fn serialize_to_vec(&self) -> Vec<u8> {
+    pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
             mem::size_of::<u32>() * 3
                 + mem::size_of::<u8>()
@@ -630,95 +587,6 @@ impl DoubleArrayAhoCorasick {
         result
     }
 
-    /// Deserializes the automaton from a given source.
-    ///
-    /// # Arguments
-    ///
-    /// * `rdr` - A readable source.
-    ///
-    /// # Errors
-    ///
-    /// This function will return errors thrown by the given `rdr`.
-    ///
-    /// # Safety
-    ///
-    /// The given data must be a correct automaton exported by
-    /// [`DoubleArrayAhoCorasick::serialize()`] or
-    /// [`DoubleArrayAhoCorasick::serialize_to_vec()`] functions.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::io::Read;
-    ///
-    /// use daachorse::DoubleArrayAhoCorasick;
-    ///
-    /// let mut bytes = vec![];
-    ///
-    /// {
-    ///     let patterns = vec!["bcd", "ab", "a"];
-    ///     let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-    ///     pma.serialize(&mut bytes).unwrap();
-    /// }
-    ///
-    /// let pma = unsafe {
-    ///     DoubleArrayAhoCorasick::deserialize_unchecked(&mut bytes.as_slice()).unwrap()
-    /// };
-    ///
-    /// let mut it = pma.find_overlapping_iter("abcd");
-    ///
-    /// let m = it.next().unwrap();
-    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
-    ///
-    /// let m = it.next().unwrap();
-    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value()));
-    ///
-    /// let m = it.next().unwrap();
-    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
-    ///
-    /// assert_eq!(None, it.next());
-    /// ```
-    #[cfg(feature = "std")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-    pub unsafe fn deserialize_unchecked<R>(mut rdr: R) -> io::Result<Self>
-    where
-        R: Read,
-    {
-        let mut states_len_array = [0; 4];
-        rdr.read_exact(&mut states_len_array)?;
-        let states_len = usize::try_from(u32::from_le_bytes(states_len_array)).unwrap();
-        let mut states = Vec::with_capacity(states_len);
-        for _ in 0..states_len {
-            let mut state_array = [0; 12];
-            rdr.read_exact(&mut state_array)?;
-            states.push(State::deserialize(state_array));
-        }
-        let mut outputs_len_array = [0; 4];
-        rdr.read_exact(&mut outputs_len_array)?;
-        let outputs_len = usize::try_from(u32::from_le_bytes(outputs_len_array)).unwrap();
-        let mut outputs = Vec::with_capacity(outputs_len);
-        for _ in 0..outputs_len {
-            let mut output_array = [0; 12];
-            rdr.read_exact(&mut output_array)?;
-            outputs.push(Output::deserialize(output_array));
-        }
-
-        let mut match_kind_array = [0];
-        rdr.read_exact(&mut match_kind_array)?;
-        let match_kind = MatchKind::from(match_kind_array[0]);
-
-        let mut num_states_array = [0; 4];
-        rdr.read_exact(&mut num_states_array)?;
-        let num_states = usize::try_from(u32::from_le_bytes(num_states_array)).unwrap();
-
-        Ok(Self {
-            states,
-            outputs,
-            match_kind,
-            num_states,
-        })
-    }
-
     /// Deserializes the automaton from a given slice.
     ///
     /// # Arguments
@@ -732,8 +600,7 @@ impl DoubleArrayAhoCorasick {
     /// # Safety
     ///
     /// The given data must be a correct automaton exported by
-    /// [`DoubleArrayAhoCorasick::serialize()`] or
-    /// [`DoubleArrayAhoCorasick::serialize_to_vec()`] functions.
+    /// [`DoubleArrayAhoCorasick::serialize()`] function.
     ///
     /// # Examples
     ///
@@ -742,10 +609,10 @@ impl DoubleArrayAhoCorasick {
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
-    /// let bytes = pma.serialize_to_vec();
+    /// let bytes = pma.serialize();
     ///
     /// let (pma, _) = unsafe {
-    ///     DoubleArrayAhoCorasick::deserialize_from_slice_unchecked(&bytes)
+    ///     DoubleArrayAhoCorasick::deserialize_unchecked(&bytes)
     /// };
     ///
     /// let mut it = pma.find_overlapping_iter("abcd");
@@ -762,9 +629,8 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub unsafe fn deserialize_from_slice_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let states_len =
-            usize::try_from(u32::from_le_bytes(source[0..4].try_into().unwrap())).unwrap();
+    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
+        let states_len = u32::from_le_bytes(source[0..4].try_into().unwrap()) as usize;
         source = &source[4..];
         let mut states = Vec::with_capacity(states_len);
         for _ in 0..states_len {
