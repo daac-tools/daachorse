@@ -5,14 +5,12 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
-pub trait Serialize {
+pub trait Serialize: Sized {
     fn to_vec(&self, dst: &mut Vec<u8>);
 }
 
-pub trait Deserialize {
-    fn from_slice(src: &[u8]) -> (Self, &[u8])
-    where
-        Self: core::marker::Sized;
+pub trait Deserialize: Sized {
+    fn from_slice(src: &[u8]) -> (Self, &[u8]);
 }
 
 impl Serialize for u32 {
@@ -70,7 +68,7 @@ where
 
 pub const fn serialized_bytes<S>(src: &[S]) -> usize
 where
-    S: Serialize + Sized,
+    S: Serialize,
 {
     mem::size_of::<u32>() + mem::size_of::<S>() * src.len()
 }
