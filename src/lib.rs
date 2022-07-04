@@ -365,3 +365,24 @@ impl Serializable for MatchKind {
         (Self::from(src[0]), &src[1..])
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_serialize_output() {
+        serializer::tests::test_common(Output {
+            value: 42,
+            length: 57,
+            parent: NonZeroU32::new(13),
+        });
+    }
+
+    #[test]
+    fn test_serialize_match_kind() {
+        serializer::tests::test_common(MatchKind::Standard);
+        serializer::tests::test_common(MatchKind::LeftmostLongest);
+        serializer::tests::test_common(MatchKind::LeftmostFirst);
+    }
+}

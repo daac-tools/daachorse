@@ -96,4 +96,17 @@ mod tests {
         assert_eq!(mapper.get(6 as char), Some(3));
         assert_eq!(mapper.get(7 as char), None); // out-of-range
     }
+
+    #[test]
+    fn test_serialize() {
+        let freqs = vec![3, 6, 0, 2, 3, 0, 3];
+        let mapper = CodeMapper::new(&freqs);
+
+        let mut data = vec![];
+        mapper.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), mapper.serialized_bytes());
+        let (other, rest) = CodeMapper::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(mapper, other);
+    }
 }

@@ -67,6 +67,43 @@ where
     }
 
     fn serialized_bytes(&self) -> usize {
-        mem::size_of::<u32>() + mem::size_of::<S>() * self.len()
+        mem::size_of::<u32>() + self.iter().fold(0, |acc, x| acc + x.serialized_bytes())
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    pub fn test_common<S>(x: S)
+    where
+        S: Serializable + core::fmt::Debug + core::cmp::PartialEq,
+    {
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), x.serialized_bytes());
+        let (y, rest) = S::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
+    }
+
+    #[test]
+    fn test_u32() {
+        test_common(42u32);
+    }
+
+    #[test]
+    fn test_nzu32() {
+        test_common(NonZeroU32::new(42u32));
+    }
+
+    #[test]
+    fn test_vec() {
+        test_common(vec![42u32; 10]);
+    }
+
+    #[test]
+    fn test_vecs() {
+        test_common(vec![vec![42u32; 10]; 10]);
     }
 }

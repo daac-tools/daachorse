@@ -54,7 +54,7 @@ const DEAD_STATE_IDX: u32 = 1;
 ///
 /// - [`CharwiseDoubleArrayAhoCorasick::with_values`] builds an automaton
 ///   from a set of pairs of a UTF-8 string and a [`u32`] value.
-#[derive(Clone, Eq, Hash, PartialEq)]
+#[derive(Clone, Eq, Hash, PartialEq, Debug)]
 pub struct CharwiseDoubleArrayAhoCorasick {
     states: Vec<State>,
     mapper: CodeMapper,
@@ -840,5 +840,31 @@ impl Serializable for State {
             },
             src,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_serialize_state() {
+        crate::serializer::tests::test_common(State {
+            base: NonZeroU32::new(42),
+            check: 57,
+            fail: 13,
+            output_pos: NonZeroU32::new(100),
+        });
+    }
+
+    #[test]
+    fn test_serialize_pma() {
+        let patterns = vec!["全世界", "世界", "に"];
+        let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+        let bytes = pma.serialize();
+        let (other, rest) =
+            unsafe { CharwiseDoubleArrayAhoCorasick::deserialize_unchecked(&bytes) };
+        assert!(rest.is_empty());
+        assert_eq!(pma, other);
     }
 }

@@ -50,7 +50,7 @@ const DEAD_STATE_IDX: u32 = 1;
 ///
 /// The maximum number of patterns is limited to 2^24-1. If a larger number of patterns is given,
 /// [`DaachorseError`](super::errors::DaachorseError) will be reported.
-#[derive(Clone, Eq, Hash, PartialEq)]
+#[derive(Clone, Eq, Hash, PartialEq, Debug)]
 pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
@@ -969,5 +969,24 @@ mod tests {
         assert_eq!(512, pma.states.len());
         assert_eq!(0x80, pma.states[0].base().unwrap().get());
         assert_eq!(0x100, pma.states[0x80].base().unwrap().get());
+    }
+
+    #[test]
+    fn test_serialize_state() {
+        crate::serializer::tests::test_common(State {
+            base: NonZeroU32::new(42),
+            fail: 13,
+            opos_ch: U24nU8::default(),
+        });
+    }
+
+    #[test]
+    fn test_serialize_pma() {
+        let patterns = vec!["abba", "baaba", "ababa"];
+        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+        let bytes = pma.serialize();
+        let (other, rest) = unsafe { DoubleArrayAhoCorasick::deserialize_unchecked(&bytes) };
+        assert!(rest.is_empty());
+        assert_eq!(pma, other);
     }
 }
