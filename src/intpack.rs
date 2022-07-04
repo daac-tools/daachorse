@@ -66,6 +66,6 @@ impl Serializable for U24nU8 {
 
     #[inline(always)]
     fn serialized_bytes() -> usize {
-        core::mem::size_of::<Self>()
+        u32::serialized_bytes()
     }
 }

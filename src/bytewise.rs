@@ -781,7 +781,9 @@ impl Serializable for State {
 
     #[inline(always)]
     fn serialized_bytes() -> usize {
-        mem::size_of::<Self>()
+        Option::<NonZeroU32>::serialized_bytes()
+            + u32::serialized_bytes()
+            + U24nU8::serialized_bytes()
     }
 }
 

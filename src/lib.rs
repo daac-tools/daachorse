@@ -262,7 +262,7 @@ impl Serializable for Output {
 
     #[inline(always)]
     fn serialized_bytes() -> usize {
-        core::mem::size_of::<Self>()
+        u32::serialized_bytes() + u32::serialized_bytes() + Option::<NonZeroU32>::serialized_bytes()
     }
 }
 
@@ -372,7 +372,7 @@ impl Serializable for MatchKind {
 
     #[inline(always)]
     fn serialized_bytes() -> usize {
-        core::mem::size_of::<Self>()
+        1
     }
 }
 

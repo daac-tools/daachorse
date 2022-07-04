@@ -1,6 +1,5 @@
 //! Utilities for serializing/deserializing data.
 
-use core::mem;
 use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
@@ -30,7 +29,7 @@ impl Serializable for u32 {
 
     #[inline(always)]
     fn serialized_bytes() -> usize {
-        mem::size_of::<Self>()
+        4
     }
 }
 
@@ -48,7 +47,7 @@ impl Serializable for Option<NonZeroU32> {
 
     #[inline(always)]
     fn serialized_bytes() -> usize {
-        mem::size_of::<Self>()
+        u32::serialized_bytes()
     }
 }
 
