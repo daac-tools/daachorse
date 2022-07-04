@@ -978,10 +978,13 @@ mod tests {
 
     #[test]
     fn test_serialize_state() {
+        let mut opos_ch = U24nU8::default();
+        opos_ch.set_a(U24::try_from(57).unwrap());
+        opos_ch.set_b(77);
         crate::serializer::tests::test_common(State {
             base: NonZeroU32::new(42),
             fail: 13,
-            opos_ch: U24nU8::default(),
+            opos_ch,
         });
     }
 
