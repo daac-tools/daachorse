@@ -259,6 +259,11 @@ impl Serializable for Output {
             src,
         )
     }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        core::mem::size_of::<Self>()
+    }
 }
 
 /// Match result.
@@ -363,6 +368,11 @@ impl Serializable for MatchKind {
     #[inline(always)]
     fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
         (Self::from(src[0]), &src[1..])
+    }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        core::mem::size_of::<Self>()
     }
 }
 

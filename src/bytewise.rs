@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 use crate::build_helper::BuildHelper;
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
-use crate::serializer::Serializable;
+use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
@@ -50,7 +50,7 @@ const DEAD_STATE_IDX: u32 = 1;
 ///
 /// The maximum number of patterns is limited to 2^24-1. If a larger number of patterns is given,
 /// [`DaachorseError`](super::errors::DaachorseError) will be reported.
-#[derive(Clone, Eq, Hash, PartialEq, Debug)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct DoubleArrayAhoCorasick {
     states: Vec<State>,
     outputs: Vec<Output>,
@@ -573,8 +573,8 @@ impl DoubleArrayAhoCorasick {
         let mut result = Vec::with_capacity(
             self.states.serialized_bytes()
                 + self.outputs.serialized_bytes()
-                + self.match_kind.serialized_bytes()
-                + self.num_states.serialized_bytes(),
+                + MatchKind::serialized_bytes()
+                + u32::serialized_bytes(),
         );
         self.states.serialize_to_vec(&mut result);
         self.outputs.serialize_to_vec(&mut result);
@@ -777,6 +777,11 @@ impl Serializable for State {
             },
             src,
         )
+    }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        mem::size_of::<Self>()
     }
 }
 
@@ -987,6 +992,9 @@ mod tests {
         let bytes = pma.serialize();
         let (other, rest) = unsafe { DoubleArrayAhoCorasick::deserialize_unchecked(&bytes) };
         assert!(rest.is_empty());
-        assert_eq!(pma, other);
+        assert_eq!(pma.states, other.states);
+        assert_eq!(pma.outputs, other.outputs);
+        assert_eq!(pma.match_kind, other.match_kind);
+        assert_eq!(pma.num_states, other.num_states);
     }
 }

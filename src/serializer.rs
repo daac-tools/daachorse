@@ -12,9 +12,7 @@ pub trait Serializable: Sized {
 
     fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]);
 
-    fn serialized_bytes(&self) -> usize {
-        mem::size_of::<Self>()
-    }
+    fn serialized_bytes() -> usize;
 }
 
 impl Serializable for u32 {
@@ -29,6 +27,11 @@ impl Serializable for u32 {
         let x = unsafe { Self::from_le_bytes(src[..4].try_into().unwrap_unchecked()) };
         (x, &src[4..])
     }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        mem::size_of::<Self>()
+    }
 }
 
 impl Serializable for Option<NonZeroU32> {
@@ -42,9 +45,22 @@ impl Serializable for Option<NonZeroU32> {
         let (x, src) = u32::deserialize_from_slice(src);
         (NonZeroU32::new(x), src)
     }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        mem::size_of::<Self>()
+    }
 }
 
-impl<S> Serializable for Vec<S>
+pub trait SerializableVec: Sized {
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>);
+
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]);
+
+    fn serialized_bytes(&self) -> usize;
+}
+
+impl<S> SerializableVec for Vec<S>
 where
     S: Serializable,
 {
@@ -67,7 +83,7 @@ where
     }
 
     fn serialized_bytes(&self) -> usize {
-        mem::size_of::<u32>() + self.iter().fold(0, |acc, x| acc + x.serialized_bytes())
+        u32::serialized_bytes() + S::serialized_bytes() * self.len()
     }
 }
 
@@ -78,6 +94,18 @@ pub mod tests {
     pub fn test_common<S>(x: S)
     where
         S: Serializable + core::fmt::Debug + core::cmp::PartialEq,
+    {
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), S::serialized_bytes());
+        let (y, rest) = S::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
+    }
+
+    pub fn test_common_vec<S>(x: S)
+    where
+        S: SerializableVec + core::fmt::Debug + core::cmp::PartialEq,
     {
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
@@ -99,11 +127,6 @@ pub mod tests {
 
     #[test]
     fn test_vec() {
-        test_common(vec![42u32; 10]);
-    }
-
-    #[test]
-    fn test_vecs() {
-        test_common(vec![vec![42u32; 10]; 10]);
+        test_common_vec(vec![42u32; 10]);
     }
 }

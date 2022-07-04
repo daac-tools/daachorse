@@ -10,7 +10,7 @@ use core::num::NonZeroU32;
 use alloc::vec::Vec;
 
 use crate::errors::Result;
-use crate::serializer::Serializable;
+use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
@@ -54,7 +54,7 @@ const DEAD_STATE_IDX: u32 = 1;
 ///
 /// - [`CharwiseDoubleArrayAhoCorasick::with_values`] builds an automaton
 ///   from a set of pairs of a UTF-8 string and a [`u32`] value.
-#[derive(Clone, Eq, Hash, PartialEq, Debug)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct CharwiseDoubleArrayAhoCorasick {
     states: Vec<State>,
     mapper: CodeMapper,
@@ -608,8 +608,8 @@ impl CharwiseDoubleArrayAhoCorasick {
             self.states.serialized_bytes()
                 + self.mapper.serialized_bytes()
                 + self.outputs.serialized_bytes()
-                + self.match_kind.serialized_bytes()
-                + self.num_states.serialized_bytes(),
+                + MatchKind::serialized_bytes()
+                + u32::serialized_bytes(),
         );
         self.states.serialize_to_vec(&mut result);
         self.mapper.serialize_to_vec(&mut result);
@@ -841,6 +841,11 @@ impl Serializable for State {
             src,
         )
     }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        mem::size_of::<Self>()
+    }
 }
 
 #[cfg(test)]
@@ -865,6 +870,10 @@ mod tests {
         let (other, rest) =
             unsafe { CharwiseDoubleArrayAhoCorasick::deserialize_unchecked(&bytes) };
         assert!(rest.is_empty());
-        assert_eq!(pma, other);
+        assert_eq!(pma.states, other.states);
+        assert_eq!(pma.mapper, other.mapper);
+        assert_eq!(pma.outputs, other.outputs);
+        assert_eq!(pma.match_kind, other.match_kind);
+        assert_eq!(pma.num_states, other.num_states);
     }
 }

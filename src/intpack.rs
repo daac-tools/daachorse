@@ -63,4 +63,9 @@ impl Serializable for U24nU8 {
         let (x, src) = u32::deserialize_from_slice(src);
         (Self(x), src)
     }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        core::mem::size_of::<Self>()
+    }
 }

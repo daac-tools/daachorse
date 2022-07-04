@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use crate::serializer::Serializable;
+use crate::serializer::{Serializable, SerializableVec};
 
 use crate::utils::FromU32;
 
@@ -53,7 +53,7 @@ impl CodeMapper {
     }
 }
 
-impl Serializable for CodeMapper {
+impl SerializableVec for CodeMapper {
     #[inline(always)]
     fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
         self.table.serialize_to_vec(dst);
@@ -73,8 +73,9 @@ impl Serializable for CodeMapper {
         )
     }
 
+    #[inline(always)]
     fn serialized_bytes(&self) -> usize {
-        self.table.serialized_bytes() + self.alphabet_size.serialized_bytes()
+        self.table.serialized_bytes() + u32::serialized_bytes()
     }
 }
 
