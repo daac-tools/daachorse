@@ -66,7 +66,11 @@ where
     (dst, src)
 }
 
-pub const fn serialized_bytes<S: Sized>(src: &[S]) -> usize
+// Note: Trait bounds other than `Sized` on const fn parameters are unstable
+// when a version is smaller than Rust 1.61, nevertheless clippy requires the const marker.
+// https://blog.rust-lang.org/2022/05/19/Rust-1.61.0.html#more-capabilities-for-const-fn
+#[allow(clippy::missing_const_for_fn)]
+pub fn serialized_bytes<S>(src: &[S]) -> usize
 where
     S: Serialize,
 {
