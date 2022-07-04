@@ -92,34 +92,48 @@ mod tests {
 
     #[test]
     fn test_u32() {
-        let x = 42u32;
+        let x = 0x01234567u32;
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
-        assert_eq!(data.len(), u32::serialized_bytes());
+        assert_eq!(vec![0x67, 0x45, 0x23, 0x01], data);
+        assert_eq!(4, u32::serialized_bytes());
+        data.push(42);
         let (y, rest) = u32::deserialize_from_slice(&data);
-        assert!(rest.is_empty());
+        assert_eq!(&[42], rest);
         assert_eq!(x, y);
     }
 
     #[test]
     fn test_nzu32() {
-        let x = NonZeroU32::new(42u32);
+        let x = NonZeroU32::new(0x01234567u32);
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
-        assert_eq!(data.len(), Option::<NonZeroU32>::serialized_bytes());
+        assert_eq!(vec![0x67, 0x45, 0x23, 0x01], data);
+        assert_eq!(4, Option::<NonZeroU32>::serialized_bytes());
+        data.push(42);
         let (y, rest) = Option::<NonZeroU32>::deserialize_from_slice(&data);
-        assert!(rest.is_empty());
+        assert_eq!(&[42], rest);
         assert_eq!(x, y);
     }
 
     #[test]
     fn test_vec_u32() {
-        let x = vec![42u32; 10];
+        let x = vec![0x01234567u32, 0x89abcdefu32, 0x02468aceu32];
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
-        assert_eq!(data.len(), x.serialized_bytes());
+        assert_eq!(
+            vec![
+                0x03, 0x00, 0x00, 0x00, // len
+                0x67, 0x45, 0x23, 0x01, // item 1
+                0xef, 0xcd, 0xab, 0x89, // item 2
+                0xce, 0x8a, 0x46, 0x02, // item 3
+            ],
+            data
+        );
+        assert_eq!(16, x.serialized_bytes());
+        data.push(42);
         let (y, rest) = Vec::<u32>::deserialize_from_slice(&data);
-        assert!(rest.is_empty());
+        assert_eq!(&[42], rest);
         assert_eq!(x, y);
     }
 }
