@@ -6,6 +6,7 @@ use core::num::NonZeroU32;
 use crate::charwise::CharwiseDoubleArrayAhoCorasick;
 
 use crate::charwise::ROOT_STATE_IDX;
+use crate::utils::FromU32;
 use crate::Match;
 
 /// Iterator for some struct that implements [`AsRef<str>`].
@@ -137,12 +138,16 @@ where
         if let Some(output_pos) = self.output_pos {
             // output_pos.get() is always smaller than self.pma.outputs.len() because
             // Output::parent() ensures to return such a value when it is Some.
-            let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+            let out = unsafe {
+                self.pma
+                    .outputs
+                    .get_unchecked(usize::from_u32(output_pos.get()))
+            };
             self.output_pos = out.parent();
             return Some(Match {
-                length: out.length() as usize,
+                length: usize::from_u32(out.length()),
                 end: self.pos,
-                value: out.value() as usize,
+                value: usize::from_u32(out.value()),
             });
         }
 
@@ -155,17 +160,21 @@ where
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(self.state_id as usize)
+                    .get_unchecked(usize::from_u32(self.state_id))
                     .output_pos()
             } {
                 // output_pos.get() is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
-                let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+                let out = unsafe {
+                    self.pma
+                        .outputs
+                        .get_unchecked(usize::from_u32(output_pos.get()))
+                };
                 self.output_pos = out.parent();
                 return Some(Match {
-                    length: out.length() as usize,
+                    length: usize::from_u32(out.length()),
                     end: pos,
-                    value: out.value() as usize,
+                    value: usize::from_u32(out.value()),
                 });
             }
         }
@@ -189,16 +198,20 @@ where
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(state_id as usize)
+                    .get_unchecked(usize::from_u32(state_id))
                     .output_pos()
             } {
                 // output_pos is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
-                let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+                let out = unsafe {
+                    self.pma
+                        .outputs
+                        .get_unchecked(usize::from_u32(output_pos.get()))
+                };
                 return Some(Match {
-                    length: out.length() as usize,
+                    length: usize::from_u32(out.length()),
                     end: pos,
-                    value: out.value() as usize,
+                    value: usize::from_u32(out.value()),
                 });
             }
         }
@@ -221,16 +234,20 @@ where
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(self.state_id as usize)
+                    .get_unchecked(usize::from_u32(self.state_id))
                     .output_pos()
             } {
                 // output_pos is always smaller than self.pma.outputs.len() because
                 // State::output_pos() ensures to return such a value when it is Some.
-                let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+                let out = unsafe {
+                    self.pma
+                        .outputs
+                        .get_unchecked(usize::from_u32(output_pos.get()))
+                };
                 return Some(Match {
-                    length: out.length() as usize,
+                    length: usize::from_u32(out.length()),
                     end: pos,
-                    value: out.value() as usize,
+                    value: usize::from_u32(out.value()),
                 });
             }
         }
@@ -260,11 +277,15 @@ where
                 if let Some(output_pos) = last_output_pos {
                     // last_output_pos is always smaller than self.pma.outputs.len() because
                     // State::output_pos() ensures to return such a value when it is Some.
-                    let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+                    let out = unsafe {
+                        self.pma
+                            .outputs
+                            .get_unchecked(usize::from_u32(output_pos.get()))
+                    };
                     return Some(Match {
-                        length: out.length() as usize,
+                        length: usize::from_u32(out.length()),
                         end: self.pos,
-                        value: out.value() as usize,
+                        value: usize::from_u32(out.value()),
                     });
                 }
             // state_id is always smaller than self.pma.states.len() because
@@ -272,7 +293,7 @@ where
             } else if let Some(output_pos) = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(state_id as usize)
+                    .get_unchecked(usize::from_u32(state_id))
                     .output_pos()
             } {
                 last_output_pos.replace(output_pos);
@@ -284,11 +305,15 @@ where
         last_output_pos.map(|output_pos| {
             // last_output_pos is always smaller than self.pma.outputs.len() because
             // State::output_pos() ensures to return such a value when it is Some.
-            let out = unsafe { self.pma.outputs.get_unchecked(output_pos.get() as usize) };
+            let out = unsafe {
+                self.pma
+                    .outputs
+                    .get_unchecked(usize::from_u32(output_pos.get()))
+            };
             Match {
-                length: out.length() as usize,
+                length: usize::from_u32(out.length()),
                 end: self.pos,
-                value: out.value() as usize,
+                value: usize::from_u32(out.value()),
             }
         })
     }

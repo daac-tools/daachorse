@@ -13,6 +13,7 @@ use crate::errors::Result;
 use crate::serializer::{
     deserialize_vec, serialize_slice, serialized_bytes, Deserialize, Serialize,
 };
+use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
 use iter::{
@@ -61,7 +62,7 @@ pub struct CharwiseDoubleArrayAhoCorasick {
     mapper: CodeMapper,
     outputs: Vec<Output>,
     match_kind: MatchKind,
-    num_states: usize,
+    num_states: u32,
 }
 
 impl CharwiseDoubleArrayAhoCorasick {
@@ -552,8 +553,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// assert_eq!(pma.num_states(), 6);
     /// ```
     #[must_use]
-    pub const fn num_states(&self) -> usize {
-        self.num_states
+    pub fn num_states(&self) -> usize {
+        usize::from_u32(self.num_states)
     }
 
     /// Returns the total number of elements of the double array.
@@ -603,6 +604,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     /// ```
+    // Both states.len() and outputs.len() are less than or equal to u32::MAX.
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
@@ -686,14 +689,22 @@ impl CharwiseDoubleArrayAhoCorasick {
     #[allow(clippy::cast_possible_wrap)]
     #[inline(always)]
     unsafe fn get_child_index_unchecked(&self, state_id: u32, mapped_c: u32) -> Option<u32> {
-        let base = self.states.get_unchecked(state_id as usize).base()?;
+        let base = self
+            .states
+            .get_unchecked(usize::from_u32(state_id))
+            .base()?;
         // child_idx is always smaller than states.len() because
         //  - states.len() is a multiple of (1 << k),
         //    where k is the number of bits needed to represent mapped_c.
         //  - base() is always smaller than states.len() when it is Some.
         let child_idx = base.get() ^ mapped_c;
-        if self.states.get_unchecked(child_idx as usize).check() == state_id {
-            Some(child_idx as u32)
+        if self
+            .states
+            .get_unchecked(usize::from_u32(child_idx))
+            .check()
+            == state_id
+        {
+            Some(child_idx)
         } else {
             None
         }
@@ -712,7 +723,7 @@ impl CharwiseDoubleArrayAhoCorasick {
                 if state_id == ROOT_STATE_IDX {
                     return ROOT_STATE_IDX;
                 }
-                state_id = self.states.get_unchecked(state_id as usize).fail();
+                state_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
             }
         } else {
             ROOT_STATE_IDX
@@ -732,7 +743,7 @@ impl CharwiseDoubleArrayAhoCorasick {
                 if state_id == ROOT_STATE_IDX {
                     return ROOT_STATE_IDX;
                 }
-                let fail_id = self.states.get_unchecked(state_id as usize).fail();
+                let fail_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
                 if fail_id == DEAD_STATE_IDX {
                     return ROOT_STATE_IDX;
                 }

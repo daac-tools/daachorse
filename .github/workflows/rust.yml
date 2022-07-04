@@ -55,17 +55,19 @@ jobs:
           args: >
             --all -- -D warnings
             -W clippy::nursery
+            -W clippy::as_conversions
             -W clippy::cast_lossless
             -W clippy::cast_possible_truncation
             -W clippy::cast_possible_wrap
-            -W clippy::cloned-instead-of-copied
-            -W clippy::must_use_candidate
+            -W clippy::cloned_instead_of_copied
             -W clippy::map_unwrap_or
-            -W clippy::redundant-closure-for-method-calls
-            -W clippy::semicolon-if-nothing-returned
-            -W clippy::unnecessary-wraps
-            -W clippy::unreadable-literal
-            -W clippy::unused-self
+            -W clippy::missing_panics_doc
+            -W clippy::must_use_candidate
+            -W clippy::redundant_closure_for_method-calls
+            -W clippy::semicolon_if_nothing_returned
+            -W clippy::unnecessary_wraps
+            -W clippy::unreadable_literal
+            -W clippy::unused_self
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1

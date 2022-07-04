@@ -193,6 +193,7 @@ pub mod errors;
 mod intpack;
 mod nfa_builder;
 mod serializer;
+mod utils;
 
 use core::num::NonZeroU32;
 
@@ -341,6 +342,16 @@ impl From<u8> for MatchKind {
             1 => Self::LeftmostLongest,
             2 => Self::LeftmostFirst,
             _ => Self::Standard,
+        }
+    }
+}
+
+impl From<MatchKind> for u8 {
+    fn from(src: MatchKind) -> Self {
+        match src {
+            MatchKind::Standard => 0,
+            MatchKind::LeftmostLongest => 1,
+            MatchKind::LeftmostFirst => 2,
         }
     }
 }

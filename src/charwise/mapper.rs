@@ -6,6 +6,8 @@ use crate::serializer::{
     deserialize_vec, serialize_slice, serialized_bytes, Deserialize, Serialize,
 };
 
+use crate::utils::FromU32;
+
 pub const INVALID_CODE: u32 = u32::MAX;
 
 #[derive(Default, Clone, Debug, Eq, Hash, PartialEq)]
@@ -27,18 +29,18 @@ impl CodeMapper {
         };
         let mut table = vec![INVALID_CODE; freqs.len()];
         for (i, &(c, _)) in sorted.iter().enumerate() {
-            table[c] = i.try_into().unwrap();
+            table[c] = u32::try_from(i).unwrap();
         }
         Self {
             table,
-            alphabet_size: sorted.len().try_into().unwrap(),
+            alphabet_size: u32::try_from(sorted.len()).unwrap(),
         }
     }
 
     #[inline(always)]
     pub fn get(&self, c: char) -> Option<u32> {
         self.table
-            .get(usize::try_from(u32::from(c)).unwrap())
+            .get(usize::from_u32(u32::from(c)))
             .copied()
             .filter(|&code| code != INVALID_CODE)
     }
