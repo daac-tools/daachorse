@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 use crate::build_helper::BuildHelper;
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
-use crate::serializer::{deserialize_vec, serialize_slice, serialized_bytes, Serializable};
+use crate::serializer::{self, Serializable};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
@@ -571,13 +571,13 @@ impl DoubleArrayAhoCorasick {
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
-            serialized_bytes(&self.states)
-                + serialized_bytes(&self.outputs)
+            serializer::serialized_bytes(&self.states)
+                + serializer::serialized_bytes(&self.outputs)
                 + mem::size_of::<u8>()
                 + mem::size_of::<u32>(),
         );
-        serialize_slice(&self.states, &mut result);
-        serialize_slice(&self.outputs, &mut result);
+        serializer::serialize_slice(&self.states, &mut result);
+        serializer::serialize_slice(&self.outputs, &mut result);
         result.push(u8::from(self.match_kind));
         self.num_states.serialize_to_vec(&mut result);
         result
@@ -626,8 +626,8 @@ impl DoubleArrayAhoCorasick {
     /// ```
     #[must_use]
     pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
-        let (states, source) = deserialize_vec::<State>(source);
-        let (outputs, source) = deserialize_vec::<Output>(source);
+        let (states, source) = serializer::deserialize_vec::<State>(source);
+        let (outputs, source) = serializer::deserialize_vec::<Output>(source);
         let match_kind = MatchKind::from(source[0]);
         let (num_states, source) = u32::deserialize_from_slice(&source[1..]);
         (
