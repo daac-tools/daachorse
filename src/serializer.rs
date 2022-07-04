@@ -70,7 +70,7 @@ where
 
 pub const fn serialized_bytes<S>(src: &[S]) -> usize
 where
-    S: Serialize,
+    S: Serialize + Sized,
 {
     mem::size_of::<u32>() + mem::size_of::<S>() * src.len()
 }
