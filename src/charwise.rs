@@ -857,12 +857,18 @@ mod tests {
 
     #[test]
     fn test_serialize_state() {
-        crate::serializer::tests::test_common(State {
+        let x = State {
             base: NonZeroU32::new(42),
             check: 57,
             fail: 13,
             output_pos: NonZeroU32::new(100),
-        });
+        };
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), State::serialized_bytes());
+        let (y, rest) = State::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
     }
 
     #[test]

@@ -87,45 +87,39 @@ where
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
-
-    pub fn test_common<S>(x: S)
-    where
-        S: Serializable + core::fmt::Debug + core::cmp::PartialEq,
-    {
-        let mut data = vec![];
-        x.serialize_to_vec(&mut data);
-        assert_eq!(data.len(), S::serialized_bytes());
-        let (y, rest) = S::deserialize_from_slice(&data);
-        assert!(rest.is_empty());
-        assert_eq!(x, y);
-    }
-
-    pub fn test_common_vec<S>(x: S)
-    where
-        S: SerializableVec + core::fmt::Debug + core::cmp::PartialEq,
-    {
-        let mut data = vec![];
-        x.serialize_to_vec(&mut data);
-        assert_eq!(data.len(), x.serialized_bytes());
-        let (y, rest) = S::deserialize_from_slice(&data);
-        assert!(rest.is_empty());
-        assert_eq!(x, y);
-    }
 
     #[test]
     fn test_u32() {
-        test_common(42u32);
+        let x = 42u32;
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), u32::serialized_bytes());
+        let (y, rest) = u32::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
     }
 
     #[test]
     fn test_nzu32() {
-        test_common(NonZeroU32::new(42u32));
+        let x = NonZeroU32::new(42u32);
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), Option::<NonZeroU32>::serialized_bytes());
+        let (y, rest) = Option::<NonZeroU32>::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
     }
 
     #[test]
-    fn test_vec() {
-        test_common_vec(vec![42u32; 10]);
+    fn test_vec_u32() {
+        let x = vec![42u32; 10];
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), x.serialized_bytes());
+        let (y, rest) = Vec::<u32>::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
     }
 }

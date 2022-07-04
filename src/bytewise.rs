@@ -983,11 +983,17 @@ mod tests {
         let mut opos_ch = U24nU8::default();
         opos_ch.set_a(U24::try_from(57).unwrap());
         opos_ch.set_b(77);
-        crate::serializer::tests::test_common(State {
+        let x = State {
             base: NonZeroU32::new(42),
             fail: 13,
             opos_ch,
-        });
+        };
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), State::serialized_bytes());
+        let (y, rest) = State::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
     }
 
     #[test]

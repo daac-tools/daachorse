@@ -382,17 +382,27 @@ mod tests {
 
     #[test]
     fn test_serialize_output() {
-        serializer::tests::test_common(Output {
+        let x = Output {
             value: 42,
             length: 57,
             parent: NonZeroU32::new(13),
-        });
+        };
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), Output::serialized_bytes());
+        let (y, rest) = Output::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
     }
 
     #[test]
     fn test_serialize_match_kind() {
-        serializer::tests::test_common(MatchKind::Standard);
-        serializer::tests::test_common(MatchKind::LeftmostLongest);
-        serializer::tests::test_common(MatchKind::LeftmostFirst);
+        let x = MatchKind::LeftmostLongest;
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), MatchKind::serialized_bytes());
+        let (y, rest) = MatchKind::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
     }
 }
