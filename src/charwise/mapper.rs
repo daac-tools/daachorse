@@ -1,5 +1,3 @@
-use core::mem;
-
 use alloc::vec::Vec;
 
 use crate::serializer::Serializable;
@@ -53,26 +51,30 @@ impl CodeMapper {
     pub fn heap_bytes(&self) -> usize {
         self.table.len() * core::mem::size_of::<u32>()
     }
+}
 
-    pub fn serialized_bytes(&self) -> usize {
-        self.table.serialized_bytes() + mem::size_of::<u32>()
+impl Serializable for CodeMapper {
+    #[inline(always)]
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.table.serialize_to_vec(dst);
+        self.alphabet_size.serialize_to_vec(dst);
     }
 
-    pub fn serialize(&self, result: &mut Vec<u8>) {
-        self.table.serialize_to_vec(result);
-        self.alphabet_size.serialize_to_vec(result);
-    }
-
-    pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
-        let (table, source) = Vec::<u32>::deserialize_from_slice(source);
-        let (alphabet_size, source) = u32::deserialize_from_slice(source);
+    #[inline(always)]
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (table, src) = Vec::<u32>::deserialize_from_slice(src);
+        let (alphabet_size, src) = u32::deserialize_from_slice(src);
         (
             Self {
                 table,
                 alphabet_size,
             },
-            source,
+            src,
         )
+    }
+
+    fn serialized_bytes(&self) -> usize {
+        self.table.serialized_bytes() + self.alphabet_size.serialized_bytes()
     }
 }
 

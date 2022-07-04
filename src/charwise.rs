@@ -612,7 +612,7 @@ impl CharwiseDoubleArrayAhoCorasick {
                 + self.num_states.serialized_bytes(),
         );
         self.states.serialize_to_vec(&mut result);
-        self.mapper.serialize(&mut result);
+        self.mapper.serialize_to_vec(&mut result);
         self.outputs.serialize_to_vec(&mut result);
         result.push(u8::from(self.match_kind));
         self.num_states.serialize_to_vec(&mut result);
@@ -663,7 +663,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     #[must_use]
     pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
         let (states, source) = Vec::<State>::deserialize_from_slice(source);
-        let (mapper, source) = CodeMapper::deserialize_unchecked(source);
+        let (mapper, source) = CodeMapper::deserialize_from_slice(source);
         let (outputs, source) = Vec::<Output>::deserialize_from_slice(source);
         let (match_kind, source) = MatchKind::deserialize_from_slice(source);
         let (num_states, source) = u32::deserialize_from_slice(source);

@@ -362,6 +362,6 @@ impl Serializable for MatchKind {
 
     #[inline(always)]
     fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        (MatchKind::from(src[0]), &src[1..])
+        (Self::from(src[0]), &src[1..])
     }
 }
