@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 
-use crate::serializer::{Deserialize, Serialize};
+use crate::serializer::Serializable;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
 pub struct U24(u32);
@@ -52,17 +52,15 @@ impl U24nU8 {
     }
 }
 
-impl Serialize for U24nU8 {
+impl Serializable for U24nU8 {
     #[inline(always)]
-    fn to_vec(&self, dst: &mut Vec<u8>) {
-        self.0.to_vec(dst);
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.0.serialize_to_vec(dst);
     }
-}
 
-impl Deserialize for U24nU8 {
     #[inline(always)]
-    fn from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (x, src) = u32::from_slice(src);
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (x, src) = u32::deserialize_from_slice(src);
         (Self(x), src)
     }
 }

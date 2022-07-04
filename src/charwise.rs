@@ -10,9 +10,7 @@ use core::num::NonZeroU32;
 use alloc::vec::Vec;
 
 use crate::errors::Result;
-use crate::serializer::{
-    deserialize_vec, serialize_slice, serialized_bytes, Deserialize, Serialize,
-};
+use crate::serializer::{deserialize_vec, serialize_slice, serialized_bytes, Serializable};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
@@ -617,7 +615,7 @@ impl CharwiseDoubleArrayAhoCorasick {
         self.mapper.serialize(&mut result);
         serialize_slice(&self.outputs, &mut result);
         result.push(u8::from(self.match_kind));
-        self.num_states.to_vec(&mut result);
+        self.num_states.serialize_to_vec(&mut result);
         result
     }
 
@@ -668,7 +666,7 @@ impl CharwiseDoubleArrayAhoCorasick {
         let (mapper, source) = CodeMapper::deserialize_unchecked(source);
         let (outputs, source) = deserialize_vec::<Output>(source);
         let match_kind = MatchKind::from(source[0]);
-        let (num_states, source) = u32::from_slice(&source[1..]);
+        let (num_states, source) = u32::deserialize_from_slice(&source[1..]);
         (
             Self {
                 states,
@@ -818,23 +816,21 @@ impl State {
     }
 }
 
-impl Serialize for State {
+impl Serializable for State {
     #[inline(always)]
-    fn to_vec(&self, dst: &mut Vec<u8>) {
-        self.base.to_vec(dst);
-        self.check.to_vec(dst);
-        self.fail.to_vec(dst);
-        self.output_pos.to_vec(dst);
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.base.serialize_to_vec(dst);
+        self.check.serialize_to_vec(dst);
+        self.fail.serialize_to_vec(dst);
+        self.output_pos.serialize_to_vec(dst);
     }
-}
 
-impl Deserialize for State {
     #[inline(always)]
-    fn from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (base, src) = Option::<NonZeroU32>::from_slice(src);
-        let (check, src) = u32::from_slice(src);
-        let (fail, src) = u32::from_slice(src);
-        let (output_pos, src) = Option::<NonZeroU32>::from_slice(src);
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (base, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
+        let (check, src) = u32::deserialize_from_slice(src);
+        let (fail, src) = u32::deserialize_from_slice(src);
+        let (output_pos, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
         (
             Self {
                 base,

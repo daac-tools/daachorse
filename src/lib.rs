@@ -202,7 +202,7 @@ use alloc::vec::Vec;
 use build_helper::BuildHelper;
 pub use bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
 pub use charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
-use serializer::{Deserialize, Serialize};
+use serializer::Serializable;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 struct Output {
@@ -237,21 +237,19 @@ impl Output {
     }
 }
 
-impl Serialize for Output {
+impl Serializable for Output {
     #[inline(always)]
-    fn to_vec(&self, dst: &mut Vec<u8>) {
-        self.value.to_vec(dst);
-        self.length.to_vec(dst);
-        self.parent.to_vec(dst);
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.value.serialize_to_vec(dst);
+        self.length.serialize_to_vec(dst);
+        self.parent.serialize_to_vec(dst);
     }
-}
 
-impl Deserialize for Output {
     #[inline(always)]
-    fn from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (value, src) = u32::from_slice(src);
-        let (length, src) = u32::from_slice(src);
-        let (parent, src) = Option::<NonZeroU32>::from_slice(src);
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (value, src) = u32::deserialize_from_slice(src);
+        let (length, src) = u32::deserialize_from_slice(src);
+        let (parent, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
         (
             Self {
                 value,

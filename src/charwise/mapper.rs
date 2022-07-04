@@ -2,9 +2,7 @@ use core::mem;
 
 use alloc::vec::Vec;
 
-use crate::serializer::{
-    deserialize_vec, serialize_slice, serialized_bytes, Deserialize, Serialize,
-};
+use crate::serializer::{deserialize_vec, serialize_slice, serialized_bytes, Serializable};
 
 use crate::utils::FromU32;
 
@@ -62,12 +60,12 @@ impl CodeMapper {
 
     pub fn serialize(&self, result: &mut Vec<u8>) {
         serialize_slice(&self.table, result);
-        self.alphabet_size.to_vec(result);
+        self.alphabet_size.serialize_to_vec(result);
     }
 
     pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
         let (table, source) = deserialize_vec::<u32>(source);
-        let (alphabet_size, source) = u32::from_slice(source);
+        let (alphabet_size, source) = u32::deserialize_from_slice(source);
         (
             Self {
                 table,
