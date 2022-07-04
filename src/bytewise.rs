@@ -573,12 +573,12 @@ impl DoubleArrayAhoCorasick {
         let mut result = Vec::with_capacity(
             self.states.serialized_bytes()
                 + self.outputs.serialized_bytes()
-                + mem::size_of::<u8>()
+                + self.match_kind.serialized_bytes()
                 + self.num_states.serialized_bytes(),
         );
         self.states.serialize_to_vec(&mut result);
         self.outputs.serialize_to_vec(&mut result);
-        result.push(u8::from(self.match_kind));
+        self.match_kind.serialize_to_vec(&mut result);
         self.num_states.serialize_to_vec(&mut result);
         result
     }
