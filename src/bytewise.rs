@@ -570,8 +570,6 @@ impl DoubleArrayAhoCorasick {
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     /// ```
-    // Both states.len() and outputs.len() are less than or equal to u32::MAX.
-    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
@@ -582,8 +580,8 @@ impl DoubleArrayAhoCorasick {
         );
         serialize_slice(&self.states, &mut result);
         serialize_slice(&self.outputs, &mut result);
-        result.push(self.match_kind as u8);
-        u32::try_from(self.num_states).unwrap().to_vec(&mut result);
+        result.push(u8::from(self.match_kind));
+        self.num_states.to_vec(&mut result);
         result
     }
 

@@ -604,8 +604,6 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     /// ```
-    // Both states.len() and outputs.len() are less than or equal to u32::MAX.
-    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
@@ -616,10 +614,10 @@ impl CharwiseDoubleArrayAhoCorasick {
                 + mem::size_of::<u32>(),
         );
         serialize_slice(&self.states, &mut result);
-        serialize_slice(&self.outputs, &mut result);
         self.mapper.serialize(&mut result);
-        result.push(self.match_kind as u8);
-        u32::try_from(self.num_states).unwrap().to_vec(&mut result);
+        serialize_slice(&self.outputs, &mut result);
+        result.push(u8::from(self.match_kind));
+        self.num_states.to_vec(&mut result);
         result
     }
 
@@ -667,8 +665,8 @@ impl CharwiseDoubleArrayAhoCorasick {
     #[must_use]
     pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
         let (states, source) = deserialize_vec::<State>(source);
-        let (outputs, source) = deserialize_vec::<Output>(source);
         let (mapper, source) = CodeMapper::deserialize_unchecked(source);
+        let (outputs, source) = deserialize_vec::<Output>(source);
         let match_kind = MatchKind::from(source[0]);
         let (num_states, source) = u32::from_slice(&source[1..]);
         (
