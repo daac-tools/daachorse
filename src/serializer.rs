@@ -5,7 +5,7 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
-pub trait Serialize: Sized {
+pub trait Serialize {
     fn to_vec(&self, dst: &mut Vec<u8>);
 }
 
@@ -66,7 +66,7 @@ where
     (dst, src)
 }
 
-pub const fn serialized_bytes<S>(src: &[S]) -> usize
+pub const fn serialized_bytes<S: Sized>(src: &[S]) -> usize
 where
     S: Serialize,
 {
