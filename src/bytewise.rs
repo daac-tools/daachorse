@@ -628,8 +628,8 @@ impl DoubleArrayAhoCorasick {
     pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
         let (states, source) = Vec::<State>::deserialize_from_slice(source);
         let (outputs, source) = Vec::<Output>::deserialize_from_slice(source);
-        let match_kind = MatchKind::from(source[0]);
-        let (num_states, source) = u32::deserialize_from_slice(&source[1..]);
+        let (match_kind, source) = MatchKind::deserialize_from_slice(source);
+        let (num_states, source) = u32::deserialize_from_slice(source);
         (
             Self {
                 states,

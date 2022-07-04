@@ -353,3 +353,15 @@ impl From<MatchKind> for u8 {
         }
     }
 }
+
+impl Serializable for MatchKind {
+    #[inline(always)]
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        dst.push(u8::from(*self));
+    }
+
+    #[inline(always)]
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        (MatchKind::from(src[0]), &src[1..])
+    }
+}
