@@ -677,7 +677,7 @@ impl CharwiseDoubleArrayAhoCorasick {
                 mapper,
                 outputs,
                 match_kind,
-                num_states: usize::try_from(num_states).unwrap(),
+                num_states,
             },
             source,
         )
