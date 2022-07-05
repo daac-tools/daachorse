@@ -82,7 +82,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_iter("abcd");
     ///
@@ -166,7 +166,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_iter("abcd");
     ///
@@ -209,7 +209,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
     /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
     ///
@@ -254,7 +254,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_overlapping_iter("abcd");
     ///
@@ -306,7 +306,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
     /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
     ///
@@ -363,7 +363,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "cd", "abc"];
-    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_overlapping_no_suffix_iter("abcd");
     ///
@@ -416,7 +416,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "cd", "abc"];
-    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
     /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
     ///
@@ -484,10 +484,10 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// };
     ///
     /// let patterns = vec!["ab", "a", "abcd"];
-    /// let pma: DoubleArrayAhoCorasick<usize> = DoubleArrayAhoCorasickBuilder::new()
-    ///           .match_kind(MatchKind::LeftmostLongest)
-    ///           .build(&patterns)
-    ///           .unwrap();
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///         .match_kind(MatchKind::LeftmostLongest)
+    ///         .build(&patterns)
+    ///         .unwrap();
     ///
     /// let mut it = pma.leftmost_find_iter("abcd");
     ///
@@ -507,10 +507,10 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// };
     ///
     /// let patterns = vec!["ab", "a", "abcd"];
-    /// let pma: DoubleArrayAhoCorasick<usize> = DoubleArrayAhoCorasickBuilder::new()
-    ///           .match_kind(MatchKind::LeftmostFirst)
-    ///           .build(&patterns)
-    ///           .unwrap();
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///         .match_kind(MatchKind::LeftmostFirst)
+    ///         .build(&patterns)
+    ///         .unwrap();
     ///
     /// let mut it = pma.leftmost_find_iter("abcd");
     ///
