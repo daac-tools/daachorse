@@ -170,8 +170,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// # Arguments
     ///
-    /// * `patvals` - List of pattern-value pairs, where the value is of type [`u32`] and less than
-    /// [`u32::MAX`].
+    /// * `patvals` - List of pattern-value pairs.
     ///
     /// # Errors
     ///

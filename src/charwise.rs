@@ -112,8 +112,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `patvals` - List of pattern-value pairs, in which the value is of type [`u32`] and less
-    /// than [`u32::MAX`].
+    /// * `patvals` - List of pattern-value pairs.
     ///
     /// # Errors
     ///
