@@ -11,14 +11,14 @@ use crate::utils::FromU32;
 /// If the type of output value of the automaton implements this trait, the automaton can be
 /// serialized.
 pub trait Serializable: Sized {
-    /// A Function called during serialization.
+    /// A function called during serialization.
     ///
     /// # Arguments
     ///
     /// * `dst` - the destination to which the serialized data is written.
     fn serialize_to_vec(&self, dst: &mut Vec<u8>);
 
-    /// A Function called during deserialization. This function must return the pair of the struct
+    /// A function called during deserialization. This function must return the pair of the struct
     /// and the rest slice.
     ///
     /// # Arguments
