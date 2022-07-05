@@ -116,7 +116,9 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     /// use daachorse::CharwiseDoubleArrayAhoCorasickBuilder;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new().build(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///     .build(patterns)
+    ///     .unwrap();
     ///
     /// let mut it = pma.find_iter("全世界中に");
     ///
@@ -166,7 +168,9 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     /// use daachorse::CharwiseDoubleArrayAhoCorasickBuilder;
     ///
     /// let patvals = vec![("全世界", 0), ("世界", 10), ("に", 100)];
-    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new().build_with_values(patvals).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///     .build_with_values(patvals)
+    ///     .unwrap();
     ///
     /// let mut it = pma.find_iter("全世界中に");
     ///

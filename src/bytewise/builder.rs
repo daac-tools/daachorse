@@ -74,9 +74,9 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// let patterns = vec!["ab", "abcd"];
     /// let pma = DoubleArrayAhoCorasickBuilder::new()
-    ///           .match_kind(MatchKind::LeftmostLongest)
-    ///           .build(&patterns)
-    ///           .unwrap();
+    ///     .match_kind(MatchKind::LeftmostLongest)
+    ///     .build(&patterns)
+    ///     .unwrap();
     ///
     /// let mut it = pma.leftmost_find_iter("abcd");
     ///

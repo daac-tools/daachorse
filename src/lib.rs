@@ -75,13 +75,13 @@
 //! [`MatchKind::LeftmostLongest`] in the construction.
 //!
 //! ```
-//! use daachorse::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder, MatchKind};
+//! use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
 //!
 //! let patterns = vec!["ab", "a", "abcd"];
 //! let pma = DoubleArrayAhoCorasickBuilder::new()
-//!           .match_kind(MatchKind::LeftmostLongest)
-//!           .build(&patterns)
-//!           .unwrap();
+//!     .match_kind(MatchKind::LeftmostLongest)
+//!     .build(&patterns)
+//!     .unwrap();
 //!
 //! let mut it = pma.leftmost_find_iter("abcd");
 //!
@@ -105,13 +105,13 @@
 //! `ab` is reported because it is the earliest registered one.
 //!
 //! ```
-//! use daachorse::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder, MatchKind};
+//! use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
 //!
 //! let patterns = vec!["ab", "a", "abcd"];
 //! let pma = DoubleArrayAhoCorasickBuilder::new()
-//!           .match_kind(MatchKind::LeftmostFirst)
-//!           .build(&patterns)
-//!           .unwrap();
+//!     .match_kind(MatchKind::LeftmostFirst)
+//!     .build(&patterns)
+//!     .unwrap();
 //!
 //! let mut it = pma.leftmost_find_iter("abcd");
 //!

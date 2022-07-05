@@ -495,17 +495,13 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// ## LeftmostLongest
     ///
     /// ```
-    /// use daachorse::{
-    ///     CharwiseDoubleArrayAhoCorasick,
-    ///     CharwiseDoubleArrayAhoCorasickBuilder,
-    ///     MatchKind,
-    /// };
+    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
     ///
     /// let patterns = vec!["世界", "世", "世界中に"];
     /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
-    ///         .match_kind(MatchKind::LeftmostLongest)
-    ///         .build(&patterns)
-    ///         .unwrap();
+    ///     .match_kind(MatchKind::LeftmostLongest)
+    ///     .build(&patterns)
+    ///     .unwrap();
     ///
     /// let mut it = pma.leftmost_find_iter("世界中に");
     ///
@@ -518,17 +514,13 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// ## LeftmostFirst
     ///
     /// ```
-    /// use daachorse::{
-    ///     CharwiseDoubleArrayAhoCorasick,
-    ///     CharwiseDoubleArrayAhoCorasickBuilder,
-    ///     MatchKind,
-    /// };
+    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
     ///
     /// let patterns = vec!["世界", "世", "世界中に"];
     /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
-    ///         .match_kind(MatchKind::LeftmostFirst)
-    ///         .build(&patterns)
-    ///         .unwrap();
+    ///     .match_kind(MatchKind::LeftmostFirst)
+    ///     .build(&patterns)
+    ///     .unwrap();
     ///
     /// let mut it = pma.leftmost_find_iter("世界中に");
     ///
@@ -660,9 +652,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     ///
-    /// let (pma, _) = unsafe {
-    ///     CharwiseDoubleArrayAhoCorasick::<u32>::deserialize_unchecked(&bytes)
-    /// };
+    /// let (pma, _) = unsafe { CharwiseDoubleArrayAhoCorasick::<u32>::deserialize_unchecked(&bytes) };
     ///
     /// let mut it = pma.find_overlapping_iter("全世界中に");
     ///

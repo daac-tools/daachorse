@@ -477,17 +477,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// ## LeftmostLongest
     ///
     /// ```
-    /// use daachorse::{
-    ///     DoubleArrayAhoCorasick,
-    ///     DoubleArrayAhoCorasickBuilder,
-    ///     MatchKind,
-    /// };
+    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
     ///
     /// let patterns = vec!["ab", "a", "abcd"];
     /// let pma = DoubleArrayAhoCorasickBuilder::new()
-    ///         .match_kind(MatchKind::LeftmostLongest)
-    ///         .build(&patterns)
-    ///         .unwrap();
+    ///     .match_kind(MatchKind::LeftmostLongest)
+    ///     .build(&patterns)
+    ///     .unwrap();
     ///
     /// let mut it = pma.leftmost_find_iter("abcd");
     ///
@@ -500,17 +496,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// ## LeftmostFirst
     ///
     /// ```
-    /// use daachorse::{
-    ///     DoubleArrayAhoCorasick,
-    ///     DoubleArrayAhoCorasickBuilder,
-    ///     MatchKind,
-    /// };
+    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
     ///
     /// let patterns = vec!["ab", "a", "abcd"];
     /// let pma = DoubleArrayAhoCorasickBuilder::new()
-    ///         .match_kind(MatchKind::LeftmostFirst)
-    ///         .build(&patterns)
-    ///         .unwrap();
+    ///     .match_kind(MatchKind::LeftmostFirst)
+    ///     .build(&patterns)
+    ///     .unwrap();
     ///
     /// let mut it = pma.leftmost_find_iter("abcd");
     ///
@@ -622,9 +614,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     ///
-    /// let (pma, _) = unsafe {
-    ///     DoubleArrayAhoCorasick::<u32>::deserialize_unchecked(&bytes)
-    /// };
+    /// let (pma, _) = unsafe { DoubleArrayAhoCorasick::<u32>::deserialize_unchecked(&bytes) };
     ///
     /// let mut it = pma.find_overlapping_iter("abcd");
     ///
