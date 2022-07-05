@@ -215,8 +215,9 @@ impl<V> Output<V>
 where
     V: Copy,
 {
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    pub const fn new(value: V, length: u32, parent: Option<NonZeroU32>) -> Self {
+    pub fn new(value: V, length: u32, parent: Option<NonZeroU32>) -> Self {
         Self {
             value,
             length,
@@ -224,18 +225,21 @@ where
         }
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    pub const fn value(self) -> V {
+    pub fn value(self) -> V {
         self.value
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    pub const fn length(self) -> u32 {
+    pub fn length(self) -> u32 {
         self.length
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    pub const fn parent(self) -> Option<NonZeroU32> {
+    pub fn parent(self) -> Option<NonZeroU32> {
         self.parent
     }
 }
@@ -285,23 +289,26 @@ where
     V: Copy,
 {
     /// Starting position of the match.
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
     #[must_use]
-    pub const fn start(&self) -> usize {
+    pub fn start(&self) -> usize {
         self.end - self.length
     }
 
     /// Ending position of the match.
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
     #[must_use]
-    pub const fn end(&self) -> usize {
+    pub fn end(&self) -> usize {
         self.end
     }
 
     /// Value associated with the pattern.
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
     #[must_use]
-    pub const fn value(&self) -> V {
+    pub fn value(&self) -> V {
         self.value
     }
 }
