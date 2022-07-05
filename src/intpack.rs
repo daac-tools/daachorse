@@ -1,3 +1,7 @@
+use alloc::vec::Vec;
+
+use crate::serializer::Serializable;
+
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
 pub struct U24(u32);
 
@@ -46,14 +50,22 @@ impl U24nU8 {
     pub fn set_b(&mut self, b: u8) {
         self.0 = self.a().get() << 8 | u32::from(b);
     }
+}
 
+impl Serializable for U24nU8 {
     #[inline(always)]
-    pub const fn to_le_bytes(self) -> [u8; 4] {
-        self.0.to_le_bytes()
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.0.serialize_to_vec(dst);
     }
 
     #[inline(always)]
-    pub const fn from_le_bytes(bytes: [u8; 4]) -> Self {
-        Self(u32::from_le_bytes(bytes))
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (x, src) = u32::deserialize_from_slice(src);
+        (Self(x), src)
+    }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        u32::serialized_bytes()
     }
 }

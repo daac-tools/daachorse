@@ -11,6 +11,7 @@ use alloc::vec::Vec;
 use crate::build_helper::BuildHelper;
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
+use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
@@ -567,26 +568,18 @@ impl DoubleArrayAhoCorasick {
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     /// ```
-    // Both states.len() and outputs.len() are less than or equal to u32::MAX.
-    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
-            mem::size_of::<u32>() * 3
-                + mem::size_of::<u8>()
-                + 12 * self.states.len()
-                + 8 * self.outputs.len(),
+            self.states.serialized_bytes()
+                + self.outputs.serialized_bytes()
+                + MatchKind::serialized_bytes()
+                + u32::serialized_bytes(),
         );
-        result.extend_from_slice(&u32::try_from(self.states.len()).unwrap().to_le_bytes());
-        for state in &self.states {
-            result.extend_from_slice(&state.serialize());
-        }
-        result.extend_from_slice(&u32::try_from(self.outputs.len()).unwrap().to_le_bytes());
-        for output in &self.outputs {
-            result.extend_from_slice(&output.serialize());
-        }
-        result.push(u8::from(self.match_kind));
-        result.extend_from_slice(&self.num_states.to_le_bytes());
+        self.states.serialize_to_vec(&mut result);
+        self.outputs.serialize_to_vec(&mut result);
+        self.match_kind.serialize_to_vec(&mut result);
+        self.num_states.serialize_to_vec(&mut result);
         result
     }
 
@@ -632,34 +625,11 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let states_len = usize::from_u32(u32::from_le_bytes(
-            source[0..4].try_into().unwrap_unchecked(),
-        ));
-        source = &source[4..];
-        let mut states = Vec::with_capacity(states_len);
-        for _ in 0..states_len {
-            states.push(State::deserialize(
-                source[0..12].try_into().unwrap_unchecked(),
-            ));
-            source = &source[12..];
-        }
-        let outputs_len = usize::from_u32(u32::from_le_bytes(
-            source[0..4].try_into().unwrap_unchecked(),
-        ));
-        source = &source[4..];
-        let mut outputs = Vec::with_capacity(outputs_len);
-        for _ in 0..outputs_len {
-            outputs.push(Output::deserialize(
-                source[0..12].try_into().unwrap_unchecked(),
-            ));
-            source = &source[12..];
-        }
-
-        let match_kind = MatchKind::from(source[0]);
-        let num_states_array: [u8; 4] = source[1..5].try_into().unwrap_unchecked();
-        let num_states = u32::from_le_bytes(num_states_array);
-
+    pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
+        let (states, source) = Vec::<State>::deserialize_from_slice(source);
+        let (outputs, source) = Vec::<Output>::deserialize_from_slice(source);
+        let (match_kind, source) = MatchKind::deserialize_from_slice(source);
+        let (num_states, source) = u32::deserialize_from_slice(source);
         (
             Self {
                 states,
@@ -667,7 +637,7 @@ impl DoubleArrayAhoCorasick {
                 match_kind,
                 num_states,
             },
-            &source[5..],
+            source,
         )
     }
 
@@ -784,23 +754,36 @@ impl State {
             Err(DaachorseError::automaton_scale("output_pos", U24::MAX))
         }
     }
+}
 
+impl Serializable for State {
     #[inline(always)]
-    fn serialize(&self) -> [u8; 12] {
-        let mut result = [0; 12];
-        result[0..4].copy_from_slice(&self.base.map_or(0, NonZeroU32::get).to_le_bytes());
-        result[4..8].copy_from_slice(&self.fail.to_le_bytes());
-        result[8..12].copy_from_slice(&self.opos_ch.to_le_bytes());
-        result
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.base.serialize_to_vec(dst);
+        self.fail.serialize_to_vec(dst);
+        self.opos_ch.serialize_to_vec(dst);
     }
 
     #[inline(always)]
-    fn deserialize(input: [u8; 12]) -> Self {
-        Self {
-            base: NonZeroU32::new(u32::from_le_bytes(input[0..4].try_into().unwrap())),
-            fail: u32::from_le_bytes(input[4..8].try_into().unwrap()),
-            opos_ch: U24nU8::from_le_bytes(input[8..12].try_into().unwrap()),
-        }
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (base, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
+        let (fail, src) = u32::deserialize_from_slice(src);
+        let (opos_ch, src) = U24nU8::deserialize_from_slice(src);
+        (
+            Self {
+                base,
+                fail,
+                opos_ch,
+            },
+            src,
+        )
+    }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        Option::<NonZeroU32>::serialized_bytes()
+            + u32::serialized_bytes()
+            + U24nU8::serialized_bytes()
     }
 }
 
@@ -993,5 +976,36 @@ mod tests {
         assert_eq!(512, pma.states.len());
         assert_eq!(0x80, pma.states[0].base().unwrap().get());
         assert_eq!(0x100, pma.states[0x80].base().unwrap().get());
+    }
+
+    #[test]
+    fn test_serialize_state() {
+        let mut opos_ch = U24nU8::default();
+        opos_ch.set_a(U24::try_from(57).unwrap());
+        opos_ch.set_b(77);
+        let x = State {
+            base: NonZeroU32::new(42),
+            fail: 13,
+            opos_ch,
+        };
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), State::serialized_bytes());
+        let (y, rest) = State::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
+    }
+
+    #[test]
+    fn test_serialize_pma() {
+        let patterns = vec!["abba", "baaba", "ababa"];
+        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+        let bytes = pma.serialize();
+        let (other, rest) = unsafe { DoubleArrayAhoCorasick::deserialize_unchecked(&bytes) };
+        assert!(rest.is_empty());
+        assert_eq!(pma.states, other.states);
+        assert_eq!(pma.outputs, other.outputs);
+        assert_eq!(pma.match_kind, other.match_kind);
+        assert_eq!(pma.num_states, other.num_states);
     }
 }

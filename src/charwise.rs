@@ -10,6 +10,7 @@ use core::num::NonZeroU32;
 use alloc::vec::Vec;
 
 use crate::errors::Result;
+use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
@@ -601,28 +602,20 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     /// ```
-    // Both states.len() and outputs.len() are less than or equal to u32::MAX.
-    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn serialize(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(
-            mem::size_of::<u32>() * 3
-                + mem::size_of::<u8>()
-                + 16 * self.states.len()
+            self.states.serialized_bytes()
                 + self.mapper.serialized_bytes()
-                + 8 * self.outputs.len(),
+                + self.outputs.serialized_bytes()
+                + MatchKind::serialized_bytes()
+                + u32::serialized_bytes(),
         );
-        result.extend_from_slice(&u32::try_from(self.states.len()).unwrap().to_le_bytes());
-        for state in &self.states {
-            result.extend_from_slice(&state.serialize());
-        }
-        self.mapper.serialize(&mut result);
-        result.extend_from_slice(&u32::try_from(self.outputs.len()).unwrap().to_le_bytes());
-        for output in &self.outputs {
-            result.extend_from_slice(&output.serialize());
-        }
-        result.push(u8::from(self.match_kind));
-        result.extend_from_slice(&self.num_states.to_le_bytes());
+        self.states.serialize_to_vec(&mut result);
+        self.mapper.serialize_to_vec(&mut result);
+        self.outputs.serialize_to_vec(&mut result);
+        self.match_kind.serialize_to_vec(&mut result);
+        self.num_states.serialize_to_vec(&mut result);
         result
     }
 
@@ -668,37 +661,12 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let states_len = usize::from_u32(u32::from_le_bytes(
-            source[0..4].try_into().unwrap_unchecked(),
-        ));
-        source = &source[4..];
-        let mut states = Vec::with_capacity(states_len);
-        for _ in 0..states_len {
-            states.push(State::deserialize(
-                source[0..16].try_into().unwrap_unchecked(),
-            ));
-            source = &source[16..];
-        }
-
-        let (mapper, mut source) = CodeMapper::deserialize_unchecked(source);
-
-        let outputs_len = usize::from_u32(u32::from_le_bytes(
-            source[0..4].try_into().unwrap_unchecked(),
-        ));
-        source = &source[4..];
-        let mut outputs = Vec::with_capacity(outputs_len);
-        for _ in 0..outputs_len {
-            outputs.push(Output::deserialize(
-                source[0..12].try_into().unwrap_unchecked(),
-            ));
-            source = &source[12..];
-        }
-
-        let match_kind = MatchKind::from(source[0]);
-        let num_states_array: [u8; 4] = source[1..5].try_into().unwrap_unchecked();
-        let num_states = u32::from_le_bytes(num_states_array);
-
+    pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
+        let (states, source) = Vec::<State>::deserialize_from_slice(source);
+        let (mapper, source) = CodeMapper::deserialize_from_slice(source);
+        let (outputs, source) = Vec::<Output>::deserialize_from_slice(source);
+        let (match_kind, source) = MatchKind::deserialize_from_slice(source);
+        let (num_states, source) = u32::deserialize_from_slice(source);
         (
             Self {
                 states,
@@ -707,7 +675,7 @@ impl CharwiseDoubleArrayAhoCorasick {
                 match_kind,
                 num_states,
             },
-            &source[5..],
+            source,
         )
     }
 
@@ -846,24 +814,75 @@ impl State {
     pub fn set_output_pos(&mut self, x: Option<NonZeroU32>) {
         self.output_pos = x;
     }
+}
 
+impl Serializable for State {
     #[inline(always)]
-    fn serialize(&self) -> [u8; 16] {
-        let mut result = [0; 16];
-        result[0..4].copy_from_slice(&self.base.map_or(0, NonZeroU32::get).to_le_bytes());
-        result[4..8].copy_from_slice(&self.check.to_le_bytes());
-        result[8..12].copy_from_slice(&self.fail.to_le_bytes());
-        result[12..16].copy_from_slice(&self.output_pos.map_or(0, NonZeroU32::get).to_le_bytes());
-        result
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.base.serialize_to_vec(dst);
+        self.check.serialize_to_vec(dst);
+        self.fail.serialize_to_vec(dst);
+        self.output_pos.serialize_to_vec(dst);
     }
 
     #[inline(always)]
-    fn deserialize(input: [u8; 16]) -> Self {
-        Self {
-            base: NonZeroU32::new(u32::from_le_bytes(input[0..4].try_into().unwrap())),
-            check: u32::from_le_bytes(input[4..8].try_into().unwrap()),
-            fail: u32::from_le_bytes(input[8..12].try_into().unwrap()),
-            output_pos: NonZeroU32::new(u32::from_le_bytes(input[12..16].try_into().unwrap())),
-        }
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (base, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
+        let (check, src) = u32::deserialize_from_slice(src);
+        let (fail, src) = u32::deserialize_from_slice(src);
+        let (output_pos, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
+        (
+            Self {
+                base,
+                check,
+                fail,
+                output_pos,
+            },
+            src,
+        )
+    }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        Option::<NonZeroU32>::serialized_bytes()
+            + u32::serialized_bytes()
+            + u32::serialized_bytes()
+            + Option::<NonZeroU32>::serialized_bytes()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_serialize_state() {
+        let x = State {
+            base: NonZeroU32::new(42),
+            check: 57,
+            fail: 13,
+            output_pos: NonZeroU32::new(100),
+        };
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), State::serialized_bytes());
+        let (y, rest) = State::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
+    }
+
+    #[test]
+    fn test_serialize_pma() {
+        let patterns = vec!["全世界", "世界", "に"];
+        let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+        let bytes = pma.serialize();
+        let (other, rest) =
+            unsafe { CharwiseDoubleArrayAhoCorasick::deserialize_unchecked(&bytes) };
+        assert!(rest.is_empty());
+        assert_eq!(pma.states, other.states);
+        assert_eq!(pma.mapper, other.mapper);
+        assert_eq!(pma.outputs, other.outputs);
+        assert_eq!(pma.match_kind, other.match_kind);
+        assert_eq!(pma.num_states, other.num_states);
     }
 }

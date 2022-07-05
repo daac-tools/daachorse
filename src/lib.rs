@@ -192,13 +192,17 @@ pub mod charwise;
 pub mod errors;
 mod intpack;
 mod nfa_builder;
+mod serializer;
 mod utils;
 
 use core::num::NonZeroU32;
 
+use alloc::vec::Vec;
+
 use build_helper::BuildHelper;
 pub use bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
 pub use charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
+use serializer::Serializable;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 struct Output {
@@ -231,23 +235,34 @@ impl Output {
     pub const fn parent(self) -> Option<NonZeroU32> {
         self.parent
     }
+}
 
+impl Serializable for Output {
     #[inline(always)]
-    fn serialize(&self) -> [u8; 12] {
-        let mut result = [0; 12];
-        result[0..4].copy_from_slice(&self.value.to_le_bytes());
-        result[4..8].copy_from_slice(&self.length.to_le_bytes());
-        result[8..12].copy_from_slice(&self.parent.map_or(0, NonZeroU32::get).to_le_bytes());
-        result
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.value.serialize_to_vec(dst);
+        self.length.serialize_to_vec(dst);
+        self.parent.serialize_to_vec(dst);
     }
 
     #[inline(always)]
-    fn deserialize(input: [u8; 12]) -> Self {
-        Self {
-            value: u32::from_le_bytes(input[0..4].try_into().unwrap()),
-            length: u32::from_le_bytes(input[4..8].try_into().unwrap()),
-            parent: NonZeroU32::new(u32::from_le_bytes(input[8..12].try_into().unwrap())),
-        }
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (value, src) = u32::deserialize_from_slice(src);
+        let (length, src) = u32::deserialize_from_slice(src);
+        let (parent, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
+        (
+            Self {
+                value,
+                length,
+                parent,
+            },
+            src,
+        )
+    }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        u32::serialized_bytes() + u32::serialized_bytes() + Option::<NonZeroU32>::serialized_bytes()
     }
 }
 
@@ -341,5 +356,53 @@ impl From<MatchKind> for u8 {
             MatchKind::LeftmostLongest => 1,
             MatchKind::LeftmostFirst => 2,
         }
+    }
+}
+
+impl Serializable for MatchKind {
+    #[inline(always)]
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        dst.push(u8::from(*self));
+    }
+
+    #[inline(always)]
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        (Self::from(src[0]), &src[1..])
+    }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        1
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_serialize_output() {
+        let x = Output {
+            value: 42,
+            length: 57,
+            parent: NonZeroU32::new(13),
+        };
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), Output::serialized_bytes());
+        let (y, rest) = Output::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
+    }
+
+    #[test]
+    fn test_serialize_match_kind() {
+        let x = MatchKind::LeftmostLongest;
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), MatchKind::serialized_bytes());
+        let (y, rest) = MatchKind::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
     }
 }

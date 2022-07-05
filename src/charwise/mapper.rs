@@ -1,5 +1,7 @@
 use alloc::vec::Vec;
 
+use crate::serializer::{Serializable, SerializableVec};
+
 use crate::utils::FromU32;
 
 pub const INVALID_CODE: u32 = u32::MAX;
@@ -49,38 +51,31 @@ impl CodeMapper {
     pub fn heap_bytes(&self) -> usize {
         self.table.len() * core::mem::size_of::<u32>()
     }
+}
 
-    pub fn serialized_bytes(&self) -> usize {
-        core::mem::size_of::<u32>()
-            + self.table.len() * core::mem::size_of::<u32>()
-            + core::mem::size_of::<u32>() // alphabet_size
+impl SerializableVec for CodeMapper {
+    #[inline(always)]
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.table.serialize_to_vec(dst);
+        self.alphabet_size.serialize_to_vec(dst);
     }
 
-    pub fn serialize(&self, result: &mut Vec<u8>) {
-        result.extend_from_slice(&u32::try_from(self.table.len()).unwrap().to_le_bytes());
-        for &x in &self.table {
-            result.extend_from_slice(&x.to_le_bytes());
-        }
-        result.extend_from_slice(&self.alphabet_size.to_le_bytes());
-    }
-
-    pub unsafe fn deserialize_unchecked(mut source: &[u8]) -> (Self, &[u8]) {
-        let len = usize::from_u32(u32::from_le_bytes(source[0..4].try_into().unwrap()));
-        source = &source[4..];
-        let mut table = Vec::with_capacity(len);
-        for _ in 0..len {
-            table.push(u32::from_le_bytes(source[0..4].try_into().unwrap()));
-            source = &source[4..];
-        }
-        let alphabet_size = u32::from_le_bytes(source[0..4].try_into().unwrap());
-        source = &source[4..];
+    #[inline(always)]
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        let (table, src) = Vec::<u32>::deserialize_from_slice(src);
+        let (alphabet_size, src) = u32::deserialize_from_slice(src);
         (
             Self {
                 table,
                 alphabet_size,
             },
-            source,
+            src,
         )
+    }
+
+    #[inline(always)]
+    fn serialized_bytes(&self) -> usize {
+        self.table.serialized_bytes() + u32::serialized_bytes()
     }
 }
 
@@ -101,5 +96,18 @@ mod tests {
         assert_eq!(mapper.get(5 as char), None);
         assert_eq!(mapper.get(6 as char), Some(3));
         assert_eq!(mapper.get(7 as char), None); // out-of-range
+    }
+
+    #[test]
+    fn test_serialize() {
+        let freqs = vec![3, 6, 0, 2, 3, 0, 3];
+        let mapper = CodeMapper::new(&freqs);
+
+        let mut data = vec![];
+        mapper.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), mapper.serialized_bytes());
+        let (other, rest) = CodeMapper::deserialize_from_slice(&data);
+        assert!(rest.is_empty());
+        assert_eq!(mapper, other);
     }
 }
