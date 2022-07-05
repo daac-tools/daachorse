@@ -6,11 +6,27 @@ use alloc::vec::Vec;
 
 use crate::utils::FromU32;
 
+/// Trait indicating serializability.
+///
+/// If the type of output value of the automaton implements this trait, the automaton can be
+/// serialized.
 pub trait Serializable: Sized {
+    /// A Function called during serialization.
+    ///
+    /// # Arguments
+    ///
+    /// * `dst` - the destination to which the serialized data is written.
     fn serialize_to_vec(&self, dst: &mut Vec<u8>);
 
+    /// A Function called during deserialization. This function must return the pair of the struct
+    /// and the rest slice.
+    ///
+    /// # Arguments
+    ///
+    /// * `src` - the source slice containing the serialized data.
     fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]);
 
+    /// Returns the size of serialized data.
     fn serialized_bytes() -> usize;
 }
 

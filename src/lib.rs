@@ -202,7 +202,7 @@ use alloc::vec::Vec;
 use build_helper::BuildHelper;
 pub use bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
 pub use charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
-use serializer::Serializable;
+pub use serializer::Serializable;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 struct Output<V> {
