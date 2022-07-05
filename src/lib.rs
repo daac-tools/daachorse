@@ -26,7 +26,7 @@
 //! use daachorse::DoubleArrayAhoCorasick;
 //!
 //! let patterns = vec!["bcd", "ab", "a"];
-//! let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+//! let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
 //!
 //! let mut it = pma.find_overlapping_iter("abcd");
 //!
@@ -54,7 +54,7 @@
 //! use daachorse::DoubleArrayAhoCorasick;
 //!
 //! let patterns = vec!["bcd", "ab", "a"];
-//! let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+//! let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
 //!
 //! let mut it = pma.find_iter("abcd");
 //!
@@ -75,10 +75,10 @@
 //! [`MatchKind::LeftmostLongest`] in the construction.
 //!
 //! ```
-//! use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+//! use daachorse::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder, MatchKind};
 //!
 //! let patterns = vec!["ab", "a", "abcd"];
-//! let pma = DoubleArrayAhoCorasickBuilder::new()
+//! let pma: DoubleArrayAhoCorasick<usize> = DoubleArrayAhoCorasickBuilder::new()
 //!           .match_kind(MatchKind::LeftmostLongest)
 //!           .build(&patterns)
 //!           .unwrap();
@@ -105,10 +105,10 @@
 //! `ab` is reported because it is the earliest registered one.
 //!
 //! ```
-//! use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+//! use daachorse::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder, MatchKind};
 //!
 //! let patterns = vec!["ab", "a", "abcd"];
-//! let pma = DoubleArrayAhoCorasickBuilder::new()
+//! let pma: DoubleArrayAhoCorasick<usize> = DoubleArrayAhoCorasickBuilder::new()
 //!           .match_kind(MatchKind::LeftmostFirst)
 //!           .build(&patterns)
 //!           .unwrap();
@@ -160,7 +160,7 @@
 //! use daachorse::CharwiseDoubleArrayAhoCorasick;
 //!
 //! let patterns = vec!["全世界", "世界", "に"];
-//! let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+//! let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
 //!
 //! let mut it = pma.find_iter("全世界中に");
 //!
@@ -205,15 +205,18 @@ pub use charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasic
 use serializer::Serializable;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
-struct Output {
-    value: u32,
+struct Output<V> {
+    value: V,
     length: u32,
     parent: Option<NonZeroU32>,
 }
 
-impl Output {
+impl<V> Output<V>
+where
+    V: Copy,
+{
     #[inline(always)]
-    pub const fn new(value: u32, length: u32, parent: Option<NonZeroU32>) -> Self {
+    pub const fn new(value: V, length: u32, parent: Option<NonZeroU32>) -> Self {
         Self {
             value,
             length,
@@ -222,7 +225,7 @@ impl Output {
     }
 
     #[inline(always)]
-    pub const fn value(self) -> u32 {
+    pub const fn value(self) -> V {
         self.value
     }
 
@@ -237,7 +240,10 @@ impl Output {
     }
 }
 
-impl Serializable for Output {
+impl<V> Serializable for Output<V>
+where
+    V: Serializable,
+{
     #[inline(always)]
     fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
         self.value.serialize_to_vec(dst);
@@ -247,7 +253,7 @@ impl Serializable for Output {
 
     #[inline(always)]
     fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (value, src) = u32::deserialize_from_slice(src);
+        let (value, src) = V::deserialize_from_slice(src);
         let (length, src) = u32::deserialize_from_slice(src);
         let (parent, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
         (
@@ -262,19 +268,22 @@ impl Serializable for Output {
 
     #[inline(always)]
     fn serialized_bytes() -> usize {
-        u32::serialized_bytes() + u32::serialized_bytes() + Option::<NonZeroU32>::serialized_bytes()
+        V::serialized_bytes() + u32::serialized_bytes() + Option::<NonZeroU32>::serialized_bytes()
     }
 }
 
 /// Match result.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Match {
+pub struct Match<V> {
     length: usize,
     end: usize,
-    value: usize,
+    value: V,
 }
 
-impl Match {
+impl<V> Match<V>
+where
+    V: Copy,
+{
     /// Starting position of the match.
     #[inline(always)]
     #[must_use]
@@ -292,7 +301,7 @@ impl Match {
     /// Value associated with the pattern.
     #[inline(always)]
     #[must_use]
-    pub const fn value(&self) -> usize {
+    pub const fn value(&self) -> V {
         self.value
     }
 }
@@ -383,13 +392,13 @@ mod tests {
     #[test]
     fn test_serialize_output() {
         let x = Output {
-            value: 42,
+            value: 42u32,
             length: 57,
             parent: NonZeroU32::new(13),
         };
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
-        assert_eq!(data.len(), Output::serialized_bytes());
+        assert_eq!(data.len(), Output::<u32>::serialized_bytes());
         let (y, rest) = Output::deserialize_from_slice(&data);
         assert!(rest.is_empty());
         assert_eq!(x, y);

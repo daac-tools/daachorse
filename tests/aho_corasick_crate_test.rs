@@ -537,8 +537,8 @@ testconfig!(
     |_| ()
 );
 
-fn run_search_tests<F: FnMut(&SearchTest) -> Vec<Match>>(which: TestCollection, mut f: F) {
-    let get_match_triples = |matches: Vec<Match>| -> Vec<(usize, usize, usize)> {
+fn run_search_tests<F: FnMut(&SearchTest) -> Vec<Match<usize>>>(which: TestCollection, mut f: F) {
+    let get_match_triples = |matches: Vec<Match<usize>>| -> Vec<(usize, usize, usize)> {
         matches
             .into_iter()
             .map(|m| (m.value(), m.start(), m.end()))

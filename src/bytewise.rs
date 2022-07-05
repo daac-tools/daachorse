@@ -51,14 +51,14 @@ const DEAD_STATE_IDX: u32 = 1;
 /// The maximum number of patterns is limited to 2^24-1. If a larger number of patterns is given,
 /// [`DaachorseError`](super::errors::DaachorseError) will be reported.
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct DoubleArrayAhoCorasick {
+pub struct DoubleArrayAhoCorasick<V> {
     states: Vec<State>,
-    outputs: Vec<Output>,
+    outputs: Vec<Output<V>>,
     match_kind: MatchKind,
     num_states: u32,
 }
 
-impl DoubleArrayAhoCorasick {
+impl<V> DoubleArrayAhoCorasick<V> {
     /// Creates a new [`DoubleArrayAhoCorasick`] from input patterns. The value `i` is
     /// automatically associated with `patterns[i]`.
     ///
@@ -81,7 +81,7 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_iter("abcd");
     ///
@@ -97,6 +97,7 @@ impl DoubleArrayAhoCorasick {
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
+        V: Copy + Default + TryFrom<usize>,
     {
         DoubleArrayAhoCorasickBuilder::new().build(patterns)
     }
@@ -140,8 +141,9 @@ impl DoubleArrayAhoCorasick {
     /// ```
     pub fn with_values<I, P>(patvals: I) -> Result<Self>
     where
-        I: IntoIterator<Item = (P, u32)>,
+        I: IntoIterator<Item = (P, V)>,
         P: AsRef<[u8]>,
+        V: Copy + Default,
     {
         DoubleArrayAhoCorasickBuilder::new().build_with_values(patvals)
     }
@@ -163,7 +165,7 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_iter("abcd");
     ///
@@ -175,7 +177,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<U8SliceIterator<P>>
+    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<U8SliceIterator<P>, V>
     where
         P: AsRef<[u8]>,
     {
@@ -206,7 +208,7 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
     ///
@@ -220,7 +222,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_iter_from_iter<P>(&self, haystack: P) -> FindIterator<P>
+    pub fn find_iter_from_iter<P>(&self, haystack: P) -> FindIterator<P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -251,7 +253,7 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_overlapping_iter("abcd");
     ///
@@ -269,7 +271,7 @@ impl DoubleArrayAhoCorasick {
     pub fn find_overlapping_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingIterator<U8SliceIterator<P>>
+    ) -> FindOverlappingIterator<U8SliceIterator<P>, V>
     where
         P: AsRef<[u8]>,
     {
@@ -303,7 +305,7 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
     ///
@@ -320,7 +322,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_overlapping_iter_from_iter<P>(&self, haystack: P) -> FindOverlappingIterator<P>
+    pub fn find_overlapping_iter_from_iter<P>(&self, haystack: P) -> FindOverlappingIterator<P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -360,7 +362,7 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "cd", "abc"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_overlapping_no_suffix_iter("abcd");
     ///
@@ -375,7 +377,7 @@ impl DoubleArrayAhoCorasick {
     pub fn find_overlapping_no_suffix_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<U8SliceIterator<P>>
+    ) -> FindOverlappingNoSuffixIterator<U8SliceIterator<P>, V>
     where
         P: AsRef<[u8]>,
     {
@@ -413,7 +415,7 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "cd", "abc"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
     ///
@@ -430,7 +432,7 @@ impl DoubleArrayAhoCorasick {
     pub fn find_overlapping_no_suffix_iter_from_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<P>
+    ) -> FindOverlappingNoSuffixIterator<P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -474,10 +476,14 @@ impl DoubleArrayAhoCorasick {
     /// ## LeftmostLongest
     ///
     /// ```
-    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+    /// use daachorse::{
+    ///     DoubleArrayAhoCorasick,
+    ///     DoubleArrayAhoCorasickBuilder,
+    ///     MatchKind,
+    /// };
     ///
     /// let patterns = vec!["ab", "a", "abcd"];
-    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    /// let pma: DoubleArrayAhoCorasick<usize> = DoubleArrayAhoCorasickBuilder::new()
     ///           .match_kind(MatchKind::LeftmostLongest)
     ///           .build(&patterns)
     ///           .unwrap();
@@ -493,10 +499,14 @@ impl DoubleArrayAhoCorasick {
     /// ## LeftmostFirst
     ///
     /// ```
-    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+    /// use daachorse::{
+    ///     DoubleArrayAhoCorasick,
+    ///     DoubleArrayAhoCorasickBuilder,
+    ///     MatchKind,
+    /// };
     ///
     /// let patterns = vec!["ab", "a", "abcd"];
-    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    /// let pma: DoubleArrayAhoCorasick<usize> = DoubleArrayAhoCorasickBuilder::new()
     ///           .match_kind(MatchKind::LeftmostFirst)
     ///           .build(&patterns)
     ///           .unwrap();
@@ -508,7 +518,7 @@ impl DoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P>
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P, V>
     where
         P: AsRef<[u8]>,
     {
@@ -531,13 +541,14 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     ///
     /// assert_eq!(3120, pma.heap_bytes());
     /// ```
     #[must_use]
     pub fn heap_bytes(&self) -> usize {
-        self.states.len() * mem::size_of::<State>() + self.outputs.len() * mem::size_of::<Output>()
+        self.states.len() * mem::size_of::<State>()
+            + self.outputs.len() * mem::size_of::<Output<V>>()
     }
 
     /// Returns the total number of states this automaton has.
@@ -548,7 +559,7 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// assert_eq!(pma.num_states(), 6);
     /// ```
@@ -565,11 +576,14 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     /// ```
     #[must_use]
-    pub fn serialize(&self) -> Vec<u8> {
+    pub fn serialize(&self) -> Vec<u8>
+    where
+        V: Serializable,
+    {
         let mut result = Vec::with_capacity(
             self.states.serialized_bytes()
                 + self.outputs.serialized_bytes()
@@ -604,11 +618,11 @@ impl DoubleArrayAhoCorasick {
     /// use daachorse::DoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     ///
     /// let (pma, _) = unsafe {
-    ///     DoubleArrayAhoCorasick::deserialize_unchecked(&bytes)
+    ///     DoubleArrayAhoCorasick::<u32>::deserialize_unchecked(&bytes)
     /// };
     ///
     /// let mut it = pma.find_overlapping_iter("abcd");
@@ -625,9 +639,12 @@ impl DoubleArrayAhoCorasick {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
+    pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8])
+    where
+        V: Serializable,
+    {
         let (states, source) = Vec::<State>::deserialize_from_slice(source);
-        let (outputs, source) = Vec::<Output>::deserialize_from_slice(source);
+        let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source);
         let (match_kind, source) = MatchKind::deserialize_from_slice(source);
         let (num_states, source) = u32::deserialize_from_slice(source);
         (
@@ -818,7 +835,7 @@ mod tests {
          *   c = 2
          */
         let patterns = vec![vec![0, 0], vec![0, 2], vec![1, 2], vec![2]];
-        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+        let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
 
         let base_expected = vec![
             NonZeroU32::new(4), // 0  (state=0)
@@ -882,7 +899,7 @@ mod tests {
          *           a-*-b-*-a-*
          */
         let patterns = vec!["abba", "baaba", "ababa"];
-        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+        let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
 
         assert_eq!(13, pma.num_states());
     }
@@ -909,7 +926,7 @@ mod tests {
             let pattern = vec![i];
             patterns.push(pattern);
         }
-        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+        let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
         assert_eq!(255, pma.num_states());
         assert_eq!(256, pma.states.len());
         assert_eq!(0xfe, pma.states[0].base().unwrap().get());
@@ -926,7 +943,7 @@ mod tests {
         for i in 0x04..=0xff {
             patterns.push(vec![i]);
         }
-        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+        let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
         assert_eq!(255, pma.num_states());
         assert_eq!(512, pma.states.len());
         assert_eq!(0x100, pma.states[0].base().unwrap().get());
@@ -947,7 +964,7 @@ mod tests {
             let pattern = vec![0x00, i];
             patterns.push(pattern);
         }
-        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+        let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
         assert_eq!(255, pma.num_states());
         assert_eq!(256, pma.states.len());
         assert_eq!(0x80, pma.states[0].base().unwrap().get());
@@ -971,7 +988,7 @@ mod tests {
             let pattern = vec![0x00, i];
             patterns.push(pattern);
         }
-        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+        let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
         assert_eq!(255, pma.num_states());
         assert_eq!(512, pma.states.len());
         assert_eq!(0x80, pma.states[0].base().unwrap().get());
@@ -999,7 +1016,7 @@ mod tests {
     #[test]
     fn test_serialize_pma() {
         let patterns = vec!["abba", "baaba", "ababa"];
-        let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+        let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
         let bytes = pma.serialize();
         let (other, rest) = unsafe { DoubleArrayAhoCorasick::deserialize_unchecked(&bytes) };
         assert!(rest.is_empty());

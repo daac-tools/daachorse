@@ -33,14 +33,14 @@ type EdgeMap<L> = alloc::collections::BTreeMap<L, u32>;
 
 /// State of [`NfaBuilder`].
 #[derive(Clone)]
-pub struct NfaBuilderState<L> {
+pub struct NfaBuilderState<L, V> {
     pub(crate) edges: EdgeMap<L>,
     pub(crate) fail: u32,
-    pub(crate) output: Option<(u32, NonZeroU32)>,
+    pub(crate) output: Option<(V, NonZeroU32)>,
     pub(crate) output_pos: Option<NonZeroU32>,
 }
 
-impl<L> Default for NfaBuilderState<L> {
+impl<L, V> Default for NfaBuilderState<L, V> {
     fn default() -> Self {
         Self {
             edges: EdgeMap::<L>::default(),
@@ -52,22 +52,23 @@ impl<L> Default for NfaBuilderState<L> {
 }
 
 /// Builder of an Aho-Corasick automaton.
-pub struct NfaBuilder<L> {
-    pub(crate) states: Vec<RefCell<NfaBuilderState<L>>>,
-    pub(crate) outputs: Vec<Output>, // in which common parts are merged.
+pub struct NfaBuilder<L, V> {
+    pub(crate) states: Vec<RefCell<NfaBuilderState<L, V>>>,
+    pub(crate) outputs: Vec<Output<V>>, // in which common parts are merged.
     pub(crate) len: usize,
     pub(crate) match_kind: MatchKind,
 }
 
-impl<L> NfaBuilder<L>
+impl<L, V> NfaBuilder<L, V>
 where
     L: EdgeLabel,
+    V: Copy + Default,
 {
     pub(crate) fn new(match_kind: MatchKind) -> Self {
         Self {
             states: vec![
-                RefCell::new(NfaBuilderState::<L>::default()), // root
-                RefCell::new(NfaBuilderState::<L>::default()), // dead
+                RefCell::new(NfaBuilderState::<L, V>::default()), // root
+                RefCell::new(NfaBuilderState::<L, V>::default()), // dead
             ],
             outputs: vec![],
             len: 0,
@@ -76,7 +77,7 @@ where
     }
 
     #[inline(always)]
-    pub(crate) fn add(&mut self, pattern: &[L], value: u32) -> Result<()> {
+    pub(crate) fn add(&mut self, pattern: &[L], value: V) -> Result<()> {
         let pattern_len = pattern
             .iter()
             .fold(0, |acc, c| acc + c.num_bytes())
@@ -103,7 +104,7 @@ where
                     .edges
                     .insert(c, next_state_id);
                 self.states
-                    .push(RefCell::new(NfaBuilderState::<L>::default()));
+                    .push(RefCell::new(NfaBuilderState::<L, V>::default()));
                 state_id = next_state_id;
             } else {
                 return Err(DaachorseError::automaton_scale("state_id", u32::MAX));
@@ -212,7 +213,7 @@ where
         debug_assert_ne!(q[0], ROOT_STATE_ID);
 
         // Adds a dummy output so that the output_pos is positive.
-        self.outputs.push(Output::new(0, 0, None));
+        self.outputs.push(Output::new(V::default(), 0, None));
 
         for &state_id in q {
             let s = &mut self.states[usize::from_u32(state_id)].borrow_mut();

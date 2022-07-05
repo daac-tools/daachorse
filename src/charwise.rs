@@ -55,15 +55,15 @@ const DEAD_STATE_IDX: u32 = 1;
 /// - [`CharwiseDoubleArrayAhoCorasick::with_values`] builds an automaton
 ///   from a set of pairs of a UTF-8 string and a [`u32`] value.
 #[derive(Clone, Eq, Hash, PartialEq)]
-pub struct CharwiseDoubleArrayAhoCorasick {
+pub struct CharwiseDoubleArrayAhoCorasick<V> {
     states: Vec<State>,
     mapper: CodeMapper,
-    outputs: Vec<Output>,
+    outputs: Vec<Output<V>>,
     match_kind: MatchKind,
     num_states: u32,
 }
 
-impl CharwiseDoubleArrayAhoCorasick {
+impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// Creates a new [`CharwiseDoubleArrayAhoCorasick`] from input patterns. The value `i` is
     /// automatically associated with `patterns[i]`.
     ///
@@ -86,7 +86,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_iter("全世界中に");
     ///
@@ -102,6 +102,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     where
         I: IntoIterator<Item = P>,
         P: AsRef<str>,
+        V: Copy + Default + TryFrom<usize>,
     {
         CharwiseDoubleArrayAhoCorasickBuilder::new().build(patterns)
     }
@@ -143,8 +144,9 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// ```
     pub fn with_values<I, P>(patvals: I) -> Result<Self>
     where
-        I: IntoIterator<Item = (P, u32)>,
+        I: IntoIterator<Item = (P, V)>,
         P: AsRef<str>,
+        V: Copy + Default,
     {
         CharwiseDoubleArrayAhoCorasickBuilder::new().build_with_values(patvals)
     }
@@ -166,7 +168,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_iter("全世界中に");
     ///
@@ -178,7 +180,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<StrIterator<P>>
+    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<StrIterator<P>, V>
     where
         P: AsRef<str>,
     {
@@ -213,7 +215,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let haystack = "全世界".as_bytes().iter().chain("中に".as_bytes()).copied();
     ///
@@ -227,7 +229,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub unsafe fn find_iter_from_iter<P>(&self, haystack: P) -> FindIterator<P>
+    pub unsafe fn find_iter_from_iter<P>(&self, haystack: P) -> FindIterator<P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -258,7 +260,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_overlapping_iter("全世界中に");
     ///
@@ -273,7 +275,10 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_overlapping_iter<P>(&self, haystack: P) -> FindOverlappingIterator<StrIterator<P>>
+    pub fn find_overlapping_iter<P>(
+        &self,
+        haystack: P,
+    ) -> FindOverlappingIterator<StrIterator<P>, V>
     where
         P: AsRef<str>,
     {
@@ -311,7 +316,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let haystack = "全世界".as_bytes().iter().chain("中に".as_bytes()).copied();
     ///
@@ -331,7 +336,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     pub unsafe fn find_overlapping_iter_from_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingIterator<P>
+    ) -> FindOverlappingIterator<P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -371,7 +376,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let mut it = pma.find_overlapping_no_suffix_iter("全世界中に");
     ///
@@ -386,7 +391,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     pub fn find_overlapping_no_suffix_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<StrIterator<P>>
+    ) -> FindOverlappingNoSuffixIterator<StrIterator<P>, V>
     where
         P: AsRef<str>,
     {
@@ -428,7 +433,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// let haystack = "全世界".as_bytes().iter().chain("中に".as_bytes()).copied();
     ///
@@ -445,7 +450,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     pub unsafe fn find_overlapping_no_suffix_iter_from_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<P>
+    ) -> FindOverlappingNoSuffixIterator<P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -489,10 +494,15 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// ## LeftmostLongest
     ///
     /// ```
-    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
+    /// use daachorse::{
+    ///     CharwiseDoubleArrayAhoCorasick,
+    ///     CharwiseDoubleArrayAhoCorasickBuilder,
+    ///     MatchKind,
+    /// };
     ///
     /// let patterns = vec!["世界", "世", "世界中に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    /// let pma: CharwiseDoubleArrayAhoCorasick<usize>
+    ///     = CharwiseDoubleArrayAhoCorasickBuilder::new()
     ///           .match_kind(MatchKind::LeftmostLongest)
     ///           .build(&patterns)
     ///           .unwrap();
@@ -508,10 +518,15 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// ## LeftmostFirst
     ///
     /// ```
-    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
+    /// use daachorse::{
+    ///     CharwiseDoubleArrayAhoCorasick,
+    ///     CharwiseDoubleArrayAhoCorasickBuilder,
+    ///     MatchKind,
+    /// };
     ///
     /// let patterns = vec!["世界", "世", "世界中に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    /// let pma: CharwiseDoubleArrayAhoCorasick<usize>
+    ///     = CharwiseDoubleArrayAhoCorasickBuilder::new()
     ///           .match_kind(MatchKind::LeftmostFirst)
     ///           .build(&patterns)
     ///           .unwrap();
@@ -523,7 +538,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P>
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P, V>
     where
         P: AsRef<str>,
     {
@@ -546,7 +561,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// assert_eq!(pma.num_states(), 6);
     /// ```
@@ -563,7 +578,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
     ///
     /// assert_eq!(pma.num_elements(), 8);
     /// ```
@@ -580,7 +595,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["bcd", "ab", "a"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     ///
     /// assert_eq!(580, pma.heap_bytes());
     /// ```
@@ -588,7 +603,7 @@ impl CharwiseDoubleArrayAhoCorasick {
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * mem::size_of::<State>()
             + self.mapper.heap_bytes()
-            + self.outputs.len() * mem::size_of::<Output>()
+            + self.outputs.len() * mem::size_of::<Output<V>>()
     }
 
     /// Serializes the automaton into a [`Vec`].
@@ -599,11 +614,14 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     /// ```
     #[must_use]
-    pub fn serialize(&self) -> Vec<u8> {
+    pub fn serialize(&self) -> Vec<u8>
+    where
+        V: Serializable,
+    {
         let mut result = Vec::with_capacity(
             self.states.serialized_bytes()
                 + self.mapper.serialized_bytes()
@@ -640,11 +658,11 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
-    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     /// let bytes = pma.serialize();
     ///
     /// let (pma, _) = unsafe {
-    ///     CharwiseDoubleArrayAhoCorasick::deserialize_unchecked(&bytes)
+    ///     CharwiseDoubleArrayAhoCorasick::<u32>::deserialize_unchecked(&bytes)
     /// };
     ///
     /// let mut it = pma.find_overlapping_iter("全世界中に");
@@ -661,10 +679,13 @@ impl CharwiseDoubleArrayAhoCorasick {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8]) {
+    pub unsafe fn deserialize_unchecked(source: &[u8]) -> (Self, &[u8])
+    where
+        V: Serializable,
+    {
         let (states, source) = Vec::<State>::deserialize_from_slice(source);
         let (mapper, source) = CodeMapper::deserialize_from_slice(source);
-        let (outputs, source) = Vec::<Output>::deserialize_from_slice(source);
+        let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source);
         let (match_kind, source) = MatchKind::deserialize_from_slice(source);
         let (num_states, source) = u32::deserialize_from_slice(source);
         (
@@ -874,7 +895,7 @@ mod tests {
     #[test]
     fn test_serialize_pma() {
         let patterns = vec!["全世界", "世界", "に"];
-        let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+        let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
         let bytes = pma.serialize();
         let (other, rest) =
             unsafe { CharwiseDoubleArrayAhoCorasick::deserialize_unchecked(&bytes) };

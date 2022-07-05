@@ -12,7 +12,7 @@ use crate::charwise::{DEAD_STATE_IDX, ROOT_STATE_IDX};
 use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID};
 
 // Specialized [`NfaBuilder`] handling labels of `char`.
-type CharwiseNfaBuilder = NfaBuilder<char>;
+type CharwiseNfaBuilder<V> = NfaBuilder<char, V>;
 
 /// Builder for [`CharwiseDoubleArrayAhoCorasick`].
 pub struct CharwiseDoubleArrayAhoCorasickBuilder {
@@ -127,17 +127,18 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn build<I, P>(self, patterns: I) -> Result<CharwiseDoubleArrayAhoCorasick>
+    pub fn build<I, P, V>(self, patterns: I) -> Result<CharwiseDoubleArrayAhoCorasick<V>>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<str>,
+        V: Copy + Default + TryFrom<usize>,
     {
         // The following code implicitly replaces large indices with 0,
         // but build_with_values() returns an error variant for such iterators.
         let patvals = patterns
             .into_iter()
             .enumerate()
-            .map(|(i, p)| (p, u32::try_from(i).unwrap_or(0)));
+            .map(|(i, p)| (p, V::try_from(i).unwrap_or_default()));
         self.build_with_values(patvals)
     }
 
@@ -176,10 +177,14 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn build_with_values<I, P>(mut self, patvals: I) -> Result<CharwiseDoubleArrayAhoCorasick>
+    pub fn build_with_values<I, P, V>(
+        mut self,
+        patvals: I,
+    ) -> Result<CharwiseDoubleArrayAhoCorasick<V>>
     where
-        I: IntoIterator<Item = (P, u32)>,
+        I: IntoIterator<Item = (P, V)>,
         P: AsRef<str>,
+        V: Copy + Default,
     {
         let nfa = self.build_original_nfa_and_mapper(patvals)?;
 
@@ -198,10 +203,14 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         })
     }
 
-    fn build_original_nfa_and_mapper<I, P>(&mut self, patvals: I) -> Result<CharwiseNfaBuilder>
+    fn build_original_nfa_and_mapper<I, P, V>(
+        &mut self,
+        patvals: I,
+    ) -> Result<CharwiseNfaBuilder<V>>
     where
-        I: IntoIterator<Item = (P, u32)>,
+        I: IntoIterator<Item = (P, V)>,
         P: AsRef<str>,
+        V: Copy + Default,
     {
         let mut nfa = CharwiseNfaBuilder::new(self.match_kind);
         let mut freqs = vec![];
@@ -234,7 +243,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         Ok(nfa)
     }
 
-    fn build_double_array(&mut self, nfa: &CharwiseNfaBuilder) -> Result<()> {
+    fn build_double_array<V>(&mut self, nfa: &CharwiseNfaBuilder<V>) -> Result<()> {
         let mut helper = self.init_array()?;
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
