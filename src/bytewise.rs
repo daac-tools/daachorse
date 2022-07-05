@@ -44,7 +44,7 @@ const DEAD_STATE_IDX: u32 = 1;
 ///   assigning unique identifiers in the input order.
 ///
 /// - [`DoubleArrayAhoCorasick::with_values`] builds an automaton from a set of pairs of a byte
-///   string and a [`u32`] value.
+///   string and a user-defined value.
 ///
 /// # Limitations
 ///

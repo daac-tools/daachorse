@@ -53,7 +53,7 @@ const DEAD_STATE_IDX: u32 = 1;
 ///   assigning unique identifiers in the input order.
 ///
 /// - [`CharwiseDoubleArrayAhoCorasick::with_values`] builds an automaton
-///   from a set of pairs of a UTF-8 string and a [`u32`] value.
+///   from a set of pairs of a UTF-8 string and a user-defined value.
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct CharwiseDoubleArrayAhoCorasick<V> {
     states: Vec<State>,
