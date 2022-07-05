@@ -65,7 +65,8 @@ pub struct CharwiseDoubleArrayAhoCorasick<V> {
 
 impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// Creates a new [`CharwiseDoubleArrayAhoCorasick`] from input patterns. The value `i` is
-    /// automatically associated with `patterns[i]`.
+    /// automatically associated with `patterns[i]`. If the conversion from the index value to the
+    /// specified type fails, a default value is assigned.
     ///
     /// # Arguments
     ///
