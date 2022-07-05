@@ -26,7 +26,7 @@
 //! use daachorse::DoubleArrayAhoCorasick;
 //!
 //! let patterns = vec!["bcd", "ab", "a"];
-//! let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+//! let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
 //!
 //! let mut it = pma.find_overlapping_iter("abcd");
 //!
@@ -54,7 +54,7 @@
 //! use daachorse::DoubleArrayAhoCorasick;
 //!
 //! let patterns = vec!["bcd", "ab", "a"];
-//! let pma = DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+//! let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
 //!
 //! let mut it = pma.find_iter("abcd");
 //!
@@ -78,7 +78,7 @@
 //! use daachorse::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder, MatchKind};
 //!
 //! let patterns = vec!["ab", "a", "abcd"];
-//! let pma: DoubleArrayAhoCorasick<usize> = DoubleArrayAhoCorasickBuilder::new()
+//! let pma = DoubleArrayAhoCorasickBuilder::new()
 //!           .match_kind(MatchKind::LeftmostLongest)
 //!           .build(&patterns)
 //!           .unwrap();
@@ -108,7 +108,7 @@
 //! use daachorse::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder, MatchKind};
 //!
 //! let patterns = vec!["ab", "a", "abcd"];
-//! let pma: DoubleArrayAhoCorasick<usize> = DoubleArrayAhoCorasickBuilder::new()
+//! let pma = DoubleArrayAhoCorasickBuilder::new()
 //!           .match_kind(MatchKind::LeftmostFirst)
 //!           .build(&patterns)
 //!           .unwrap();
@@ -160,7 +160,7 @@
 //! use daachorse::CharwiseDoubleArrayAhoCorasick;
 //!
 //! let patterns = vec!["全世界", "世界", "に"];
-//! let pma = CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+//! let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
 //!
 //! let mut it = pma.find_iter("全世界中に");
 //!

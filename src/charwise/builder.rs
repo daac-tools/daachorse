@@ -95,7 +95,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
     /// Builds and returns a new [`CharwiseDoubleArrayAhoCorasick`] from input patterns. The value
     /// `i` is automatically associated with `patterns[i]`. If the conversion from the index value to the
-    /// specified type fails, a default value is assigned.
+    /// specified type `V` fails, a default value is assigned.
     ///
     /// # Arguments
     ///
