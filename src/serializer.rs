@@ -49,7 +49,7 @@ macro_rules! define_serializable_primitive {
                 $size
             }
         }
-    }
+    };
 }
 
 define_serializable_primitive!(u8, 1);
