@@ -43,8 +43,7 @@ fn show_memory_stats(patterns: &[String]) {
         format_memory("daachorse (bytewise)", pma.heap_bytes());
     }
     {
-        let pma =
-            daachorse::charwise::CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
         format_memory("daachorse (charwise)", pma.heap_bytes());
     }
     {

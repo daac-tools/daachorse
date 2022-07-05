@@ -219,9 +219,7 @@ fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) 
     });
 
     group.bench_function("daachorse/charwise", |b| {
-        b.iter(|| {
-            daachorse::charwise::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap()
-        });
+        b.iter(|| daachorse::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap());
     });
 
     group.bench_function("aho_corasick/nfa", |b| {
@@ -285,8 +283,7 @@ fn add_find_benches(
     });
 
     group.bench_function("daachorse/charwise", |b| {
-        let pma =
-            daachorse::charwise::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
         b.iter(|| {
             let mut sum = 0;
             for haystack in haystacks {
@@ -369,8 +366,7 @@ fn add_find_overlapping_benches(
     });
 
     group.bench_function("daachorse/charwise", |b| {
-        let pma =
-            daachorse::charwise::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
         b.iter(|| {
             let mut sum = 0;
             for haystack in haystacks {
@@ -385,8 +381,7 @@ fn add_find_overlapping_benches(
     });
 
     group.bench_function("daachorse/charwise/no_suffix", |b| {
-        let pma =
-            daachorse::charwise::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
         b.iter(|| {
             let mut sum = 0;
             for haystack in haystacks {
@@ -511,7 +506,7 @@ fn add_find_leftmost_longest_benches(
 
     group.bench_function("daachorse/charwise", |b| {
         let pma: daachorse::CharwiseDoubleArrayAhoCorasick<usize> =
-            daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder::new()
+            daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostLongest)
                 .build(patterns)
                 .unwrap();
@@ -590,7 +585,7 @@ fn add_find_leftmost_first_benches(
 
     group.bench_function("daachorse/charwise", |b| {
         let pma: daachorse::CharwiseDoubleArrayAhoCorasick<usize> =
-            daachorse::charwise::CharwiseDoubleArrayAhoCorasickBuilder::new()
+            daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostFirst)
                 .build(patterns)
                 .unwrap();
