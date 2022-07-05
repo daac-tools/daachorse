@@ -30,24 +30,47 @@ pub trait Serializable: Sized {
     fn serialized_bytes() -> usize;
 }
 
-impl Serializable for u32 {
-    #[inline(always)]
-    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
-        dst.extend_from_slice(&self.to_le_bytes());
-    }
+macro_rules! define_serializable_primitive {
+    ($type:ty, $size:expr) => {
+        impl Serializable for $type {
+            #[inline(always)]
+            fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+                dst.extend_from_slice(&self.to_le_bytes());
+            }
 
-    #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        // unwrap_unchecked is safe since a 4-byte slice is always converted.
-        let x = unsafe { Self::from_le_bytes(src[..4].try_into().unwrap_unchecked()) };
-        (x, &src[4..])
-    }
+            #[inline(always)]
+            fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+                let x = Self::from_le_bytes(src[..$size].try_into().unwrap());
+                (x, &src[$size..])
+            }
 
-    #[inline(always)]
-    fn serialized_bytes() -> usize {
-        4
+            #[inline(always)]
+            fn serialized_bytes() -> usize {
+                $size
+            }
+        }
     }
 }
+
+define_serializable_primitive!(u8, 1);
+define_serializable_primitive!(u16, 2);
+define_serializable_primitive!(u32, 4);
+define_serializable_primitive!(u64, 8);
+define_serializable_primitive!(u128, 16);
+#[cfg(target_pointer_width = "32")]
+define_serializable_primitive!(usize, 4);
+#[cfg(target_pointer_width = "64")]
+define_serializable_primitive!(usize, 8);
+
+define_serializable_primitive!(i8, 1);
+define_serializable_primitive!(i16, 2);
+define_serializable_primitive!(i32, 4);
+define_serializable_primitive!(i64, 8);
+define_serializable_primitive!(i128, 16);
+#[cfg(target_pointer_width = "32")]
+define_serializable_primitive!(isize, 4);
+#[cfg(target_pointer_width = "64")]
+define_serializable_primitive!(isize, 8);
 
 impl Serializable for Option<NonZeroU32> {
     #[inline(always)]
