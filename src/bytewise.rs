@@ -33,7 +33,7 @@ const DEAD_STATE_IDX: u32 = 1;
 /// pattern matching. The internal data structure employs the
 /// [compact double-array structure](https://doi.org/10.1016/j.ipm.2006.04.004), the fastest
 /// trie representation technique. It supports constant-time state-to-state traversal, allowing for
-/// very fast pattern matching. Moreover, each state is represented in a space of only 12 bytes.
+/// very fast pattern matching. Moreover, each state is represented in the space of only 12 bytes.
 ///
 /// # Build instructions
 ///

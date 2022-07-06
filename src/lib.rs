@@ -10,8 +10,8 @@
 //! over the length of the input text. This crate uses the
 //! [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004) for
 //! implementing the pattern match automaton for time and memory efficiency. The data structure not
-//! only supports constant-time state-to-state traversal but also represents each state in a space
-//! of only 12 bytes.
+//! only supports constant-time state-to-state traversal but also represents each state in the
+//! space of only 12 bytes.
 //!
 //! ## Example: Finding overlapped occurrences
 //!
