@@ -28,17 +28,6 @@ Other experimental results can be found in
 
 ![](./figures/comparison.svg)
 
-## Installation
-
-To use `daachorse`, depend on it in your Cargo manifest:
-
-```toml
-# Cargo.toml
-
-[dependencies]
-daachorse = "0.4"
-```
-
 ### Requirements
 
 To compile this crate, Rust 1.58 or higher is required.
