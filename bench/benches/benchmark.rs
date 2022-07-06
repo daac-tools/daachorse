@@ -79,7 +79,6 @@ macro_rules! aho_corasick_bench {
     };
 }
 
-
 define_build_bench!(criterion_unidic_build, "unidic/build", "data/unidic/unidic");
 define_build_bench!(
     criterion_words_100_build,
@@ -302,8 +301,6 @@ fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) 
         });
     });
 }
-
-
 
 fn add_find_benches(
     group: &mut BenchmarkGroup<WallTime>,
