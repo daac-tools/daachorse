@@ -28,7 +28,7 @@ Other experimental results can be found in
 
 ![](./figures/comparison.svg)
 
-### Requirements
+## Requirements
 
 To compile this crate, Rust 1.58 or higher is required.
 
