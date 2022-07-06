@@ -16,7 +16,7 @@ Daachorse is a crate for fast multiple pattern matching using the
 the length of the input text. This crate uses the
 [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004) for implementing
 the pattern match automaton for time and memory efficiency. The data structure not only supports
-constant-time state-to-state traversal but also represents each state in a tight space of only 12
+constant-time state-to-state traversal but also represents each state in a space of only 12
 bytes.
 
 For example, compared to the NFA of the [aho-corasick](https://github.com/BurntSushi/aho-corasick)
