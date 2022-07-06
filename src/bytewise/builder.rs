@@ -14,7 +14,7 @@ use crate::utils::FromU32;
 const BLOCK_LEN: u32 = 256;
 
 // Specialized [`NfaBuilder`] handling labels of `u8`.
-type BytewiseNfaBuilder = NfaBuilder<u8>;
+type BytewiseNfaBuilder<V> = NfaBuilder<u8, V>;
 
 /// Builder of [`DoubleArrayAhoCorasick`].
 pub struct DoubleArrayAhoCorasickBuilder {
@@ -74,9 +74,9 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// let patterns = vec!["ab", "abcd"];
     /// let pma = DoubleArrayAhoCorasickBuilder::new()
-    ///           .match_kind(MatchKind::LeftmostLongest)
-    ///           .build(&patterns)
-    ///           .unwrap();
+    ///     .match_kind(MatchKind::LeftmostLongest)
+    ///     .build(&patterns)
+    ///     .unwrap();
     ///
     /// let mut it = pma.leftmost_find_iter("abcd");
     ///
@@ -115,7 +115,8 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     /// Builds and returns a new [`DoubleArrayAhoCorasick`] from input patterns. The value `i` is
-    /// automatically associated with `patterns[i]`.
+    /// automatically associated with `patterns[i]`. If the conversion from the index value to the
+    /// specified type `V` fails, [`Default::default()`] is assigned instead.
     ///
     /// # Arguments
     ///
@@ -150,17 +151,18 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn build<I, P>(self, patterns: I) -> Result<DoubleArrayAhoCorasick>
+    pub fn build<I, P, V>(self, patterns: I) -> Result<DoubleArrayAhoCorasick<V>>
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
+        V: Copy + Default + TryFrom<usize>,
     {
         // The following code implicitly replaces large indices with 0,
         // but build_with_values() returns an error variant for such iterators.
         let patvals = patterns
             .into_iter()
             .enumerate()
-            .map(|(i, p)| (p, u32::try_from(i).unwrap_or(0)));
+            .map(|(i, p)| (p, V::try_from(i).unwrap_or_default()));
         self.build_with_values(patvals)
     }
 
@@ -168,8 +170,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// # Arguments
     ///
-    /// * `patvals` - List of pattern-value pairs, where the value is of type [`u32`] and less than
-    /// [`u32::MAX`].
+    /// * `patvals` - List of pattern-value pairs.
     ///
     /// # Errors
     ///
@@ -204,10 +205,11 @@ impl DoubleArrayAhoCorasickBuilder {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn build_with_values<I, P>(mut self, patvals: I) -> Result<DoubleArrayAhoCorasick>
+    pub fn build_with_values<I, P, V>(mut self, patvals: I) -> Result<DoubleArrayAhoCorasick<V>>
     where
-        I: IntoIterator<Item = (P, u32)>,
+        I: IntoIterator<Item = (P, V)>,
         P: AsRef<[u8]>,
+        V: Copy + Default,
     {
         let nfa = self.build_sparse_nfa(patvals)?;
         self.build_double_array(&nfa)?;
@@ -224,10 +226,11 @@ impl DoubleArrayAhoCorasickBuilder {
         })
     }
 
-    fn build_sparse_nfa<I, P>(&mut self, patvals: I) -> Result<BytewiseNfaBuilder>
+    fn build_sparse_nfa<I, P, V>(&mut self, patvals: I) -> Result<BytewiseNfaBuilder<V>>
     where
-        I: IntoIterator<Item = (P, u32)>,
+        I: IntoIterator<Item = (P, V)>,
         P: AsRef<[u8]>,
+        V: Copy + Default,
     {
         let mut nfa = BytewiseNfaBuilder::new(self.match_kind);
         for (pattern, value) in patvals {
@@ -247,7 +250,7 @@ impl DoubleArrayAhoCorasickBuilder {
         Ok(nfa)
     }
 
-    fn build_double_array(&mut self, nfa: &BytewiseNfaBuilder) -> Result<()> {
+    fn build_double_array<V>(&mut self, nfa: &BytewiseNfaBuilder<V>) -> Result<()> {
         let mut helper = self.init_array()?;
 
         let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];

@@ -99,8 +99,8 @@ where
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_iter()`].
-pub struct FindOverlappingIterator<'a, P> {
-    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick,
+pub struct FindOverlappingIterator<'a, P, V> {
+    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: CharWithEndOffsetIterator<P>,
     pub(crate) state_id: u32,
     pub(crate) pos: usize,
@@ -108,30 +108,31 @@ pub struct FindOverlappingIterator<'a, P> {
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`].
-pub struct FindIterator<'a, P> {
-    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick,
+pub struct FindIterator<'a, P, V> {
+    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: CharWithEndOffsetIterator<P>,
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`].
-pub struct FindOverlappingNoSuffixIterator<'a, P> {
-    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick,
+pub struct FindOverlappingNoSuffixIterator<'a, P, V> {
+    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: CharWithEndOffsetIterator<P>,
     pub(crate) state_id: u32,
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::leftmost_find_iter()`].
-pub struct LestmostFindIterator<'a, P> {
-    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick,
+pub struct LestmostFindIterator<'a, P, V> {
+    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: P,
     pub(crate) pos: usize,
 }
 
-impl<'a, P> Iterator for FindOverlappingIterator<'a, P>
+impl<'a, P, V> Iterator for FindOverlappingIterator<'a, P, V>
 where
     P: Iterator<Item = u8>,
+    V: Copy,
 {
-    type Item = Match;
+    type Item = Match<V>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -147,7 +148,7 @@ where
             return Some(Match {
                 length: usize::from_u32(out.length()),
                 end: self.pos,
-                value: usize::from_u32(out.value()),
+                value: out.value(),
             });
         }
 
@@ -174,7 +175,7 @@ where
                 return Some(Match {
                     length: usize::from_u32(out.length()),
                     end: pos,
-                    value: usize::from_u32(out.value()),
+                    value: out.value(),
                 });
             }
         }
@@ -182,11 +183,12 @@ where
     }
 }
 
-impl<'a, P> Iterator for FindIterator<'a, P>
+impl<'a, P, V> Iterator for FindIterator<'a, P, V>
 where
     P: Iterator<Item = u8>,
+    V: Copy,
 {
-    type Item = Match;
+    type Item = Match<V>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -211,7 +213,7 @@ where
                 return Some(Match {
                     length: usize::from_u32(out.length()),
                     end: pos,
-                    value: usize::from_u32(out.value()),
+                    value: out.value(),
                 });
             }
         }
@@ -219,11 +221,12 @@ where
     }
 }
 
-impl<'a, P> Iterator for FindOverlappingNoSuffixIterator<'a, P>
+impl<'a, P, V> Iterator for FindOverlappingNoSuffixIterator<'a, P, V>
 where
     P: Iterator<Item = u8>,
+    V: Copy,
 {
-    type Item = Match;
+    type Item = Match<V>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -247,7 +250,7 @@ where
                 return Some(Match {
                     length: usize::from_u32(out.length()),
                     end: pos,
-                    value: usize::from_u32(out.value()),
+                    value: out.value(),
                 });
             }
         }
@@ -255,11 +258,12 @@ where
     }
 }
 
-impl<'a, P> Iterator for LestmostFindIterator<'a, P>
+impl<'a, P, V> Iterator for LestmostFindIterator<'a, P, V>
 where
     P: AsRef<str>,
+    V: Copy,
 {
-    type Item = Match;
+    type Item = Match<V>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -285,7 +289,7 @@ where
                     return Some(Match {
                         length: usize::from_u32(out.length()),
                         end: self.pos,
-                        value: usize::from_u32(out.value()),
+                        value: out.value(),
                     });
                 }
             // state_id is always smaller than self.pma.states.len() because
@@ -313,7 +317,7 @@ where
             Match {
                 length: usize::from_u32(out.length()),
                 end: self.pos,
-                value: usize::from_u32(out.value()),
+                value: out.value(),
             }
         })
     }

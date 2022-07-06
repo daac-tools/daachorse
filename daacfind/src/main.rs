@@ -57,7 +57,7 @@ struct Args {
 /// Finds patterns using the given PMA and prints lines to the given `stream`.
 /// When no pattern is found, this function does not print any string.
 fn find_and_output(
-    pma: &DoubleArrayAhoCorasick,
+    pma: &DoubleArrayAhoCorasick<u32>,
     line: &str,
     filename: Option<&str>,
     line_no: Option<usize>,

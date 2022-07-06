@@ -79,9 +79,9 @@
 //!
 //! let patterns = vec!["ab", "a", "abcd"];
 //! let pma = DoubleArrayAhoCorasickBuilder::new()
-//!           .match_kind(MatchKind::LeftmostLongest)
-//!           .build(&patterns)
-//!           .unwrap();
+//!     .match_kind(MatchKind::LeftmostLongest)
+//!     .build(&patterns)
+//!     .unwrap();
 //!
 //! let mut it = pma.leftmost_find_iter("abcd");
 //!
@@ -109,9 +109,9 @@
 //!
 //! let patterns = vec!["ab", "a", "abcd"];
 //! let pma = DoubleArrayAhoCorasickBuilder::new()
-//!           .match_kind(MatchKind::LeftmostFirst)
-//!           .build(&patterns)
-//!           .unwrap();
+//!     .match_kind(MatchKind::LeftmostFirst)
+//!     .build(&patterns)
+//!     .unwrap();
 //!
 //! let mut it = pma.leftmost_find_iter("abcd");
 //!
@@ -202,18 +202,22 @@ use alloc::vec::Vec;
 use build_helper::BuildHelper;
 pub use bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
 pub use charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
-use serializer::Serializable;
+pub use serializer::Serializable;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
-struct Output {
-    value: u32,
+struct Output<V> {
+    value: V,
     length: u32,
     parent: Option<NonZeroU32>,
 }
 
-impl Output {
+impl<V> Output<V>
+where
+    V: Copy,
+{
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    pub const fn new(value: u32, length: u32, parent: Option<NonZeroU32>) -> Self {
+    pub fn new(value: V, length: u32, parent: Option<NonZeroU32>) -> Self {
         Self {
             value,
             length,
@@ -221,23 +225,29 @@ impl Output {
         }
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    pub const fn value(self) -> u32 {
+    pub fn value(self) -> V {
         self.value
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    pub const fn length(self) -> u32 {
+    pub fn length(self) -> u32 {
         self.length
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    pub const fn parent(self) -> Option<NonZeroU32> {
+    pub fn parent(self) -> Option<NonZeroU32> {
         self.parent
     }
 }
 
-impl Serializable for Output {
+impl<V> Serializable for Output<V>
+where
+    V: Serializable,
+{
     #[inline(always)]
     fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
         self.value.serialize_to_vec(dst);
@@ -247,7 +257,7 @@ impl Serializable for Output {
 
     #[inline(always)]
     fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (value, src) = u32::deserialize_from_slice(src);
+        let (value, src) = V::deserialize_from_slice(src);
         let (length, src) = u32::deserialize_from_slice(src);
         let (parent, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
         (
@@ -262,37 +272,43 @@ impl Serializable for Output {
 
     #[inline(always)]
     fn serialized_bytes() -> usize {
-        u32::serialized_bytes() + u32::serialized_bytes() + Option::<NonZeroU32>::serialized_bytes()
+        V::serialized_bytes() + u32::serialized_bytes() + Option::<NonZeroU32>::serialized_bytes()
     }
 }
 
 /// Match result.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Match {
+pub struct Match<V> {
     length: usize,
     end: usize,
-    value: usize,
+    value: V,
 }
 
-impl Match {
+impl<V> Match<V>
+where
+    V: Copy,
+{
     /// Starting position of the match.
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
     #[must_use]
-    pub const fn start(&self) -> usize {
+    pub fn start(&self) -> usize {
         self.end - self.length
     }
 
     /// Ending position of the match.
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
     #[must_use]
-    pub const fn end(&self) -> usize {
+    pub fn end(&self) -> usize {
         self.end
     }
 
     /// Value associated with the pattern.
+    #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
     #[must_use]
-    pub const fn value(&self) -> usize {
+    pub fn value(&self) -> V {
         self.value
     }
 }
@@ -383,13 +399,13 @@ mod tests {
     #[test]
     fn test_serialize_output() {
         let x = Output {
-            value: 42,
+            value: 42u32,
             length: 57,
             parent: NonZeroU32::new(13),
         };
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
-        assert_eq!(data.len(), Output::serialized_bytes());
+        assert_eq!(data.len(), Output::<u32>::serialized_bytes());
         let (y, rest) = Output::deserialize_from_slice(&data);
         assert!(rest.is_empty());
         assert_eq!(x, y);
