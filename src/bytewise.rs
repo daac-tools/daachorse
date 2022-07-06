@@ -25,15 +25,15 @@ const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
 const DEAD_STATE_IDX: u32 = 1;
 
-/// Fast multiple pattern match automaton implemented with the Aho-Corasick algorithm and compact
+/// A fast multiple pattern match automaton implemented with the Aho-Corasick algorithm and compact
 /// double-array data structure.
 ///
 /// [`DoubleArrayAhoCorasick`] implements a pattern match automaton based on the
 /// [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855), supporting linear-time
 /// pattern matching. The internal data structure employs the
-/// [compact double-array structure](https://doi.org/10.1016/j.ipm.2006.04.004) that is the fastest
+/// [compact double-array structure](https://doi.org/10.1016/j.ipm.2006.04.004), the fastest
 /// trie representation technique. It supports constant-time state-to-state traversal, allowing for
-/// very fast pattern matching. Moreover, each state is represented in a compact space of only 12
+/// very fast pattern matching. Moreover, each state is represented in a tight space of only 12
 /// bytes.
 ///
 /// # Build instructions
