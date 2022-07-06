@@ -47,6 +47,39 @@ macro_rules! define_find_bench {
     };
 }
 
+macro_rules! daachorse_bench {
+    ( $b:ident, $pma:ident, $func_name:ident, $haystacks:ident ) => {
+        $b.iter(|| {
+            let mut sum = 0;
+            for haystack in $haystacks {
+                for m in $pma.$func_name(haystack) {
+                    sum += m.start() + m.end() + m.value() as usize;
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    };
+}
+
+macro_rules! aho_corasick_bench {
+    ( $b:ident, $pma:ident, $func_name:ident, $haystacks:ident ) => {
+        $b.iter(|| {
+            let mut sum = 0;
+            for haystack in $haystacks {
+                for m in $pma.$func_name(haystack) {
+                    sum += m.start() + m.end() + m.pattern();
+                }
+            }
+            if sum == 0 {
+                panic!();
+            }
+        });
+    };
+}
+
+
 define_build_bench!(criterion_unidic_build, "unidic/build", "data/unidic/unidic");
 define_build_bench!(
     criterion_words_100_build,
@@ -214,12 +247,20 @@ define_find_bench!(
 );
 
 fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) {
-    group.bench_function("daachorse", |b| {
-        b.iter(|| daachorse::DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap());
+    group.bench_function("daachorse/bytewise/u64", |b| {
+        b.iter(|| daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap());
     });
 
-    group.bench_function("daachorse/charwise", |b| {
-        b.iter(|| daachorse::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap());
+    group.bench_function("daachorse/bytewise/u32", |b| {
+        b.iter(|| daachorse::DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap());
+    });
+
+    group.bench_function("daachorse/charwise/u64", |b| {
+        b.iter(|| daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap());
+    });
+
+    group.bench_function("daachorse/charwise/u32", |b| {
+        b.iter(|| daachorse::CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap());
     });
 
     group.bench_function("aho_corasick/nfa", |b| {
@@ -262,71 +303,43 @@ fn add_build_benches(group: &mut BenchmarkGroup<WallTime>, patterns: &[String]) 
     });
 }
 
+
+
 fn add_find_benches(
     group: &mut BenchmarkGroup<WallTime>,
     patterns: &[String],
     haystacks: &[String],
 ) {
-    group.bench_function("daachorse", |b| {
-        let pma = daachorse::DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_iter(haystack) {
-                    sum += m.start() + m.end() + m.value();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+    group.bench_function("daachorse/bytewise/u64", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_iter, haystacks);
     });
 
-    group.bench_function("daachorse/charwise", |b| {
-        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_iter(haystack) {
-                    sum += m.start() + m.end() + m.value();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+    group.bench_function("daachorse/bytewise/u32", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_iter, haystacks);
+    });
+
+    group.bench_function("daachorse/charwise/u64", |b| {
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_iter, haystacks);
+    });
+
+    group.bench_function("daachorse/charwise/u32", |b| {
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_iter, haystacks);
     });
 
     group.bench_function("aho_corasick/nfa", |b| {
         let pma = aho_corasick::AhoCorasick::new(patterns);
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        aho_corasick_bench!(b, pma, find_iter, haystacks);
     });
 
     group.bench_function("aho_corasick/dfa", |b| {
         let pma = aho_corasick::AhoCorasickBuilder::new()
             .dfa(true)
             .build(patterns);
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        aho_corasick_bench!(b, pma, find_iter, haystacks);
     });
 }
 
@@ -335,96 +348,56 @@ fn add_find_overlapping_benches(
     patterns: &[String],
     haystacks: &[String],
 ) {
-    group.bench_function("daachorse", |b| {
-        let pma = daachorse::DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_overlapping_iter(haystack) {
-                    sum += m.start() + m.end() + m.value();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+    group.bench_function("daachorse/bytewise/u64", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_overlapping_iter, haystacks);
     });
 
-    group.bench_function("daachorse/no_suffix", |b| {
-        let pma = daachorse::DoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_overlapping_no_suffix_iter(haystack) {
-                    sum += m.start() + m.end() + m.value();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+    group.bench_function("daachorse/bytewise/u32", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_overlapping_iter, haystacks);
     });
 
-    group.bench_function("daachorse/charwise", |b| {
-        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_overlapping_iter(haystack) {
-                    sum += m.start() + m.end() + m.value();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+    group.bench_function("daachorse/bytewise/u64/no_suffix", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_overlapping_no_suffix_iter, haystacks);
     });
 
-    group.bench_function("daachorse/charwise/no_suffix", |b| {
-        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<usize>::new(patterns).unwrap();
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_overlapping_no_suffix_iter(haystack) {
-                    sum += m.start() + m.end() + m.value();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+    group.bench_function("daachorse/bytewise/u32/no_suffix", |b| {
+        let pma = daachorse::DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_overlapping_no_suffix_iter, haystacks);
+    });
+
+    group.bench_function("daachorse/charwise/u64", |b| {
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_overlapping_iter, haystacks);
+    });
+
+    group.bench_function("daachorse/charwise/u32", |b| {
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_overlapping_iter, haystacks);
+    });
+
+    group.bench_function("daachorse/charwise/u64/no_suffix", |b| {
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_overlapping_no_suffix_iter, haystacks);
+    });
+
+    group.bench_function("daachorse/charwise/u32/no_suffix", |b| {
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        daachorse_bench!(b, pma, find_overlapping_no_suffix_iter, haystacks);
     });
 
     group.bench_function("aho_corasick/nfa", |b| {
         let pma = aho_corasick::AhoCorasick::new(patterns);
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_overlapping_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        aho_corasick_bench!(b, pma, find_overlapping_iter, haystacks);
     });
 
     group.bench_function("aho_corasick/dfa", |b| {
         let pma = aho_corasick::AhoCorasickBuilder::new()
             .dfa(true)
             .build(patterns);
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_overlapping_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        aho_corasick_bench!(b, pma, find_overlapping_iter, haystacks);
     });
 
     group.bench_function("yada", |b| {
@@ -485,59 +458,47 @@ fn add_find_leftmost_longest_benches(
     patterns: &[String],
     haystacks: &[String],
 ) {
-    group.bench_function("daachorse", |b| {
-        let pma: daachorse::DoubleArrayAhoCorasick<usize> =
+    group.bench_function("daachorse/bytewise/u64", |b| {
+        let pma: daachorse::DoubleArrayAhoCorasick<u64> =
             daachorse::DoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostLongest)
                 .build(patterns)
                 .unwrap();
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.leftmost_find_iter(haystack) {
-                    sum += m.start() + m.end() + m.value();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
     });
 
-    group.bench_function("daachorse/charwise", |b| {
-        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<usize> =
+    group.bench_function("daachorse/bytewise/u32", |b| {
+        let pma: daachorse::DoubleArrayAhoCorasick<u32> =
+            daachorse::DoubleArrayAhoCorasickBuilder::new()
+                .match_kind(daachorse::MatchKind::LeftmostLongest)
+                .build(patterns)
+                .unwrap();
+        daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
+    });
+
+    group.bench_function("daachorse/charwise/u64", |b| {
+        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u64> =
             daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostLongest)
                 .build(patterns)
                 .unwrap();
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.leftmost_find_iter(haystack) {
-                    sum += m.start() + m.end() + m.value();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
+    });
+
+    group.bench_function("daachorse/charwise/u32", |b| {
+        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u32> =
+            daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
+                .match_kind(daachorse::MatchKind::LeftmostLongest)
+                .build(patterns)
+                .unwrap();
+        daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
     });
 
     group.bench_function("aho_corasick/nfa", |b| {
         let pma = aho_corasick::AhoCorasickBuilder::new()
             .match_kind(aho_corasick::MatchKind::LeftmostLongest)
             .build(patterns);
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        aho_corasick_bench!(b, pma, find_iter, haystacks);
     });
 
     group.bench_function("aho_corasick/dfa", |b| {
@@ -545,17 +506,7 @@ fn add_find_leftmost_longest_benches(
             .dfa(true)
             .match_kind(aho_corasick::MatchKind::LeftmostLongest)
             .build(patterns);
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        aho_corasick_bench!(b, pma, find_iter, haystacks);
     });
 }
 
@@ -564,59 +515,47 @@ fn add_find_leftmost_first_benches(
     patterns: &[String],
     haystacks: &[String],
 ) {
-    group.bench_function("daachorse", |b| {
-        let pma: daachorse::DoubleArrayAhoCorasick<usize> =
+    group.bench_function("daachorse/bytewise/u64", |b| {
+        let pma: daachorse::DoubleArrayAhoCorasick<u64> =
             daachorse::DoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostFirst)
                 .build(patterns)
                 .unwrap();
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.leftmost_find_iter(haystack) {
-                    sum += m.start() + m.end() + m.value();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
     });
 
-    group.bench_function("daachorse/charwise", |b| {
-        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<usize> =
+    group.bench_function("daachorse/bytewise/u32", |b| {
+        let pma: daachorse::DoubleArrayAhoCorasick<u32> =
+            daachorse::DoubleArrayAhoCorasickBuilder::new()
+                .match_kind(daachorse::MatchKind::LeftmostFirst)
+                .build(patterns)
+                .unwrap();
+        daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
+    });
+
+    group.bench_function("daachorse/charwise/u64", |b| {
+        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u64> =
             daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
                 .match_kind(daachorse::MatchKind::LeftmostFirst)
                 .build(patterns)
                 .unwrap();
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.leftmost_find_iter(haystack) {
-                    sum += m.start() + m.end() + m.value();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
+    });
+
+    group.bench_function("daachorse/charwise/u32", |b| {
+        let pma: daachorse::CharwiseDoubleArrayAhoCorasick<u32> =
+            daachorse::CharwiseDoubleArrayAhoCorasickBuilder::new()
+                .match_kind(daachorse::MatchKind::LeftmostFirst)
+                .build(patterns)
+                .unwrap();
+        daachorse_bench!(b, pma, leftmost_find_iter, haystacks);
     });
 
     group.bench_function("aho_corasick/nfa", |b| {
         let pma = aho_corasick::AhoCorasickBuilder::new()
             .match_kind(aho_corasick::MatchKind::LeftmostFirst)
             .build(patterns);
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        aho_corasick_bench!(b, pma, find_iter, haystacks);
     });
 
     group.bench_function("aho_corasick/dfa", |b| {
@@ -624,17 +563,7 @@ fn add_find_leftmost_first_benches(
             .dfa(true)
             .match_kind(aho_corasick::MatchKind::LeftmostFirst)
             .build(patterns);
-        b.iter(|| {
-            let mut sum = 0;
-            for haystack in haystacks {
-                for m in pma.find_iter(haystack) {
-                    sum += m.start() + m.end() + m.pattern();
-                }
-            }
-            if sum == 0 {
-                panic!();
-            }
-        });
+        aho_corasick_bench!(b, pma, find_iter, haystacks);
     });
 }
 
