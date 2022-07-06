@@ -7,10 +7,11 @@
 //!
 //! Daachorse is a crate for fast multiple pattern matching using the
 //! [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855), running in linear time
-//! over the length of the input text. The pattern match automaton is implemented using the
-//! [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004) for time and
-//! memory efficiency. The data structure not only supports constant-time state-to-state traversal
-//! but also represents each state in a tight space of only 12 bytes.
+//! over the length of the input text. This crate uses the
+//! [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004) for
+//! implementing the pattern match automaton for time and memory efficiency. The data structure not
+//! only supports constant-time state-to-state traversal but also represents each state in a tight
+//! space of only 12 bytes.
 //!
 //! ## Example: Finding overlapped occurrences
 //!
