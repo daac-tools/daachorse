@@ -27,18 +27,7 @@ dictionary of 675K patterns. Other experimental results can be found on
 
 ![](./figures/comparison.svg)
 
-## Installation
-
-To use `daachorse`, depend on it in your Cargo manifest:
-
-```toml
-# Cargo.toml
-
-[dependencies]
-daachorse = "0.4"
-```
-
-### Requirements
+## Requirements
 
 Rust 1.58 or higher is required to build this crate.
 
