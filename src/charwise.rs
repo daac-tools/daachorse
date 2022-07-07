@@ -25,19 +25,19 @@ const ROOT_STATE_IDX: u32 = 0;
 // The dead index position.
 const DEAD_STATE_IDX: u32 = 1;
 
-/// Fast multiple pattern match automaton implemented with the Aho-Corasick algorithm and
+/// A fast multiple pattern match automaton implemented with the Aho-Corasick algorithm and
 /// character-wise double-array data structure.
 ///
 /// The standard version [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick) handles strings
 /// as UTF-8 sequences and defines transition labels using byte integers. On the other hand, the
-/// character-wise version uses code point values of Unicode, resulting in reducing the number of
-/// transitions and faster matching on multibyte characters.
+/// character-wise version uses Unicode code point values, reducing the number of transitions and
+/// faster matching on multibyte characters.
 ///
 /// # Features
 ///
 /// Compared to [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick),
 /// [`CharwiseDoubleArrayAhoCorasick`] has the following features
-/// if it is built from multibyte strings such as Japanese:
+/// if it is built from multibyte strings such as CJK characters:
 ///
 ///  - Faster matching can be expected.
 ///  - The construction time can be slower.

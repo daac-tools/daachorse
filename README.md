@@ -11,19 +11,18 @@ A fast implementation of the Aho-Corasick algorithm using the compact double-arr
 
 ## Overview
 
-Daachorse is a crate for fast multiple pattern matching using
-the [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855),
-running in linear time over the length of the input text.
-For time- and memory-efficiency, the pattern match automaton is implemented using
-the [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004).
-The data structure not only supports constant-time state-to-state traversal,
-but also represents each state in a compact space of only 12 bytes.
+Daachorse is a crate for fast multiple pattern matching using the
+[Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855), running in linear time over
+the length of the input text. This crate uses the
+[compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004) for implementing
+the pattern match automaton for time and memory efficiency. The data structure not only supports
+constant-time state-to-state traversal but also represents each state in the space of only 12
+bytes.
 
-For example, compared to the NFA of the [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate
-that is the most poplar Aho-Corasick implementation in Rust,
-Daachorse can perform pattern matching **3.3–5.4 times faster**
-while consuming **56–60% smaller** memory, when using a word dictionary of 675K patterns.
-Other experimental results can be found in
+For example, compared to the NFA of the [aho-corasick](https://github.com/BurntSushi/aho-corasick)
+crate, which is the most popular Aho-Corasick implementation in Rust, Daachorse can perform pattern
+matching **3.3–5.4 times faster** while consuming **56–60% smaller** memory when using a word
+dictionary of 675K patterns. Other experimental results can be found on
 [Wiki](https://github.com/daac-tools/daachorse/wiki/Performance-Comparison).
 
 ![](./figures/comparison.svg)
@@ -41,22 +40,20 @@ daachorse = "0.4"
 
 ### Requirements
 
-To compile this crate, Rust 1.58 or higher is required.
+Rust 1.58 or higher is required to build this crate.
 
 ## Example usage
 
-Daachorse contains some search options,
-ranging from basic matching with the Aho-Corasick algorithm to trickier matching.
-All of them will run very fast based on the double-array data structure and
-can be easily plugged into your application as shown below.
+Daachorse contains some search options, ranging from standard matching with the Aho-Corasick
+algorithm to trickier matching. They will run very fast based on the double-array data structure
+and can be easily plugged into your application, as shown below.
 
 ### Finding overlapped occurrences
 
-To search for all occurrences of registered patterns
-that allow for positional overlap in the input text,
-use `find_overlapping_iter()`. When you use `new()` for constraction,
-unique identifiers are assigned to each pattern in the input order.
-The match result has the byte positions of the occurrence and its identifier.
+To search for all occurrences of registered patterns that allow for positional overlap in the input
+text, use `find_overlapping_iter()`. When you use `new()` for construction, the library assigns a
+unique identifier to each pattern in the input order. The match result has the byte positions of
+the occurrence and its identifier.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;
@@ -103,8 +100,8 @@ assert_eq!(None, it.next());
 
 ### Finding non-overlapped occurrences with longest matching
 
-If you want to search for the longest pattern without positional overlap in each iteration,
-use `leftmost_find_iter()` with specifying `MatchKind::LeftmostLongest` in the construction.
+If you want to search for the longest pattern without positional overlap in each iteration, use
+`leftmost_find_iter()` with specifying `MatchKind::LeftmostLongest` in the construction.
 
 ```rust
 use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
@@ -125,14 +122,12 @@ assert_eq!(None, it.next());
 
 ### Finding non-overlapped occurrences with leftmost-first matching
 
-If you want to find the the earliest registered pattern
-among ones starting from the search position,
+If you want to find the earliest registered pattern among ones starting from the search position,
 use `leftmost_find_iter()` with specifying `MatchKind::LeftmostFirst`.
 
-This is so-called *the leftmost first match*, a bit tricky search option that is also
-supported in the [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate.
-For example, in the following code,
-`ab` is reported because it is the earliest registered one.
+This is the so-called *leftmost first match*, a tricky search option supported in the
+[aho-corasick](https://github.com/BurntSushi/aho-corasick) crate. For example, in the following
+code, `ab` is reported because it is the earliest registered one.
 
 ```rust
 use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
@@ -153,8 +148,8 @@ assert_eq!(None, it.next());
 
 ### Associating arbitrary values with patterns
 
-To build the automaton from pairs of a pattern and integer value instead of assigning
-identifiers automatically, use `with_values()`.
+To build the automaton from pairs of a pattern and integer value, instead of assigning identifiers
+automatically, use `with_values()`.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;
@@ -180,10 +175,9 @@ assert_eq!(None, it.next());
 
 To build a faster automaton on multibyte characters, use `CharwiseDoubleArrayAhoCorasick` instead.
 
-The standard version `DoubleArrayAhoCorasick` handles strings as UTF-8 sequences
-and defines transition labels using byte values.
-On the other hand, `CharwiseDoubleArrayAhoCorasick` uses code point values of Unicode,
-resulting in reducing the number of transitions and faster matching.
+The standard version `DoubleArrayAhoCorasick` handles strings as UTF-8 sequences and defines
+transition labels using byte values. On the other hand, `CharwiseDoubleArrayAhoCorasick` uses
+Unicode code point values, reducing the number of transitions and faster matching.
 
 ```rust
 use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -208,7 +202,8 @@ Daachorse has no dependency on `std` (but requires a global allocator with the `
 
 ## CLI
 
-This repository contains a command line interface named `daacfind` for searching patterns in text files.
+This repository contains a command-line interface named `daacfind` for searching patterns in text
+files.
 
 ```
 % cat ./pat.txt
@@ -229,11 +224,6 @@ unsafe fn
 ...
 ```
 
-## Disclaimer
-
-This software is developed by LegalForce, Inc.,
-but not an officially supported LegalForce product.
-
 ## License
 
 Licensed under either of
@@ -249,6 +239,6 @@ For softwares under `bench/data`, follow the license terms of each software.
 
 ## Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-dual licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
+the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
+additional terms or conditions.
