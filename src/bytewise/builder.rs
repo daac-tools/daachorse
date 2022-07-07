@@ -115,8 +115,7 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     /// Builds and returns a new [`DoubleArrayAhoCorasick`] from input patterns. The value `i` is
-    /// automatically associated with `patterns[i]`. If the conversion from the index value to the
-    /// specified type `V` fails, [`Default::default()`] is assigned instead.
+    /// automatically associated with `patterns[i]`.
     ///
     /// # Arguments
     ///
@@ -128,6 +127,7 @@ impl DoubleArrayAhoCorasickBuilder {
     ///   - `patterns` is empty,
     ///   - `patterns` contains entries of length zero,
     ///   - `patterns` contains duplicate entries,
+    ///   - the conversion from the index `i` to the specified type `V` fails,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -155,14 +155,16 @@ impl DoubleArrayAhoCorasickBuilder {
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
-        V: Copy + Default + TryFrom<usize>,
+        V: Copy + TryFrom<usize>,
     {
         // The following code implicitly replaces large indices with 0,
         // but build_with_values() returns an error variant for such iterators.
-        let patvals = patterns
+        let patvals: Vec<_> = patterns
             .into_iter()
             .enumerate()
-            .map(|(i, p)| (p, V::try_from(i).unwrap_or_default()));
+            .map(|(i, p)| V::try_from(i).map(|i| (p, i)))
+            .collect::<Result<_, _>>()
+            .map_err(|_| DaachorseError::invalid_conversion("index", "V"))?;
         self.build_with_values(patvals)
     }
 
@@ -178,7 +180,6 @@ impl DoubleArrayAhoCorasickBuilder {
     ///   - `patvals` is empty,
     ///   - `patvals` contains patterns of length zero,
     ///   - `patvals` contains duplicate patterns,
-    ///   - `patvals` contains invalid values,
     ///   - the scale of `patvals` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -209,7 +210,7 @@ impl DoubleArrayAhoCorasickBuilder {
     where
         I: IntoIterator<Item = (P, V)>,
         P: AsRef<[u8]>,
-        V: Copy + Default,
+        V: Copy,
     {
         let nfa = self.build_sparse_nfa(patvals)?;
         self.build_double_array(&nfa)?;
@@ -230,7 +231,7 @@ impl DoubleArrayAhoCorasickBuilder {
     where
         I: IntoIterator<Item = (P, V)>,
         P: AsRef<[u8]>,
-        V: Copy + Default,
+        V: Copy,
     {
         let mut nfa = BytewiseNfaBuilder::new(self.match_kind);
         for (pattern, value) in patvals {

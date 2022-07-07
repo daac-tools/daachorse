@@ -16,6 +16,9 @@ pub enum DaachorseError {
 
     /// Contains [`AutomatonScaleError`].
     AutomatonScale(AutomatonScaleError),
+
+    /// Contains [`InvalidConversionError`].
+    InvalidConversion(InvalidConversionError),
 }
 
 impl fmt::Display for DaachorseError {
@@ -24,6 +27,7 @@ impl fmt::Display for DaachorseError {
             Self::InvalidArgument(e) => e.fmt(f),
             Self::DuplicatePattern(e) => e.fmt(f),
             Self::AutomatonScale(e) => e.fmt(f),
+            Self::InvalidConversion(e) => e.fmt(f),
         }
     }
 }
@@ -39,6 +43,10 @@ impl DaachorseError {
 
     pub(crate) const fn automaton_scale(arg: &'static str, max_value: u32) -> Self {
         Self::AutomatonScale(AutomatonScaleError { arg, max_value })
+    }
+
+    pub(crate) const fn invalid_conversion(arg: &'static str, target: &'static str) -> Self {
+        Self::InvalidConversion(InvalidConversionError { arg, target })
     }
 }
 
@@ -94,6 +102,26 @@ impl fmt::Display for AutomatonScaleError {
             f,
             "AutomatonScaleError: {} must be <= {}",
             self.arg, self.max_value
+        )
+    }
+}
+
+/// Error used when the conversion fails.
+#[derive(Debug)]
+pub struct InvalidConversionError {
+    /// Name of the argument.
+    arg: &'static str,
+
+    /// Target type.
+    target: &'static str,
+}
+
+impl fmt::Display for InvalidConversionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "InvalidConversionError: {} cannot be converted to {}",
+            self.arg, self.target
         )
     }
 }

@@ -62,7 +62,7 @@ pub struct NfaBuilder<L, V> {
 impl<L, V> NfaBuilder<L, V>
 where
     L: EdgeLabel,
-    V: Copy + Default,
+    V: Copy,
 {
     pub(crate) fn new(match_kind: MatchKind) -> Self {
         Self {
@@ -212,13 +212,10 @@ where
         // But, there is no problem since Daachorse does not allow an empty pattern.
         debug_assert_ne!(q[0], ROOT_STATE_ID);
 
-        // Adds a dummy output so that the output_pos is positive.
-        self.outputs.push(Output::new(V::default(), 0, None));
-
         for &state_id in q {
             let s = &mut self.states[usize::from_u32(state_id)].borrow_mut();
             if let Some(output) = s.output {
-                s.output_pos = NonZeroU32::new(u32::try_from(self.outputs.len()).unwrap());
+                s.output_pos = NonZeroU32::new(u32::try_from(self.outputs.len() + 1).unwrap());
                 let parent = self.states[usize::from_u32(s.fail)].borrow().output_pos;
                 self.outputs
                     .push(Output::new(output.0, output.1.get(), parent));

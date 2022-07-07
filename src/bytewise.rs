@@ -59,8 +59,7 @@ pub struct DoubleArrayAhoCorasick<V> {
 
 impl<V> DoubleArrayAhoCorasick<V> {
     /// Creates a new [`DoubleArrayAhoCorasick`] from input patterns. The value `i` is
-    /// automatically associated with `patterns[i]`. If the conversion from the index value to the
-    /// specified type `V` fails, [`Default::default()`] is assigned instead.
+    /// automatically associated with `patterns[i]`.
     ///
     /// # Arguments
     ///
@@ -72,6 +71,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///   - `patterns` is empty,
     ///   - `patterns` contains entries of length zero,
     ///   - `patterns` contains duplicate entries,
+    ///   - the conversion from the index `i` to the specified type `V` fails,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -97,7 +97,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     where
         I: IntoIterator<Item = P>,
         P: AsRef<[u8]>,
-        V: Copy + Default + TryFrom<usize>,
+        V: Copy + TryFrom<usize>,
     {
         DoubleArrayAhoCorasickBuilder::new().build(patterns)
     }
@@ -142,7 +142,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     where
         I: IntoIterator<Item = (P, V)>,
         P: AsRef<[u8]>,
-        V: Copy + Default,
+        V: Copy,
     {
         DoubleArrayAhoCorasickBuilder::new().build_with_values(patvals)
     }
@@ -534,7 +534,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     ///
-    /// assert_eq!(3120, pma.heap_bytes());
+    /// assert_eq!(3108, pma.heap_bytes());
     /// ```
     #[must_use]
     pub fn heap_bytes(&self) -> usize {
