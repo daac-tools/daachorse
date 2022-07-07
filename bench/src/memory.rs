@@ -39,12 +39,20 @@ fn main() {
 
 fn show_memory_stats(patterns: &[String]) {
     {
+        let pma = daachorse::DoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
+        format_memory("daachorse (bytewise, u64)", pma.heap_bytes());
+    }
+    {
         let pma = daachorse::DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
-        format_memory("daachorse (bytewise)", pma.heap_bytes());
+        format_memory("daachorse (bytewise, u32)", pma.heap_bytes());
+    }
+    {
+        let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u64>::new(patterns).unwrap();
+        format_memory("daachorse (charwise, u64)", pma.heap_bytes());
     }
     {
         let pma = daachorse::CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
-        format_memory("daachorse (charwise)", pma.heap_bytes());
+        format_memory("daachorse (charwise, u32)", pma.heap_bytes());
     }
     {
         let pma = aho_corasick::AhoCorasick::new(patterns);
