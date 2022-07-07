@@ -5,22 +5,22 @@
 //!
 //! ## Overview
 //!
-//! `daachorse` is a crate for fast multiple pattern matching using
-//! the [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855),
-//! running in linear time over the length of the input text.
-//! For time- and memory-efficiency, the pattern match automaton is implemented using
-//! the [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004).
-//! The data structure not only supports constant-time state-to-state traversal,
-//! but also represents each state in a compact space of only 12 bytes.
+//! Daachorse is a crate for fast multiple pattern matching using the
+//! [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855), running in linear time
+//! over the length of the input text. This crate uses the
+//! [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004) for
+//! implementing the pattern match automaton for time and memory efficiency. The data structure not
+//! only supports constant-time state-to-state traversal but also represents each state in the
+//! space of only 12 bytes.
 //!
 //! ## Example: Finding overlapped occurrences
 //!
 //! To search for all occurrences of registered patterns that allow for positional overlap in the
 //! input text, use [`DoubleArrayAhoCorasick::find_overlapping_iter()`].
 //!
-//! When you use [`DoubleArrayAhoCorasick::new()`] for constraction,
-//! unique identifiers are assigned to each pattern in the input order.
-//! The match result has the byte positions of the occurrence and its identifier.
+//! When you use [`DoubleArrayAhoCorasick::new()`] for construction, the library assigns a unique
+//! identifier to each pattern in the input order. The match result has the byte positions of the
+//! occurrence and its identifier.
 //!
 //! ```
 //! use daachorse::DoubleArrayAhoCorasick;
@@ -44,11 +44,11 @@
 //!
 //! ## Example: Finding non-overlapped occurrences with standard matching
 //!
-//! If you do not want to allow positional overlap,
-//! use [`DoubleArrayAhoCorasick::find_iter()`] instead.
+//! If you do not want to allow positional overlap, use [`DoubleArrayAhoCorasick::find_iter()`]
+//! instead.
 //!
-//! It performs the search on the Aho-Corasick automaton and
-//! reports patterns first found in each iteration.
+//! This function performs the search on the Aho-Corasick automaton and reports patterns first
+//! found in each iteration.
 //!
 //! ```
 //! use daachorse::DoubleArrayAhoCorasick;
@@ -69,9 +69,8 @@
 //!
 //! ## Example: Finding non-overlapped occurrences with longest matching
 //!
-//! If you want to search for the longest pattern
-//! without positional overlap in each iteration,
-//! use [`DoubleArrayAhoCorasick::leftmost_find_iter()`] with specifying
+//! If you want to search for the longest pattern without positional overlap in each iteration, use
+//! [`DoubleArrayAhoCorasick::leftmost_find_iter()`] with specifying
 //! [`MatchKind::LeftmostLongest`] in the construction.
 //!
 //! ```
@@ -93,16 +92,13 @@
 //!
 //! ## Example: Finding non-overlapped occurrences with leftmost-first matching
 //!
-//! If you want to find the the earliest registered pattern
-//! among ones starting from the search position,
-//! use [`DoubleArrayAhoCorasick::leftmost_find_iter()`]
-//! with specifying [`MatchKind::LeftmostFirst`].
+//! If you want to find the earliest registered pattern among ones starting from the search
+//! position, use [`DoubleArrayAhoCorasick::leftmost_find_iter()`] with specifying
+//! [`MatchKind::LeftmostFirst`].
 //!
-//! This is so-called *the leftmost first match*,
-//! a bit tricky search option that is also supported in the
-//! [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate.
-//! For example, in the following code,
-//! `ab` is reported because it is the earliest registered one.
+//! This semantic is the so-called *leftmost first match*, a tricky search option supported in the
+//! [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate. For example, in the
+//! following code, `ab` is reported because it is the earliest registered one.
 //!
 //! ```
 //! use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
@@ -123,7 +119,7 @@
 //!
 //! ## Example: Associating arbitrary values with patterns
 //!
-//! To build the automaton from pairs of a pattern and integer value instead of assigning
+//! To build the automaton from pairs of a pattern and user-defined value, instead of assigning
 //! identifiers automatically, use [`DoubleArrayAhoCorasick::with_values()`].
 //!
 //! ```
@@ -153,8 +149,7 @@
 //!
 //! The standard version [`DoubleArrayAhoCorasick`] handles strings as UTF-8 sequences and defines
 //! transition labels using byte values. On the other hand, [`CharwiseDoubleArrayAhoCorasick`] uses
-//! code point values of Unicode, resulting in reducing the number of transitions and faster
-//! matching.
+//! Unicode code point values, reducing the number of transitions and faster matching.
 //!
 //! ```
 //! use daachorse::CharwiseDoubleArrayAhoCorasick;
