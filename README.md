@@ -87,7 +87,7 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with longest matching
+### Finding non-overlapped occurrences with the longest matching
 
 If you want to search for the longest pattern without positional overlap in each iteration, use
 `leftmost_find_iter()` with specifying `MatchKind::LeftmostLongest` in the construction.
@@ -109,7 +109,7 @@ assert_eq!((0, 4, 2), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with leftmost-first matching
+### Finding non-overlapped occurrences with the leftmost-first matching
 
 If you want to find the earliest registered pattern among ones starting from the search position,
 use `leftmost_find_iter()` with specifying `MatchKind::LeftmostFirst`.
