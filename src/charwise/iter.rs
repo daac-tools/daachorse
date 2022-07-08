@@ -142,7 +142,7 @@ where
             let out = unsafe {
                 self.pma
                     .outputs
-                    .get_unchecked(usize::from_u32(output_pos.get()))
+                    .get_unchecked(usize::from_u32(output_pos.get() - 1))
             };
             self.output_pos = out.parent();
             return Some(Match {
@@ -169,7 +169,7 @@ where
                 let out = unsafe {
                     self.pma
                         .outputs
-                        .get_unchecked(usize::from_u32(output_pos.get()))
+                        .get_unchecked(usize::from_u32(output_pos.get() - 1))
                 };
                 self.output_pos = out.parent();
                 return Some(Match {
@@ -208,7 +208,7 @@ where
                 let out = unsafe {
                     self.pma
                         .outputs
-                        .get_unchecked(usize::from_u32(output_pos.get()))
+                        .get_unchecked(usize::from_u32(output_pos.get() - 1))
                 };
                 return Some(Match {
                     length: usize::from_u32(out.length()),
@@ -245,7 +245,7 @@ where
                 let out = unsafe {
                     self.pma
                         .outputs
-                        .get_unchecked(usize::from_u32(output_pos.get()))
+                        .get_unchecked(usize::from_u32(output_pos.get() - 1))
                 };
                 return Some(Match {
                     length: usize::from_u32(out.length()),
@@ -284,7 +284,7 @@ where
                     let out = unsafe {
                         self.pma
                             .outputs
-                            .get_unchecked(usize::from_u32(output_pos.get()))
+                            .get_unchecked(usize::from_u32(output_pos.get() - 1))
                     };
                     return Some(Match {
                         length: usize::from_u32(out.length()),
@@ -312,7 +312,7 @@ where
             let out = unsafe {
                 self.pma
                     .outputs
-                    .get_unchecked(usize::from_u32(output_pos.get()))
+                    .get_unchecked(usize::from_u32(output_pos.get() - 1))
             };
             Match {
                 length: usize::from_u32(out.length()),

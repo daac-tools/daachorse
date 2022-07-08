@@ -65,8 +65,7 @@ pub struct CharwiseDoubleArrayAhoCorasick<V> {
 
 impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// Creates a new [`CharwiseDoubleArrayAhoCorasick`] from input patterns. The value `i` is
-    /// automatically associated with `patterns[i]`. If the conversion from the index value to the
-    /// specified type `V` fails, [`Default::default()`] is assigned instead.
+    /// automatically associated with `patterns[i]`.
     ///
     /// # Arguments
     ///
@@ -78,6 +77,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///   - `patterns` is empty,
     ///   - `patterns` contains entries of length zero,
     ///   - `patterns` contains duplicate entries,
+    ///   - the conversion from the index `i` to the specified type `V` fails,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -103,7 +103,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     where
         I: IntoIterator<Item = P>,
         P: AsRef<str>,
-        V: Copy + Default + TryFrom<usize>,
+        V: Copy + TryFrom<usize>,
     {
         CharwiseDoubleArrayAhoCorasickBuilder::new().build(patterns)
     }
@@ -120,7 +120,6 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///   - `patvals` is empty,
     ///   - `patvals` contains patterns of length zero,
     ///   - `patvals` contains duplicate patterns,
-    ///   - `patvals` contains invalid values,
     ///   - the scale of `patvals` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -146,7 +145,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     where
         I: IntoIterator<Item = (P, V)>,
         P: AsRef<str>,
-        V: Copy + Default,
+        V: Copy,
     {
         CharwiseDoubleArrayAhoCorasickBuilder::new().build_with_values(patvals)
     }
@@ -587,7 +586,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     ///
-    /// assert_eq!(580, pma.heap_bytes());
+    /// assert_eq!(568, pma.heap_bytes());
     /// ```
     #[must_use]
     pub fn heap_bytes(&self) -> usize {
