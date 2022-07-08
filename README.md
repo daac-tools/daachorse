@@ -21,7 +21,7 @@ bytes.
 
 For example, compared to the NFA of the [aho-corasick](https://github.com/BurntSushi/aho-corasick)
 crate, which is the most popular Aho-Corasick implementation in Rust, Daachorse can perform pattern
-matching **3.3–5.4 times faster** while consuming **56–60% smaller** memory when using a word
+matching **3.0–5.2 times faster** while consuming **56–60% smaller** memory when using a word
 dictionary of 675K patterns. Other experimental results can be found on
 [Wiki](https://github.com/daac-tools/daachorse/wiki/Performance-Comparison).
 
