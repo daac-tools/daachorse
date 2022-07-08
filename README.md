@@ -160,7 +160,7 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Building faster automaton on multibyte characters
+### Building faster automata on multibyte characters
 
 To build a faster automaton on multibyte characters, use `CharwiseDoubleArrayAhoCorasick` instead.
 
