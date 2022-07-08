@@ -1,6 +1,6 @@
 #!ngraph
 #%creator: Ngraph 
-#%version: 6.09.03
+#%version: 6.09.05
 new axis name:fX1
 	axis::hidden=false
 	axis::R=0
@@ -10,7 +10,7 @@ new axis name:fX1
 	axis::clip=true
 	axis::redraw_flag=true
 	axis::min=0
-	axis::max=40
+	axis::max=30
 	axis::inc=1
 	axis::div=0
 	axis::type=linear
@@ -574,7 +574,7 @@ new data
 	data::clip=true
 	data::redraw_flag=true
 	data::source=file
-	data::save_path=relative
+	data::save_path=unchange
 	data::x=3
 	data::y=0
 	data::type=bar_fill_x
@@ -615,7 +615,7 @@ new data
 	data::range_max=10
 	data::range_div=512
 	data::array=
-	data::file='./overlapping.txt'
+	data::file='/home/akabe/developments/daachorse/figures/overlapping.txt'
 
 new data
 	data::hidden=false
@@ -626,7 +626,7 @@ new data
 	data::clip=true
 	data::redraw_flag=true
 	data::source=file
-	data::save_path=relative
+	data::save_path=unchange
 	data::x=3
 	data::y=0
 	data::type=bar_fill_x
@@ -667,7 +667,7 @@ new data
 	data::range_max=10
 	data::range_div=512
 	data::array=
-	data::file='./memory.txt'
+	data::file='/home/akabe/developments/daachorse/figures/memory.txt'
 
 new text
 	text::hidden=false
@@ -696,7 +696,7 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (0.4.0, bytewise)'
+	text::text='daachorse (1.0.0, bytewise)'
 	text::x=200
 	text::y=1800
 	text::pt=1200
@@ -772,7 +772,7 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (0.4.0, bytewise)'
+	text::text='daachorse (1.0.0, bytewise)'
 	text::x=200
 	text::y=7000
 	text::pt=1200
@@ -791,7 +791,7 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (0.4.0, charwise)'
+	text::text='daachorse (1.0.0, charwise)'
 	text::x=200
 	text::y=8000
 	text::pt=1200
@@ -810,7 +810,7 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (0.4.0, charwise)'
+	text::text='daachorse (1.0.0, charwise)'
 	text::x=200
 	text::y=2800
 	text::pt=1200
