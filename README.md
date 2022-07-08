@@ -64,7 +64,7 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with standard matching
+### Finding non-overlapped occurrences with the standard matching
 
 If you do not want to allow positional overlap, use `find_iter()` instead.
 It performs the search on the Aho-Corasick automaton
