@@ -1,6 +1,6 @@
 #!ngraph
 #%creator: Ngraph 
-#%version: 6.09.05
+#%version: 6.09.03
 new axis name:fX1
 	axis::hidden=false
 	axis::R=0
@@ -10,15 +10,15 @@ new axis name:fX1
 	axis::clip=true
 	axis::redraw_flag=true
 	axis::min=0
-	axis::max=30
+	axis::max=40
 	axis::inc=1
 	axis::div=0
 	axis::type=linear
-	axis::x=7200
-	axis::y=4200
+	axis::x=5600
+	axis::y=3200
 	axis::direction=0
 	axis::baseline=true
-	axis::length=15600
+	axis::length=12000
 	axis::width=40
 	axis::style=
 	axis::auto_scale_margin=500
@@ -54,7 +54,7 @@ new axis name:fX1
 	axis::num_format='%g'
 	axis::num_tail=
 	axis::num_log_pow=true
-	axis::num_pt=1600
+	axis::num_pt=1200
 	axis::num_space=0
 	axis::num_font='Sans-serif'
 	axis::num_font_style=0
@@ -84,11 +84,11 @@ new axis name:fY1
 	axis::inc=1
 	axis::div=0
 	axis::type=linear
-	axis::x=7200
-	axis::y=4200
+	axis::x=5600
+	axis::y=3200
 	axis::direction=9000
 	axis::baseline=true
-	axis::length=3900
+	axis::length=3000
 	axis::width=40
 	axis::style=
 	axis::auto_scale_margin=500
@@ -154,11 +154,11 @@ new axis name:fU1
 	axis::inc=0
 	axis::div=0
 	axis::type=linear
-	axis::x=7200
-	axis::y=300
+	axis::x=5600
+	axis::y=200
 	axis::direction=0
 	axis::baseline=true
-	axis::length=15600
+	axis::length=12000
 	axis::width=40
 	axis::style=
 	axis::auto_scale_margin=500
@@ -224,11 +224,11 @@ new axis name:fR1
 	axis::inc=0
 	axis::div=0
 	axis::type=linear
-	axis::x=22800
-	axis::y=4200
+	axis::x=17600
+	axis::y=3200
 	axis::direction=9000
 	axis::baseline=true
-	axis::length=3900
+	axis::length=3000
 	axis::width=40
 	axis::style=
 	axis::auto_scale_margin=500
@@ -296,11 +296,11 @@ new axis name:fX2
 	axis::inc=10
 	axis::div=1
 	axis::type=linear
-	axis::x=7200
-	axis::y=10400
+	axis::x=5600
+	axis::y=8400
 	axis::direction=0
 	axis::baseline=true
-	axis::length=15600
+	axis::length=12000
 	axis::width=40
 	axis::style=
 	axis::auto_scale_margin=500
@@ -336,7 +336,7 @@ new axis name:fX2
 	axis::num_format='%.1f'
 	axis::num_tail=
 	axis::num_log_pow=true
-	axis::num_pt=1600
+	axis::num_pt=1200
 	axis::num_space=0
 	axis::num_font='Sans-serif'
 	axis::num_font_style=0
@@ -366,11 +366,11 @@ new axis name:fY2
 	axis::inc=1
 	axis::div=0
 	axis::type=linear
-	axis::x=7200
-	axis::y=10400
+	axis::x=5600
+	axis::y=8400
 	axis::direction=9000
 	axis::baseline=true
-	axis::length=3900
+	axis::length=3000
 	axis::width=40
 	axis::style=
 	axis::auto_scale_margin=500
@@ -436,11 +436,11 @@ new axis name:fU2
 	axis::inc=0
 	axis::div=0
 	axis::type=linear
-	axis::x=7200
-	axis::y=6500
+	axis::x=5600
+	axis::y=5400
 	axis::direction=0
 	axis::baseline=true
-	axis::length=15600
+	axis::length=12000
 	axis::width=40
 	axis::style=
 	axis::auto_scale_margin=500
@@ -506,11 +506,11 @@ new axis name:fR2
 	axis::inc=0
 	axis::div=0
 	axis::type=linear
-	axis::x=22800
-	axis::y=10400
+	axis::x=17600
+	axis::y=8400
 	axis::direction=9000
 	axis::baseline=true
-	axis::length=3900
+	axis::length=3000
 	axis::width=40
 	axis::style=
 	axis::auto_scale_margin=500
@@ -574,7 +574,7 @@ new data
 	data::clip=true
 	data::redraw_flag=true
 	data::source=file
-	data::save_path=unchange
+	data::save_path=relative
 	data::x=3
 	data::y=0
 	data::type=bar_fill_x
@@ -615,7 +615,7 @@ new data
 	data::range_max=10
 	data::range_div=512
 	data::array=
-	data::file='/home/akabe/developments/daachorse/figures/overlapping.txt'
+	data::file='./overlapping.txt'
 
 new data
 	data::hidden=false
@@ -626,7 +626,7 @@ new data
 	data::clip=true
 	data::redraw_flag=true
 	data::source=file
-	data::save_path=unchange
+	data::save_path=relative
 	data::x=3
 	data::y=0
 	data::type=bar_fill_x
@@ -667,7 +667,7 @@ new data
 	data::range_max=10
 	data::range_div=512
 	data::array=
-	data::file='/home/akabe/developments/daachorse/figures/memory.txt'
+	data::file='./memory.txt'
 
 new text
 	text::hidden=false
@@ -679,8 +679,8 @@ new text
 	text::redraw_flag=true
 	text::text='aho-corasick (0.7.18, NFA)'
 	text::x=200
-	text::y=1100
-	text::pt=1600
+	text::y=800
+	text::pt=1200
 	text::font='Sans-serif'
 	text::style=0
 	text::space=0
@@ -696,10 +696,10 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (1.0.0, bytewise)'
+	text::text='daachorse (0.4.0, bytewise)'
 	text::x=200
-	text::y=2380
-	text::pt=1600
+	text::y=1800
+	text::pt=1200
 	text::font='Sans-serif'
 	text::style=0
 	text::space=0
@@ -716,9 +716,9 @@ new text
 	text::clip=true
 	text::redraw_flag=true
 	text::text='Search Time [ms]'
-	text::x=10400
-	text::y=5800
-	text::pt=1600
+	text::x=7600
+	text::y=4400
+	text::pt=1200
 	text::font='Sans-serif'
 	text::style=0
 	text::space=0
@@ -735,9 +735,9 @@ new text
 	text::clip=true
 	text::redraw_flag=true
 	text::text='Memory Usage [MiB]'
-	text::x=10000
-	text::y=12000
-	text::pt=1600
+	text::x=7400
+	text::y=9600
+	text::pt=1200
 	text::font='Sans-serif'
 	text::style=0
 	text::space=0
@@ -755,8 +755,8 @@ new text
 	text::redraw_flag=true
 	text::text='aho-corasick (0.7.18, NFA)'
 	text::x=200
-	text::y=7280
-	text::pt=1600
+	text::y=6000
+	text::pt=1200
 	text::font='Sans-serif'
 	text::style=0
 	text::space=0
@@ -772,10 +772,10 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (1.0.0, bytewise)'
+	text::text='daachorse (0.4.0, bytewise)'
 	text::x=200
-	text::y=8580
-	text::pt=1600
+	text::y=7000
+	text::pt=1200
 	text::font='Sans-serif'
 	text::style=0
 	text::space=0
@@ -791,10 +791,10 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (1.0.0, charwise)'
+	text::text='daachorse (0.4.0, charwise)'
 	text::x=200
-	text::y=9860
-	text::pt=1600
+	text::y=8000
+	text::pt=1200
 	text::font='Sans-serif'
 	text::style=0
 	text::space=0
@@ -810,10 +810,10 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (1.0.0, charwise)'
+	text::text='daachorse (0.4.0, charwise)'
 	text::x=200
-	text::y=3680
-	text::pt=1600
+	text::y=2800
+	text::pt=1200
 	text::font='Sans-serif'
 	text::style=0
 	text::space=0
@@ -825,7 +825,7 @@ new gra name:viewer
 	gra::left_margin=0
 	gra::top_margin=0
 	gra::zoom=10000
-	gra::paper_width=23500
-	gra::paper_height=12500
+	gra::paper_width=18000
+	gra::paper_height=10000
 	gra::decimalsign=period
 	gra::draw_obj='axisgrid axis data merge legend rectangle arc path mark text'
