@@ -21,7 +21,7 @@ bytes.
 
 For example, compared to the NFA of the [aho-corasick](https://github.com/BurntSushi/aho-corasick)
 crate, which is the most popular Aho-Corasick implementation in Rust, Daachorse can perform pattern
-matching **3.3–5.4 times faster** while consuming **56–60% smaller** memory when using a word
+matching **3.0–5.2 times faster** while consuming **56–60% smaller** memory when using a word
 dictionary of 675K patterns. Other experimental results can be found on
 [Wiki](https://github.com/daac-tools/daachorse/wiki/Performance-Comparison).
 
@@ -64,7 +64,7 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with standard matching
+### Finding non-overlapped occurrences with the standard matching
 
 If you do not want to allow positional overlap, use `find_iter()` instead.
 It performs the search on the Aho-Corasick automaton
@@ -87,7 +87,7 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with longest matching
+### Finding non-overlapped occurrences with the longest matching
 
 If you want to search for the longest pattern without positional overlap in each iteration, use
 `leftmost_find_iter()` with specifying `MatchKind::LeftmostLongest` in the construction.
@@ -109,7 +109,7 @@ assert_eq!((0, 4, 2), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with leftmost-first matching
+### Finding non-overlapped occurrences with the leftmost-first matching
 
 If you want to find the earliest registered pattern among ones starting from the search position,
 use `leftmost_find_iter()` with specifying `MatchKind::LeftmostFirst`.
@@ -160,7 +160,7 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Building faster automaton on multibyte characters
+### Building faster automata on multibyte characters
 
 To build a faster automaton on multibyte characters, use `CharwiseDoubleArrayAhoCorasick` instead.
 
