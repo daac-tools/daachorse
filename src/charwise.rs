@@ -866,17 +866,17 @@ mod tests {
     #[test]
     fn test_double_array() {
         /*
-         *          a--> 4
+         *          Ａ--> 4
          *         /
-         *   a--> 1 --b--> 5
+         *   Ａ--> 1 --Ｃ--> 5
          *  /
-         * 0 --c--> 3 --b--> 6
+         * 0 --Ｂ--> 3 --Ｃ--> 6
          *  \
-         *   b--> 2
+         *   Ｃ--> 2
          *
-         *   a = Ａ
-         *   b = Ｃ
-         *   c = Ｂ
+         *   Ａ= 0
+         *   Ｃ= 1
+         *   Ｂ= 2
          */
         let patterns = vec!["ＡＡ", "ＡＣ", "ＢＣ", "Ｃ"];
         let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
@@ -965,7 +965,7 @@ mod tests {
         let mut patterns = vec![];
         // state 0: reserved for the root state
         // state 1: reserved for the dead state
-        // base = 0x7e; fills 0x02..=0xff
+        // base = 0x7e; fills 0x02..=0x7f
         for i in '\u{0}'..='\u{7d}' {
             let pattern: alloc::string::String = core::iter::once(i).collect();
             patterns.push(pattern);
