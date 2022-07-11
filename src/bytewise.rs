@@ -828,7 +828,7 @@ mod tests {
 
         let base_expected = vec![
             NonZeroU32::new(4), // 0  (state=0)
-            None,               // 1
+            None,               // 1  (reserved)
             None,               // 2
             None,               // 3  (state=6)
             NonZeroU32::new(8), // 4  (state=1)
@@ -854,7 +854,7 @@ mod tests {
         ];
         let fail_expected = vec![
             ROOT_STATE_IDX, // 0  (state=0)
-            ROOT_STATE_IDX, // 1
+            ROOT_STATE_IDX, // 1  (reserved)
             ROOT_STATE_IDX, // 2
             6,              // 3  (state=6)
             ROOT_STATE_IDX, // 4  (state=1)
