@@ -651,7 +651,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_child_index_unchecked(&self, state_id: u32, c: u8) -> Option<u32> {
+    unsafe fn child_index_unchecked(&self, state_id: u32, c: u8) -> Option<u32> {
         // child_idx is always smaller than states.len() because
         //  - states.len() is 256 * k for some integer k, and
         //  - base() returns smaller than states.len() when it is Some.
@@ -669,11 +669,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_next_state_id_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
+    unsafe fn next_state_id_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
         // In the loop, state_id is always set to values smaller than states.len(),
-        // because get_child_index_unchecked() and fail() return such values.
+        // because child_index_unchecked() and fail() return such values.
         loop {
-            if let Some(state_id) = self.get_child_index_unchecked(state_id, c) {
+            if let Some(state_id) = self.child_index_unchecked(state_id, c) {
                 return state_id;
             }
             if state_id == ROOT_STATE_IDX {
@@ -687,11 +687,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
+    unsafe fn next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
         // In the loop, state_id is always set to values smaller than states.len(),
-        // because get_child_index_unchecked() and fail() return such values.
+        // because child_index_unchecked() and fail() return such values.
         loop {
-            if let Some(state_id) = self.get_child_index_unchecked(state_id, c) {
+            if let Some(state_id) = self.child_index_unchecked(state_id, c) {
                 return state_id;
             }
             if state_id == ROOT_STATE_IDX {

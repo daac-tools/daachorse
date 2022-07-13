@@ -692,7 +692,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// `state_id` must be smaller than the length of states.
     #[allow(clippy::cast_possible_wrap)]
     #[inline(always)]
-    unsafe fn get_child_index_unchecked(&self, state_id: u32, mapped_c: u32) -> Option<u32> {
+    unsafe fn child_index_unchecked(&self, state_id: u32, mapped_c: u32) -> Option<u32> {
         let base = self
             .states
             .get_unchecked(usize::from_u32(state_id))
@@ -718,10 +718,10 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_next_state_id_unchecked(&self, mut state_id: u32, c: char) -> u32 {
+    unsafe fn next_state_id_unchecked(&self, mut state_id: u32, c: char) -> u32 {
         if let Some(mapped_c) = self.mapper.get(c) {
             loop {
-                if let Some(state_id) = self.get_child_index_unchecked(state_id, mapped_c) {
+                if let Some(state_id) = self.child_index_unchecked(state_id, mapped_c) {
                     return state_id;
                 }
                 if state_id == ROOT_STATE_IDX {
@@ -738,10 +738,10 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn get_next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: char) -> u32 {
+    unsafe fn next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: char) -> u32 {
         if let Some(mapped_c) = self.mapper.get(c) {
             loop {
-                if let Some(state_id) = self.get_child_index_unchecked(state_id, mapped_c) {
+                if let Some(state_id) = self.child_index_unchecked(state_id, mapped_c) {
                     return state_id;
                 }
                 if state_id == ROOT_STATE_IDX {

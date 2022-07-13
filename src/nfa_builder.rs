@@ -96,7 +96,7 @@ where
                 }
             }
 
-            if let Some(next_state_id) = self.get_child_id(state_id, c) {
+            if let Some(next_state_id) = self.child_id(state_id, c) {
                 state_id = next_state_id;
             } else if let Ok(next_state_id) = u32::try_from(self.states.len()) {
                 self.states[usize::from_u32(state_id)]
@@ -139,7 +139,7 @@ where
             for (&c, &child_id) in &s.edges {
                 let mut fail_id = s.fail;
                 let new_fail_id = loop {
-                    if let Some(child_fail_id) = self.get_child_id(fail_id, c) {
+                    if let Some(child_fail_id) = self.child_id(fail_id, c) {
                         break child_fail_id;
                     }
                     let next_fail_id = self.states[usize::from_u32(fail_id)].borrow().fail;
@@ -185,7 +185,7 @@ where
                     DEAD_STATE_ID
                 } else {
                     loop {
-                        if let Some(child_fail_id) = self.get_child_id(fail_id, c) {
+                        if let Some(child_fail_id) = self.child_id(fail_id, c) {
                             break child_fail_id;
                         }
                         let next_fail_id = self.states[usize::from_u32(fail_id)].borrow().fail;
@@ -226,7 +226,7 @@ where
     }
 
     #[inline(always)]
-    fn get_child_id(&self, state_id: u32, c: L) -> Option<u32> {
+    fn child_id(&self, state_id: u32, c: L) -> Option<u32> {
         self.states[usize::from_u32(state_id)]
             .borrow()
             .edges
