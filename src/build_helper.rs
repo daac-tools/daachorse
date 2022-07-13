@@ -119,10 +119,10 @@ impl BuildHelper {
         debug_assert!(!self.get_ref(idx).is_used_index());
         self.get_mut(idx).use_index();
 
-        let next = self.get_mut(idx).get_next();
-        let prev = self.get_mut(idx).get_prev();
-        self.get_mut(prev).set_next(next);
-        self.get_mut(next).set_prev(prev);
+        let next = self.get_mut(idx).next();
+        let prev = self.get_mut(idx).prev();
+        *self.get_mut(prev).next_mut() = next;
+        *self.get_mut(next).prev_mut() = prev;
 
         if self.head_idx.unwrap() == idx {
             self.head_idx = Some(next).filter(|&x| x != idx);
@@ -153,19 +153,19 @@ impl BuildHelper {
 
         for idx in old_len..new_len {
             self.reset(idx);
-            self.get_mut(idx).set_next(idx + 1);
-            self.get_mut(idx).set_prev(idx.wrapping_sub(1));
+            *self.get_mut(idx).next_mut() = idx + 1;
+            *self.get_mut(idx).prev_mut() = idx.wrapping_sub(1);
         }
 
         if let Some(head_idx) = self.head_idx {
-            let tail_idx = self.get_ref(head_idx).get_prev();
-            self.get_mut(old_len).set_prev(tail_idx);
-            self.get_mut(tail_idx).set_next(old_len);
-            self.get_mut(new_len - 1).set_next(head_idx);
-            self.get_mut(head_idx).set_prev(new_len - 1);
+            let tail_idx = self.get_ref(head_idx).prev();
+            *self.get_mut(old_len).prev_mut() = tail_idx;
+            *self.get_mut(tail_idx).next_mut() = old_len;
+            *self.get_mut(new_len - 1).next_mut() = head_idx;
+            *self.get_mut(head_idx).prev_mut() = new_len - 1;
         } else {
-            self.get_mut(old_len).set_prev(new_len - 1);
-            self.get_mut(new_len - 1).set_next(old_len);
+            *self.get_mut(old_len).prev_mut() = new_len - 1;
+            *self.get_mut(new_len - 1).next_mut() = old_len;
             self.head_idx = Some(old_len);
         }
 
@@ -218,7 +218,7 @@ impl Iterator for VacantIter<'_> {
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         let curr = self.idx?;
-        let next = self.list.get_ref(curr).get_next();
+        let next = self.list.get_ref(curr).next();
         // self.list.head_idx is always Some because, whenever self.list.head_idx is None,
         // self.idx? of the first line will break this function.
         self.idx = Some(next).filter(|&x| x != self.list.head_idx.unwrap());
@@ -237,23 +237,23 @@ pub struct ListItem {
 
 impl ListItem {
     #[inline(always)]
-    pub const fn get_next(&self) -> u32 {
+    pub const fn next(&self) -> u32 {
         self.next
     }
 
     #[inline(always)]
-    pub const fn get_prev(&self) -> u32 {
+    pub const fn prev(&self) -> u32 {
         self.prev
     }
 
     #[inline(always)]
-    pub fn set_next(&mut self, x: u32) {
-        self.next = x;
+    pub fn next_mut(&mut self) -> &mut u32 {
+        &mut self.next
     }
 
     #[inline(always)]
-    pub fn set_prev(&mut self, x: u32) {
-        self.prev = x;
+    pub fn prev_mut(&mut self) -> &mut u32 {
+        &mut self.prev
     }
 
     #[inline(always)]

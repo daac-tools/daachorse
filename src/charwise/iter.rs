@@ -156,8 +156,8 @@ where
             self.pos = pos;
 
             // self.state_id is always smaller than self.pma.states.len() because
-            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
-            self.state_id = unsafe { self.pma.get_next_state_id_unchecked(self.state_id, c) };
+            // self.pma.next_state_id_unchecked() ensures to return such a value.
+            self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
@@ -195,8 +195,8 @@ where
         let mut state_id = ROOT_STATE_IDX;
         for (pos, c) in self.haystack.by_ref() {
             // self.state_id is always smaller than self.pma.states.len() because
-            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
-            state_id = unsafe { self.pma.get_next_state_id_unchecked(state_id, c) };
+            // self.pma.next_state_id_unchecked() ensures to return such a value.
+            state_id = unsafe { self.pma.next_state_id_unchecked(state_id, c) };
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
@@ -232,8 +232,8 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         for (pos, c) in self.haystack.by_ref() {
             // self.state_id is always smaller than self.pma.states.len() because
-            // self.pma.get_next_state_id_unchecked() ensures to return such a value.
-            self.state_id = unsafe { self.pma.get_next_state_id_unchecked(self.state_id, c) };
+            // self.pma.next_state_id_unchecked() ensures to return such a value.
+            self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
             if let Some(output_pos) = unsafe {
                 self.pma
                     .states
@@ -275,8 +275,8 @@ where
             skips += c.len_utf8();
 
             // state_id is always smaller than self.pma.states.len() because
-            // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
-            state_id = unsafe { self.pma.get_next_state_id_leftmost_unchecked(state_id, c) };
+            // self.pma.next_state_id_leftmost_unchecked() ensures to return such a value.
+            state_id = unsafe { self.pma.next_state_id_leftmost_unchecked(state_id, c) };
             if state_id == ROOT_STATE_IDX {
                 if let Some(output_pos) = last_output_pos {
                     // last_output_pos is always smaller than self.pma.outputs.len() because
@@ -293,7 +293,7 @@ where
                     });
                 }
             // state_id is always smaller than self.pma.states.len() because
-            // self.pma.get_next_state_id_leftmost_unchecked() ensures to return such a value.
+            // self.pma.next_state_id_leftmost_unchecked() ensures to return such a value.
             } else if let Some(output_pos) = unsafe {
                 self.pma
                     .states
