@@ -137,7 +137,7 @@ assert_eq!(None, it.next());
 
 ### Associating arbitrary values with patterns
 
-To build the automaton from pairs of a pattern and integer value, instead of assigning identifiers
+To build the automaton from pairs of a pattern and user-defined value, instead of assigning identifiers
 automatically, use `with_values()`.
 
 ```rust
