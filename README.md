@@ -224,7 +224,7 @@ Licensed under either of
 
 at your option.
 
-For softwares under `bench/data`, follow the license terms of each software.
+For software under `bench/data`, follow the license terms of each software.
 
 ## Contribution
 
