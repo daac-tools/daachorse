@@ -22,7 +22,7 @@ bytes.
 For example, compared to the NFA of the [aho-corasick](https://github.com/BurntSushi/aho-corasick)
 crate, which is the most popular Aho-Corasick implementation in Rust, Daachorse can perform pattern
 matching **3.0–5.2 times faster** while consuming **56–60% smaller** memory when using a word
-dictionary of 675K patterns. Other experimental results can be found on
+dictionary of 675K patterns. Other experimental results are available on
 [Wiki](https://github.com/daac-tools/daachorse/wiki/Performance-Comparison).
 
 ![](./figures/comparison.svg)
@@ -137,7 +137,7 @@ assert_eq!(None, it.next());
 
 ### Associating arbitrary values with patterns
 
-To build the automaton from pairs of a pattern and integer value, instead of assigning identifiers
+To build the automaton from pairs of a pattern and user-defined value, instead of assigning identifiers
 automatically, use `with_values()`.
 
 ```rust
@@ -224,10 +224,10 @@ Licensed under either of
 
 at your option.
 
-For softwares under `bench/data`, follow the license terms of each software.
+For software under `bench/data`, follow the license terms of each software.
 
 ## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
-the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
+work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
 additional terms or conditions.
