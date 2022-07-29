@@ -231,6 +231,3 @@ For software under `bench/data`, follow the license terms of each software.
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
 work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
 additional terms or conditions.
-
-##
-
