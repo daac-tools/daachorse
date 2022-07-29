@@ -7,7 +7,7 @@ A fast implementation of the Aho-Corasick algorithm using the compact double-arr
 [![Rust](https://img.shields.io/badge/rust-1.58%2B-blue.svg?maxAge=3600)](https://github.com/daac-tools/daachorse)
 [![Build Status](https://github.com/daac-tools/daachorse/actions/workflows/rust.yml/badge.svg)](https://github.com/daac-tools/daachorse)
 
-[Technical details](https://doi.org/10.48550/arXiv.2207.13870)
+The main technical ideas behind this library appear in [this paper](https://doi.org/10.48550/arXiv.2207.13870).
 
 ## Overview
 
