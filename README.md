@@ -7,7 +7,7 @@ A fast implementation of the Aho-Corasick algorithm using the compact double-arr
 [![Rust](https://img.shields.io/badge/rust-1.58%2B-blue.svg?maxAge=3600)](https://github.com/daac-tools/daachorse)
 [![Build Status](https://github.com/daac-tools/daachorse/actions/workflows/rust.yml/badge.svg)](https://github.com/daac-tools/daachorse)
 
-[Technical details (Japanese)](https://tech.legalforce.co.jp/entry/2022/02/24/140316)
+[Technical details](https://doi.org/10.48550/arXiv.2207.13870)
 
 ## Overview
 
@@ -231,3 +231,6 @@ For software under `bench/data`, follow the license terms of each software.
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
 work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
 additional terms or conditions.
+
+##
+
