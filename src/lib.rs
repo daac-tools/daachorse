@@ -13,6 +13,9 @@
 //! only supports constant-time state-to-state traversal but also represents each state in the
 //! space of only 12 bytes.
 //!
+//! The main technical ideas behind this library appear in
+//! [this paper](https://doi.org/10.48550/arXiv.2207.13870).
+//!
 //! ## Example: Finding overlapped occurrences
 //!
 //! To search for all occurrences of registered patterns that allow for positional overlap in the
