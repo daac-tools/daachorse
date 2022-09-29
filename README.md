@@ -4,7 +4,7 @@ A fast implementation of the Aho-Corasick algorithm using the compact double-arr
 
 [![Crates.io](https://img.shields.io/crates/v/daachorse)](https://crates.io/crates/daachorse)
 [![Documentation](https://docs.rs/daachorse/badge.svg)](https://docs.rs/daachorse)
-[![Rust](https://img.shields.io/badge/rust-1.58%2B-blue.svg?maxAge=3600)](https://github.com/daac-tools/daachorse)
+[![Rust](https://img.shields.io/badge/rust-1.60%2B-blue.svg?maxAge=3600)](https://github.com/daac-tools/daachorse)
 [![Build Status](https://github.com/daac-tools/daachorse/actions/workflows/rust.yml/badge.svg)](https://github.com/daac-tools/daachorse)
 
 [Technical details (Japanese)](https://tech.legalforce.co.jp/entry/2022/02/24/140316)
@@ -29,7 +29,7 @@ dictionary of 675K patterns. Other experimental results are available on
 
 ## Requirements
 
-Rust 1.58 or higher is required to build this crate.
+Rust 1.60 or higher is required to build this crate.
 
 ## Example usage
 
