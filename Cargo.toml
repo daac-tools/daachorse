@@ -31,6 +31,5 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [workspace]
 members = [
-    "bench",
     "daacfind",
 ]
