@@ -9,6 +9,8 @@ A fast implementation of the Aho-Corasick algorithm using the compact double-arr
 
 The main technical ideas behind this library appear in [this paper](https://doi.org/10.48550/arXiv.2207.13870).
 
+A Python wrapper is also available [here](https://github.com/daac-tools/python-daachorse).
+
 ## Overview
 
 Daachorse is a crate for fast multiple pattern matching using the
