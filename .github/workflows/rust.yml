@@ -14,130 +14,55 @@ env:
   CARGO_UNSTABLE_SPARSE_REGISTRY: true
 
 jobs:
-  msrv:
-    name: MSRV
+  build:
+    name: Check on ${{ matrix.rust }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - 1.60.0
+          - stable
+          - nightly
     steps:
-      - uses: actions/checkout@v2
-      - name: Install MSRV
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.60.0
-          override: true
-          profile: minimal
+      - uses: actions/checkout@v3
+      - name: Install ${{ matrix.rust }}
+        run: |
+          rustup toolchain install ${{ matrix.rust }} --profile minimal --component rustfmt,clippy
+          rustup default ${{ matrix.rust }}
 
       - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-
-  stable:
-    name: Stable
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install latest stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          profile: minimal
-          components: rustfmt, clippy
-
-      - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
+        run: cargo check
 
       - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: >
-            --all -- -D warnings
-            -W clippy::nursery
-            -W clippy::as_conversions
-            -W clippy::cast_lossless
-            -W clippy::cast_possible_truncation
-            -W clippy::cast_possible_wrap
-            -W clippy::cloned_instead_of_copied
-            -W clippy::map_unwrap_or
-            -W clippy::missing_panics_doc
-            -W clippy::must_use_candidate
-            -W clippy::redundant_closure_for_method-calls
-            -W clippy::semicolon_if_nothing_returned
-            -W clippy::unnecessary_wraps
-            -W clippy::unreadable_literal
+        run: |
+          cargo clippy --all -- \
+            -D warnings \
+            -W clippy::nursery \
+            -W clippy::as_conversions \
+            -W clippy::cast_lossless \
+            -W clippy::cast_possible_truncation \
+            -W clippy::cast_possible_wrap \
+            -W clippy::cloned_instead_of_copied \
+            -W clippy::map_unwrap_or \
+            -W clippy::missing_panics_doc \
+            -W clippy::must_use_candidate \
+            -W clippy::redundant_closure_for_method-calls \
+            -W clippy::semicolon_if_nothing_returned \
+            -W clippy::unnecessary_wraps \
+            -W clippy::unreadable_literal \
             -W clippy::unused_self
 
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --release --all-features
+        run: cargo test --release --all-features
 
       - name: Run cargo test (no-default-features)
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --release --no-default-features --features alloc
+        run: cargo test --release --no-default-features --features alloc
 
       - name: Run cargo doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --release --all-features
-        env:
-          RUSTDOCFLAGS: "-Dwarnings"
-
-  nightly:
-    name: Nightly
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install latest nightly
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-          profile: minimal
-          components: rustfmt, clippy
-
-      - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-
-      - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
-      - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --release --all-features
-
-      - name: Run cargo test (no-default-features)
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --release --no-default-features --features alloc
-
-
-      - name: Run cargo doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --release --all-features
+        run: cargo doc --release --all-features
         env:
           RUSTDOCFLAGS: "-Dwarnings"
 
@@ -145,19 +70,15 @@ jobs:
     name: Publish
     runs-on: ubuntu-latest
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [ msrv, stable, nightly ]
+    needs: [ build ]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install latest stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-          profile: minimal
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
 
       - name: Run cargo publish
-        uses: actions-rs/cargo@v1
-        with:
-          command: publish
+        run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_TOKEN }}
