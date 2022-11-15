@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         rust:
-          - 1.60.0
+          - 1.61.0
           - stable
           - nightly
     steps:
