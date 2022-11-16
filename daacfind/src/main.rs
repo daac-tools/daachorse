@@ -146,8 +146,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // For the standard input.
     if args.files.is_empty() {
-        #[allow(clippy::significant_drop_in_scrutinee)]
-        for (i, line) in stdin().lock().lines().enumerate() {
+        let lines = stdin().lock().lines().enumerate();
+        for (i, line) in lines {
             let line_number = if args.line_number { Some(i) } else { None };
             find_and_output(&pma, &line?, None, line_number, args.color, &mut stdout)?;
         }
