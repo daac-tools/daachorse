@@ -113,7 +113,7 @@ where
 
         let output = &mut self.states[usize::from_u32(state_id)].borrow_mut().output;
         if output.replace((value, pattern_len)).is_some() {
-            return Err(DaachorseError::duplicate_pattern(format!("{:?}", pattern)));
+            return Err(DaachorseError::duplicate_pattern(format!("{pattern:?}")));
         }
 
         self.len += 1;
