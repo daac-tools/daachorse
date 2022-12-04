@@ -68,12 +68,12 @@ fn find_and_output(
         ArgColor::Never => {
             if pma.find_iter(line).next().is_some() {
                 if let Some(filename) = filename {
-                    write!(stream, "{}:", filename)?;
+                    write!(stream, "{filename}:")?;
                 }
                 if let Some(line_no) = line_no {
-                    write!(stream, "{}:", line_no)?;
+                    write!(stream, "{line_no}:")?;
                 }
-                writeln!(stream, "{}", line)?;
+                writeln!(stream, "{line}")?;
             }
         }
         ArgColor::Always | ArgColor::Auto => {
@@ -86,10 +86,10 @@ fn find_and_output(
             }
             if matched {
                 if let Some(filename) = filename {
-                    write!(stream, "{}:", filename)?;
+                    write!(stream, "{filename}:")?;
                 }
                 if let Some(line_no) = line_no {
-                    write!(stream, "{}:", line_no)?;
+                    write!(stream, "{line_no}:")?;
                 }
                 let mut depth = 0;
                 let mut prev_pos = 0;
@@ -135,7 +135,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    let pma = DoubleArrayAhoCorasick::new(patterns).map_err(|e| format!("{}", e))?;
+    let pma = DoubleArrayAhoCorasick::new(patterns).map_err(|e| format!("{e}"))?;
 
     // Initialize the stream of termcolor.
     let mut stdout = match args.color {
@@ -172,10 +172,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Err(err) => {
                             filename.map_or_else(
                                 || {
-                                    eprintln!("{:?}", err);
+                                    eprintln!("{err:?}");
                                 },
                                 |filename| {
-                                    eprintln!("{}: {:?}", filename, err);
+                                    eprintln!("{filename}: {err:?}");
                                 },
                             );
                             break;
@@ -187,10 +187,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Err(err) => {
                 filename.to_str().map_or_else(
                     || {
-                        eprintln!("{:?}", err);
+                        eprintln!("{err:?}");
                     },
                     |filename| {
-                        eprintln!("{}: {:?}", filename, err);
+                        eprintln!("{filename}: {err:?}");
                     },
                 );
             }
