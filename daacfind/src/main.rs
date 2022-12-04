@@ -172,10 +172,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Err(err) => {
                             filename.map_or_else(
                                 || {
-                                    eprintln!("{:?}", err);
+                                    eprintln!("{err:?}");
                                 },
                                 |filename| {
-                                    eprintln!("{}: {:?}", filename, err);
+                                    eprintln!("{filename}: {err:?}");
                                 },
                             );
                             break;
@@ -187,10 +187,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Err(err) => {
                 filename.to_str().map_or_else(
                     || {
-                        eprintln!("{:?}", err);
+                        eprintln!("{err:?}");
                     },
                     |filename| {
-                        eprintln!("{}: {:?}", filename, err);
+                        eprintln!("{filename}: {err:?}");
                     },
                 );
             }
