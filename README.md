@@ -226,4 +226,6 @@ Licensed under either of
 
 at your option.
 
-## [Contribution guide](./CONTRIBUTING.md)
+## Contribution
+
+See [the guideline](./CONTRIBUTING.md).
