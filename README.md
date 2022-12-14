@@ -228,4 +228,4 @@ at your option.
 
 ## Contribution
 
-See [the guideline](./CONTRIBUTING.md).
+See [the guidelines](./CONTRIBUTING.md).
