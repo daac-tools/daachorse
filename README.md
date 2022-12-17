@@ -220,10 +220,10 @@ unsafe fn
 * **Does this library support data types other than `str` and `[u8]`?
   (e.g., structures implementing `Eq`.)**
 
-  Not supported. This library creates Aho-Corasick automata that use a
-  data structure called *double-array* trie and an algorithm that
-  performs XOR operations on the haystack. Therefore, the haystack must
-  be a sequence of integers.
+  Not supported. This library uses Aho-Corasick automata built with a
+  data structure called *double-array trie*. The algorithm on this data
+  structure works with XOR operations on the input haystack. Therefore,
+  the haystack must be a sequence of integers.
 
 * **Does this library provide bindings to programming languages other
   than Rust?**
