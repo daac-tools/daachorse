@@ -215,6 +215,24 @@ unsafe fn
 ...
 ```
 
+## FAQ
+
+* **Does this library support data types other than `str` and `bytes`?
+  (e.g., structures implementing `Eq`.)**
+
+  Not supported. This library creates Aho-Corasick automata that use a
+  data structure called *Double Array* trie and an algorithm that
+  performs XOR operations on the haystack. Therefore, the haystack must
+  be a sequence of integers.
+
+* **Does this library provide bindings to programming languages other
+  than Rust?**
+
+  We are providing [a Python binding](https://github.com/daac-tools/python-daachorse).
+  Other programming languages are not currently planned to be supported.
+  If you are interested in writing bindings, you are welcome to do so.
+  *daachorse* is free software.
+
 ## License
 
 Licensed under either of
