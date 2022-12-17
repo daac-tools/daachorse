@@ -221,7 +221,7 @@ unsafe fn
   (e.g., structures implementing `Eq`.)**
 
   Not supported. This library creates Aho-Corasick automata that use a
-  data structure called *Double Array* trie and an algorithm that
+  data structure called *double-array* trie and an algorithm that
   performs XOR operations on the haystack. Therefore, the haystack must
   be a sequence of integers.
 
