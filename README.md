@@ -217,7 +217,7 @@ unsafe fn
 
 ## FAQ
 
-* **Does this library support data types other than `str` and `bytes`?
+* **Does this library support data types other than `str` and `[u8]`?
   (e.g., structures implementing `Eq`.)**
 
   Not supported. This library creates Aho-Corasick automata that use a
