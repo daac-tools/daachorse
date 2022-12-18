@@ -223,7 +223,8 @@ unsafe fn
   Not supported. This library uses Aho-Corasick automata built with a
   data structure called *double-array trie*. The algorithm on this data
   structure works with XOR operations on the input haystack. Therefore,
-  the haystack must be a sequence of integers.
+  the haystack must be a sequence of integers. This library is specially
+  optimized for `str` and `[u8]`.
 
 * **Does this library provide bindings to programming languages other
   than Rust?**
