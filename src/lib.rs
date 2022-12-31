@@ -151,7 +151,7 @@
 //! instead.
 //!
 //! The standard version [`DoubleArrayAhoCorasick`] handles strings as UTF-8 sequences and defines
-//! transition labels using byte values. On the other hand, [`CharwiseDoubleArrayAhoCorasick`] uses
+//! transition labels using byte values. In contrast, [`CharwiseDoubleArrayAhoCorasick`] uses
 //! Unicode code point values, reducing the number of transitions and faster matching.
 //!
 //! ```
