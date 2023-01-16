@@ -40,7 +40,7 @@ jobs:
 
       - name: Run cargo clippy
         run: |
-          cargo clippy --all -- \
+          cargo clippy -- \
             -D warnings \
             -W clippy::nursery \
             -W clippy::as_conversions \
