@@ -7,7 +7,11 @@ A fast implementation of the Aho-Corasick algorithm using the compact double-arr
 [![Rust](https://img.shields.io/badge/rust-1.61%2B-blue.svg?maxAge=3600)](https://github.com/daac-tools/daachorse)
 [![Build Status](https://github.com/daac-tools/daachorse/actions/workflows/rust.yml/badge.svg)](https://github.com/daac-tools/daachorse)
 
-The main technical ideas behind this library appear in [this paper](https://doi.org/10.48550/arXiv.2207.13870).
+The main technical ideas behind this library appear in the following paper:
+
+> Shunsuke Kanda, Koichi Akabe, and Yusuke Oda. Engineering faster double-array Aho-Corasick automata.
+> *Software: Practice and Experience (SPE)*, to appear
+> ([arXiv](https://arxiv.org/abs/2207.13870))
 
 A Python wrapper is also available [here](https://github.com/daac-tools/python-daachorse).
 
@@ -244,6 +248,18 @@ Licensed under either of
    ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
 
 at your option.
+
+If you use this library in academic settings,
+please cite the following paper.
+
+```
+@unpublished{kanda2023engineering,
+    title={Engineering faster double-array Aho-Corasick automata},
+    author={Kanda, Shunsuke and Akabe, Koichi and Oda, Yusuke},
+    journal={Software: Practice and Experience},
+    note={to appear}
+}
+```
 
 ## Contribution
 
