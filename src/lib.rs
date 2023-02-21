@@ -13,8 +13,11 @@
 //! only supports constant-time state-to-state traversal but also represents each state in the
 //! space of only 12 bytes.
 //!
-//! The main technical ideas behind this library appear in
-//! [this paper](https://doi.org/10.48550/arXiv.2207.13870).
+//! The main technical ideas behind this library appear in the following paper:
+//!
+//! > Shunsuke Kanda, Koichi Akabe, and Yusuke Oda. Engineering faster double-array Aho-Corasick automata.
+//! > *Software: Practice and Experience (SPE)*, to appear
+//! > ([arXiv](https://arxiv.org/abs/2207.13870))
 //!
 //! ## Example: Finding overlapped occurrences
 //!
