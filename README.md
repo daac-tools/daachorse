@@ -266,6 +266,7 @@ please cite the following paper.
     author = {Kanda, Shunsuke and Akabe, Koichi and Oda, Yusuke},
     title = {Engineering faster double-array Aho–Corasick automata},
     journal = {Software: Practice and Experience},
+    year = {Early view}
     keywords = {Aho–Corasick automata, code optimization, double-array, multiple pattern matching},
     doi = {https://doi.org/10.1002/spe.3190},
     url = {https://onlinelibrary.wiley.com/doi/abs/10.1002/spe.3190},
