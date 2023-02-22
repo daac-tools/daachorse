@@ -15,8 +15,9 @@
 //!
 //! The main technical ideas behind this library appear in the following paper:
 //!
-//! > Shunsuke Kanda, Koichi Akabe, and Yusuke Oda. Engineering faster double-array Aho-Corasick automata.
-//! > *Software: Practice and Experience (SPE)*, to appear
+//! > Shunsuke Kanda, Koichi Akabe, and Yusuke Oda.
+//! > [Engineering faster double-array Aho-Corasick automata](https://doi.org/10.1002/spe.3190).
+//! > *Software: Practice and Experience (SPE)*
 //! > ([arXiv](https://arxiv.org/abs/2207.13870))
 //!
 //! ## Example: Finding overlapped occurrences
