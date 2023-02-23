@@ -10,8 +10,9 @@ A fast implementation of the Aho-Corasick algorithm using the compact double-arr
 
 The main technical ideas behind this library appear in the following paper:
 
-> Shunsuke Kanda, Koichi Akabe, and Yusuke Oda. Engineering faster double-array Aho-Corasick automata.
-> *Software: Practice and Experience (SPE)*, to appear
+> Shunsuke Kanda, Koichi Akabe, and Yusuke Oda.
+> [Engineering faster double-array Aho-Corasick automata](https://doi.org/10.1002/spe.3190).
+> *Software: Practice and Experience (SPE)*
 > ([arXiv](https://arxiv.org/abs/2207.13870))
 
 A Python wrapper is also available [here](https://github.com/daac-tools/python-daachorse).
@@ -261,11 +262,15 @@ If you use this library in academic settings,
 please cite the following paper.
 
 ```
-@unpublished{kanda2023engineering,
-    title={Engineering faster double-array Aho-Corasick automata},
-    author={Kanda, Shunsuke and Akabe, Koichi and Oda, Yusuke},
-    journal={Software: Practice and Experience},
-    note={to appear}
+@article{10.1002/spe.3190,
+    author = {Kanda, Shunsuke and Akabe, Koichi and Oda, Yusuke},
+    title = {Engineering faster double-array Aho–Corasick automata},
+    journal = {Software: Practice and Experience},
+    year = {Early view}
+    keywords = {Aho–Corasick automata, code optimization, double-array, multiple pattern matching},
+    doi = {https://doi.org/10.1002/spe.3190},
+    url = {https://onlinelibrary.wiley.com/doi/abs/10.1002/spe.3190},
+    eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1002/spe.3190}
 }
 ```
 
