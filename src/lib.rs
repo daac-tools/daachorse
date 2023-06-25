@@ -394,6 +394,33 @@ impl Serializable for MatchKind {
     }
 }
 
+/// Empty value type.
+///
+/// This is a unit struct with no field. This type can be used to reduce memory consumption when
+/// the value corresponding to each pattern is not used.
+///
+/// # Example
+///
+/// ```
+/// use daachorse::{DoubleArrayAhoCorasick, Empty};
+///
+/// let patterns = vec!["bcd", "ab", "a"];
+/// let pma = DoubleArrayAhoCorasick::<Empty>::new(patterns).unwrap();
+///
+/// let mut it = pma.find_overlapping_iter("abcd");
+///
+/// let m = it.next().unwrap();
+/// assert_eq!((0, 1), (m.start(), m.end()));
+/// ```
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Empty;
+
+impl From<usize> for Empty {
+    fn from(_value: usize) -> Self {
+        Self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
