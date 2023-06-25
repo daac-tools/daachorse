@@ -5,6 +5,7 @@ use core::num::NonZeroU32;
 use alloc::vec::Vec;
 
 use crate::utils::FromU32;
+use crate::Empty;
 
 /// Trait indicating serializability.
 ///
@@ -122,6 +123,21 @@ where
 
     fn serialized_bytes(&self) -> usize {
         u32::serialized_bytes() + S::serialized_bytes() * self.len()
+    }
+}
+
+impl Serializable for Empty {
+    #[inline(always)]
+    fn serialize_to_vec(&self, _dst: &mut Vec<u8>) {}
+
+    #[inline(always)]
+    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
+        (Self, src)
+    }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        0
     }
 }
 
