@@ -12,7 +12,8 @@ The main technical ideas behind this library appear in the following paper:
 
 > Shunsuke Kanda, Koichi Akabe, and Yusuke Oda.
 > [Engineering faster double-array Aho-Corasick automata](https://doi.org/10.1002/spe.3190).
-> *Software: Practice and Experience (SPE)*
+> *Software: Practice and Experience (SPE)*,
+> 53(6): 1332–1361, 2023
 > ([arXiv](https://arxiv.org/abs/2207.13870))
 
 A Python wrapper is also available [here](https://github.com/daac-tools/python-daachorse).
@@ -264,9 +265,12 @@ please cite the following paper.
 ```
 @article{10.1002/spe.3190,
     author = {Kanda, Shunsuke and Akabe, Koichi and Oda, Yusuke},
-    title = {Engineering faster double-array Aho–Corasick automata},
+    title = {Engineering faster double-array {Aho--Corasick} automata},
     journal = {Software: Practice and Experience},
-    year = {Early view}
+    volume={53},
+    number={6},
+    pages={1332--1361},
+    year={2023},
     keywords = {Aho–Corasick automata, code optimization, double-array, multiple pattern matching},
     doi = {https://doi.org/10.1002/spe.3190},
     url = {https://onlinelibrary.wiley.com/doi/abs/10.1002/spe.3190},
