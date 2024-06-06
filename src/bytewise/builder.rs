@@ -227,7 +227,7 @@ impl DoubleArrayAhoCorasickBuilder {
         })
     }
 
-    fn build_sparse_nfa<I, P, V>(&mut self, patvals: I) -> Result<BytewiseNfaBuilder<V>>
+    fn build_sparse_nfa<I, P, V>(&self, patvals: I) -> Result<BytewiseNfaBuilder<V>>
     where
         I: IntoIterator<Item = (P, V)>,
         P: AsRef<[u8]>,

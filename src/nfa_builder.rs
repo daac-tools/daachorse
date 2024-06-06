@@ -120,7 +120,7 @@ where
         Ok(())
     }
 
-    pub(crate) fn build_fails(&mut self) -> Vec<u32> {
+    pub(crate) fn build_fails(&self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
         for &child_id in self.states[usize::from_u32(ROOT_STATE_ID)]
             .borrow()
@@ -155,7 +155,7 @@ where
         q
     }
 
-    pub(crate) fn build_fails_leftmost(&mut self) -> Vec<u32> {
+    pub(crate) fn build_fails_leftmost(&self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
         for &child_id in self.states[usize::from_u32(ROOT_STATE_ID)]
             .borrow()
