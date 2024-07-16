@@ -95,6 +95,7 @@ pub struct OverlappingStepper<'a, V> {
 
 impl<'a, V: Copy> OverlappingStepper<'a, V> {
     ///
+    #[inline(always)]
     pub fn consume(&mut self, c: u8) {
         // self.state_id is always smaller than self.pma.states.len() because
         // self.pma.next_state_id_unchecked() ensures to return such a value.
@@ -109,6 +110,7 @@ impl<'a, V: Copy> OverlappingStepper<'a, V> {
     }
 
     ///
+    #[inline(always)]
     pub fn next(&mut self) -> Option<Match<V>> {
         let output_pos = self.output_pos?;
         // output_pos.get() is always smaller than self.pma.outputs.len() because
