@@ -16,8 +16,7 @@ use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LestmostFindIterator,
-    U8SliceIterator,
+    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LestmostFindIterator, OverlappingStepper, U8SliceIterator
 };
 
 // The root index position.
@@ -281,6 +280,16 @@ impl<V> DoubleArrayAhoCorasick<V> {
         FindOverlappingIterator {
             pma: self,
             haystack: U8SliceIterator::new(haystack).enumerate(),
+            state_id: ROOT_STATE_IDX,
+            output_pos: None,
+            pos: 0,
+        }
+    }
+
+    ///
+    pub fn overlapping_stepper(&self) -> OverlappingStepper<V> {
+        OverlappingStepper {
+            pma: self,
             state_id: ROOT_STATE_IDX,
             output_pos: None,
             pos: 0,
