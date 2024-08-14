@@ -84,34 +84,46 @@ where
     }
 }
 
-/// In contrast to the iterator APIs, this one requires the caller to feed in bytes
-/// and take out matches.
-pub struct OverlappingStepper<'a, V> {
-    pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
-    pub(crate) state_id: u32,
-    pub(crate) pos: usize,
-    pub(crate) output_pos: Option<NonZeroU32>,
+/// Iterator returning all the matches at a given position.
+pub struct OverlappingStepperIterator<'a, V> {
+    pma: &'a DoubleArrayAhoCorasick<V>,
+    pos: usize,
+    output_pos: Option<NonZeroU32>,
 }
 
-impl<'a, V: Copy> OverlappingStepper<'a, V> {
+impl<V: Copy> DoubleArrayAhoCorasick<V> {
     ///
     #[inline(always)]
-    pub fn consume(&mut self, c: u8) {
+    pub fn consume(
+        &mut self,
+        state_id: u32,
+        pos: usize,
+        c: u8,
+    ) -> (u32, OverlappingStepperIterator<V>) {
         // self.state_id is always smaller than self.pma.states.len() because
         // self.pma.next_state_id_unchecked() ensures to return such a value.
-        self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
-        self.output_pos = unsafe {
-            self.pma
-                .states
-                .get_unchecked(usize::from_u32(self.state_id))
+        let state_id = unsafe { self.next_state_id_unchecked(state_id, c) };
+        let output_pos = unsafe {
+            self.states
+                .get_unchecked(usize::from_u32(state_id))
                 .output_pos()
         };
-        self.pos += 1;
+        (
+            state_id,
+            OverlappingStepperIterator {
+                pma: self,
+                pos,
+                output_pos,
+            },
+        )
     }
+}
 
-    ///
+impl<'a, V: Copy> Iterator for OverlappingStepperIterator<'a, V> {
+    type Item = Match<V>;
+
     #[inline(always)]
-    pub fn next(&mut self) -> Option<Match<V>> {
+    fn next(&mut self) -> Option<Match<V>> {
         let output_pos = self.output_pos?;
         // output_pos.get() is always smaller than self.pma.outputs.len() because
         // Output::parent() ensures to return such a value when it is Some.
