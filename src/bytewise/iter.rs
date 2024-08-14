@@ -95,7 +95,7 @@ impl<V: Copy> DoubleArrayAhoCorasick<V> {
     ///
     #[inline(always)]
     pub fn consume(
-        &mut self,
+        &self,
         state_id: u32,
         pos: usize,
         c: u8,
