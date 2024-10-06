@@ -127,7 +127,7 @@ pub struct LestmostFindIterator<'a, P, V> {
     pub(crate) pos: usize,
 }
 
-impl<'a, P, V> Iterator for FindOverlappingIterator<'a, P, V>
+impl<P, V> Iterator for FindOverlappingIterator<'_, P, V>
 where
     P: Iterator<Item = u8>,
     V: Copy,
@@ -183,7 +183,7 @@ where
     }
 }
 
-impl<'a, P, V> Iterator for FindIterator<'a, P, V>
+impl<P, V> Iterator for FindIterator<'_, P, V>
 where
     P: Iterator<Item = u8>,
     V: Copy,
@@ -221,7 +221,7 @@ where
     }
 }
 
-impl<'a, P, V> Iterator for FindOverlappingNoSuffixIterator<'a, P, V>
+impl<P, V> Iterator for FindOverlappingNoSuffixIterator<'_, P, V>
 where
     P: Iterator<Item = u8>,
     V: Copy,
@@ -258,7 +258,7 @@ where
     }
 }
 
-impl<'a, P, V> Iterator for LestmostFindIterator<'a, P, V>
+impl<P, V> Iterator for LestmostFindIterator<'_, P, V>
 where
     P: AsRef<str>,
     V: Copy,

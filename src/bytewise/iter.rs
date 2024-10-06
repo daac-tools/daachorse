@@ -46,7 +46,7 @@ pub struct FindIterator<'a, P, V> {
     pub(crate) haystack: Enumerate<P>,
 }
 
-impl<'a, P, V> Iterator for FindIterator<'a, P, V>
+impl<P, V> Iterator for FindIterator<'_, P, V>
 where
     P: Iterator<Item = u8>,
     V: Copy,
@@ -93,7 +93,7 @@ pub struct FindOverlappingIterator<'a, P, V> {
     pub(crate) output_pos: Option<NonZeroU32>,
 }
 
-impl<'a, P, V> Iterator for FindOverlappingIterator<'a, P, V>
+impl<P, V> Iterator for FindOverlappingIterator<'_, P, V>
 where
     P: Iterator<Item = u8>,
     V: Copy,
@@ -154,7 +154,7 @@ pub struct FindOverlappingNoSuffixIterator<'a, P, V> {
     pub(crate) state_id: u32,
 }
 
-impl<'a, P, V> Iterator for FindOverlappingNoSuffixIterator<'a, P, V>
+impl<P, V> Iterator for FindOverlappingNoSuffixIterator<'_, P, V>
 where
     P: Iterator<Item = u8>,
     V: Copy,
@@ -201,7 +201,7 @@ where
     pub(crate) pos: usize,
 }
 
-impl<'a, P, V> Iterator for LestmostFindIterator<'a, P, V>
+impl<P, V> Iterator for LestmostFindIterator<'_, P, V>
 where
     P: AsRef<[u8]>,
     V: Copy,
