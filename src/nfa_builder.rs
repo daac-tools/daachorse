@@ -1,5 +1,6 @@
 use core::cell::RefCell;
 use core::num::NonZeroU32;
+use std::collections::VecDeque;
 
 use alloc::vec::Vec;
 
@@ -73,6 +74,8 @@ where
             outputs: vec![],
             len: 0,
             match_kind,
+            state_depths: vec![],
+            output_depths: vec![],
         }
     }
 
@@ -155,57 +158,6 @@ where
         q
     }
 
-    pub(crate) fn build_fails_leftmost(&self) -> Vec<u32> {
-        let mut q = Vec::with_capacity(self.states.len());
-        for &child_id in self.states[usize::from_u32(ROOT_STATE_ID)]
-            .borrow()
-            .edges
-            .values()
-        {
-            q.push(child_id);
-        }
-
-        let mut qi = 0;
-        while qi < q.len() {
-            let state_id = usize::from_u32(q[qi]);
-            qi += 1;
-
-            let s = &mut self.states[state_id].borrow_mut();
-
-            // Sets the output state to the dead fail.
-            if s.output.is_some() {
-                s.fail = DEAD_STATE_ID;
-            }
-
-            for (&c, &child_id) in &s.edges {
-                let mut fail_id = s.fail;
-
-                // If the parent has the dead fail, the child also has the dead fail.
-                let new_fail_id = if fail_id == DEAD_STATE_ID {
-                    DEAD_STATE_ID
-                } else {
-                    loop {
-                        if let Some(child_fail_id) = self.child_id(fail_id, c) {
-                            break child_fail_id;
-                        }
-                        let next_fail_id = self.states[usize::from_u32(fail_id)].borrow().fail;
-                        if next_fail_id == DEAD_STATE_ID {
-                            break DEAD_STATE_ID;
-                        }
-                        if fail_id == ROOT_STATE_ID && next_fail_id == ROOT_STATE_ID {
-                            break ROOT_STATE_ID;
-                        }
-                        fail_id = next_fail_id;
-                    }
-                };
-
-                self.states[usize::from_u32(child_id)].borrow_mut().fail = new_fail_id;
-                q.push(child_id);
-            }
-        }
-        q
-    }
-
     pub(crate) fn build_outputs(&mut self, q: &[u32]) {
         // The queue (built in build_fails or _leftmost) will not have the root state id,
         // so in the following processing the output of the root state will not be handled.
@@ -223,6 +175,101 @@ where
                 s.output_pos = self.states[usize::from_u32(s.fail)].borrow().output_pos;
             }
         }
+    }
+
+    pub(crate) fn build_leftmost_outputs(&mut self) {
+        let mut queue = VecDeque::new();
+        queue.push_back((ROOT_STATE_ID, ROOT_STATE_ID, None, 0));
+        let root_state = self.states[usize::from_u32(ROOT_STATE_ID)].borrow();
+        self.state_depths = vec![0; self.states.len()];
+        while let Some((state_id, q_state_id, parent, depth)) = queue.pop_front() {
+            let state = &self.states[usize::from_u32(state_id)];
+            if state.borrow().output_pos.is_some() {
+                continue;
+            }
+            let q_state = &self.states[usize::from_u32(q_state_id)];
+            let output = q_state.borrow().output;
+            let mut output_pos = parent;
+            if let Some((value, length)) = output {
+                self.outputs.push(Output {
+                    value,
+                    length: length.get(),
+                    parent,
+                });
+                self.output_depths.push(depth);
+                output_pos = NonZeroU32::new(self.outputs.len() as u32);
+                //eprintln!("output_pos={output_pos:?}, length={length}, parent={parent:?}, value={value:?}");
+                state.borrow_mut().output_pos = output_pos;
+            }
+            for (c, &next_state_id) in &state.borrow().edges {
+                if let Some(&next_q_state_id) = q_state.borrow().edges.get(c) {
+                    queue.push_back((next_state_id, next_q_state_id, parent, depth+c.num_bytes() as u32));
+                }
+                if output_pos != parent {
+                    if let Some(&next_q_state_id) = root_state.edges.get(c) {
+                        queue.push_back((next_state_id, next_q_state_id, output_pos, depth+c.num_bytes() as u32));
+                    }
+                }
+                if q_state_id == ROOT_STATE_ID {
+                    queue.push_back((next_state_id, ROOT_STATE_ID, parent, depth+c.num_bytes() as u32));
+                }
+            }
+        }
+        drop(root_state);
+        let mut queue = VecDeque::new();
+        queue.push_back((ROOT_STATE_ID, None, 0));
+        while let Some((state_id, output_pos, depth)) = queue.pop_front() {
+            self.state_depths[usize::from_u32(state_id)] = depth;
+            let mut state = self.states[usize::from_u32(state_id)].borrow_mut();
+            if state.output_pos.is_none() {
+                state.output_pos = output_pos;
+            }
+            for (c, &next_state_id) in &state.edges {
+                queue.push_back((next_state_id, state.output_pos, depth + c.num_bytes() as u32));
+            }
+            let mut fail_id = state.fail;
+            let (new_fail_id, new_output_pos) = 'a: loop {
+                let fail_depth = self.state_depths[usize::from_u32(fail_id)];
+                let p = depth - fail_depth;
+                let mut output_pos = state.output_pos;
+                break loop {
+                    let Some(pos) = output_pos else {
+                        break (fail_id, None);
+                    };
+                    let output = &self.outputs[usize::from_u32(pos.get()) - 1];
+                    let output_depth = self.output_depths[usize::from_u32(pos.get()) - 1];
+                    let output_length = output.length;
+                    if output_depth <= p {
+                        break (fail_id, output_pos);
+                    }
+                    if output_depth - output_length < p {
+                        let fail_state = self.states[usize::from_u32(fail_id)].borrow_mut();
+                        fail_id = fail_state.fail;
+                        continue 'a;
+                    }
+                    output_pos = output.parent;
+                };
+            };
+            state.fail = new_fail_id;
+            state.output_pos = new_output_pos;
+        }
+        /*
+        println!("digraph {{");
+        println!("rankdir=\"LR\"");
+        for (i, s) in self.states.iter().enumerate() {
+            println!("{i} [label=\"{i}, o={:?}\"]", s.borrow().output_pos);
+            let fail = s.borrow().fail;
+            if fail != ROOT_STATE_ID {
+                println!("{fail} -> {i} [dir=back, style=dashed]");
+            }
+        }
+        for (i, s) in self.states.iter().enumerate() {
+            for (c, &next) in &s.borrow().edges {
+                println!("{i} -> {next} [label=\"{c:?}\"]");
+            }
+        }
+        println!("}}");
+        */
     }
 
     #[inline(always)]

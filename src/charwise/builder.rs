@@ -21,6 +21,7 @@ pub struct CharwiseDoubleArrayAhoCorasickBuilder {
     match_kind: MatchKind,
     block_len: u32,
     num_free_blocks: u32,
+    state_depths: Vec<u32>,
 }
 
 impl Default for CharwiseDoubleArrayAhoCorasickBuilder {
@@ -60,6 +61,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             match_kind: MatchKind::Standard,
             block_len: 0,
             num_free_blocks: 16,
+            state_depths: vec![],
         }
     }
 
@@ -205,6 +207,8 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             outputs: nfa.outputs,
             match_kind: self.match_kind,
             num_states,
+            state_depths: self.state_depths,
+            output_depths: nfa.output_depths,
         })
     }
 
@@ -240,11 +244,11 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         if nfa.len == 0 {
             return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
         }
-        let q = match self.match_kind {
-            MatchKind::Standard => nfa.build_fails(),
-            MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),
+        let q = nfa.build_fails();
+        match self.match_kind {
+            MatchKind::Standard => nfa.build_outputs(&q),
+            MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_leftmost_outputs(),
         };
-        nfa.build_outputs(&q);
         Ok(nfa)
     }
 
@@ -289,6 +293,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
                 stack.push(child_id);
             }
             self.states[usize::from_u32(state_idx)].set_base(base);
+            self.state_depths[usize::from_u32(state_idx)] = nfa.state_depths[usize::from_u32(state_id)];
         }
 
         // Sets fail & output_pos values
@@ -314,6 +319,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         }
 
         self.states.shrink_to_fit();
+        self.state_depths.shrink_to_fit();
         Ok(())
     }
 
@@ -321,6 +327,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         self.block_len = self.mapper.alphabet_size().next_power_of_two().max(2);
         self.states
             .resize(usize::from_u32(self.block_len), State::default());
+        self.state_depths.resize(usize::from_u32(self.block_len), 0);
         let mut helper = BuildHelper::new(self.block_len, self.num_free_blocks)?;
         helper.push_block().unwrap();
         helper.use_index(ROOT_STATE_IDX);
@@ -365,6 +372,10 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         self.states.resize(
             self.states.len() + usize::from_u32(self.block_len),
             State::default(),
+        );
+        self.state_depths.resize(
+            self.states.len() + usize::from_u32(self.block_len),
+            0,
         );
 
         Ok(())

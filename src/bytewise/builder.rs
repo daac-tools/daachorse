@@ -21,6 +21,7 @@ pub struct DoubleArrayAhoCorasickBuilder {
     states: Vec<State>,
     match_kind: MatchKind,
     num_free_blocks: u32,
+    state_depths: Vec<u32>,
 }
 
 impl Default for DoubleArrayAhoCorasickBuilder {
@@ -58,6 +59,7 @@ impl DoubleArrayAhoCorasickBuilder {
             states: vec![],
             match_kind: MatchKind::Standard,
             num_free_blocks: 16,
+            state_depths: vec![],
         }
     }
 
@@ -224,6 +226,8 @@ impl DoubleArrayAhoCorasickBuilder {
             outputs: nfa.outputs,
             match_kind: self.match_kind,
             num_states,
+            state_depths: self.state_depths,
+            output_depths: nfa.output_depths,
         })
     }
 
@@ -243,11 +247,11 @@ impl DoubleArrayAhoCorasickBuilder {
         if nfa.len > usize::from_u32(U24::MAX) {
             return Err(DaachorseError::automaton_scale("patvals.len()", U24::MAX));
         }
-        let q = match self.match_kind {
-            MatchKind::Standard => nfa.build_fails(),
-            MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),
+        let q = nfa.build_fails();
+        match self.match_kind {
+            MatchKind::Standard => nfa.build_outputs(&q),
+            MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_leftmost_outputs(),
         };
-        nfa.build_outputs(&q);
         Ok(nfa)
     }
 
@@ -289,6 +293,7 @@ impl DoubleArrayAhoCorasickBuilder {
                 stack.push(child_id);
             }
             self.states[state_idx].set_base(base);
+            self.state_depths[state_idx] = nfa.state_depths[usize::from_u32(state_id)];
             helper.use_base(base);
         }
 
@@ -318,6 +323,7 @@ impl DoubleArrayAhoCorasickBuilder {
             self.remove_invalid_checks(closed_block_idx, &helper);
         }
         self.states.shrink_to_fit();
+        self.state_depths.shrink_to_fit();
 
         Ok(())
     }
@@ -325,6 +331,7 @@ impl DoubleArrayAhoCorasickBuilder {
     fn init_array(&mut self) -> Result<BuildHelper> {
         self.states
             .resize(usize::from_u32(BLOCK_LEN), State::default());
+        self.state_depths.resize(usize::from_u32(BLOCK_LEN), 0);
         let mut helper = BuildHelper::new(BLOCK_LEN, self.num_free_blocks)?;
         helper.push_block().unwrap();
         helper.use_index(ROOT_STATE_IDX);
@@ -371,6 +378,10 @@ impl DoubleArrayAhoCorasickBuilder {
         self.states.resize(
             self.states.len() + usize::from_u32(BLOCK_LEN),
             State::default(),
+        );
+        self.state_depths.resize(
+            self.states.len() + usize::from_u32(BLOCK_LEN),
+            0,
         );
 
         Ok(())

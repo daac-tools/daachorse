@@ -61,6 +61,8 @@ pub struct CharwiseDoubleArrayAhoCorasick<V> {
     outputs: Vec<Output<V>>,
     match_kind: MatchKind,
     num_states: u32,
+    state_depths: Vec<u32>,
+    output_depths: Vec<u32>,
 }
 
 impl<V> CharwiseDoubleArrayAhoCorasick<V> {
@@ -675,6 +677,8 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source);
         let (match_kind, source) = MatchKind::deserialize_from_slice(source);
         let (num_states, source) = u32::deserialize_from_slice(source);
+        let (state_depths, source) = Vec::<u32>::deserialize_from_slice(source);
+        let (output_depths, source) = Vec::<u32>::deserialize_from_slice(source);
         (
             Self {
                 states,
@@ -682,6 +686,8 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                 outputs,
                 match_kind,
                 num_states,
+                state_depths,
+                output_depths,
             },
             source,
         )
