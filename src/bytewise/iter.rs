@@ -279,7 +279,6 @@ where
             self.prev_pos_c = None;
         }
         while let Some((pos, c)) = self.haystack.next() {
-            dbg!(c);
             if let Some(m) = self.move_and_retrieve_matches(c) {
                 self.prev_pos_c = Some((pos, c));
                 return Some(m);
