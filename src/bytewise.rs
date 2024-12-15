@@ -403,7 +403,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - [`u8`] to search for.
+    /// * `haystack` - [`u8`] iterator to search for.
     ///
     /// # Panics
     ///
@@ -522,6 +522,89 @@ impl<V> DoubleArrayAhoCorasick<V> {
         LeftmostFindIterator {
             pma: self,
             haystack: U8SliceIterator::new(haystack).enumerate(),
+            state_id: ROOT_STATE_IDX,
+            pos: 0,
+            matches: vec![],
+            prev_pos_c: None,
+        }
+    }
+
+    /// Returns an iterator of leftmost matches in the given haystack itarator.
+    ///
+    /// The leftmost match greedily searches the longest possible match at each iteration, and
+    /// the match results do not overlap positionally such as
+    /// [`DoubleArrayAhoCorasick::find_iter()`].
+    ///
+    /// According to the [`MatchKind`] option you specified in the construction, the behavior is
+    /// changed for multiple possible matches, as follows.
+    ///
+    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match
+    ///    corresponding to the longest pattern.
+    ///
+    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match
+    ///    corresponding to the pattern earlier registered to the automaton.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - [`u8`] iterator to search for.
+    ///
+    /// # Panics
+    ///
+    /// If you do not specify [`MatchKind::LeftmostFirst`] or [`MatchKind::LeftmostLongest`] in
+    /// the construction, the iterator is not supported and the function will panic.
+    ///
+    /// # Examples
+    ///
+    /// ## LeftmostLongest
+    ///
+    /// ```
+    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["ab", "a", "abcd"];
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///     .match_kind(MatchKind::LeftmostLongest)
+    ///     .build(&patterns)
+    ///     .unwrap();
+    ///
+    /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
+    /// let mut it = pma.leftmost_find_iter_from_iter(haystack);
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 4, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    ///
+    /// ## LeftmostFirst
+    ///
+    /// ```
+    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["ab", "a", "abcd"];
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///     .match_kind(MatchKind::LeftmostFirst)
+    ///     .build(&patterns)
+    ///     .unwrap();
+    ///
+    /// let haystack = "ab".as_bytes().iter().chain("cd".as_bytes()).copied();
+    /// let mut it = pma.leftmost_find_iter_from_iter(haystack);
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn leftmost_find_iter_from_iter<P>(&self, haystack: P) -> LeftmostFindIterator<P, V>
+    where
+        P: Iterator<Item = u8>,
+    {
+        assert!(
+            self.match_kind.is_leftmost(),
+            "Error: match_kind must be leftmost."
+        );
+        LeftmostFindIterator {
+            pma: self,
+            haystack: haystack.enumerate(),
             state_id: ROOT_STATE_IDX,
             pos: 0,
             matches: vec![],

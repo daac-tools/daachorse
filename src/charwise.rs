@@ -199,7 +199,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - [`u8`] iterator of a valid UTF-8 string to search for.
     ///
     /// # Panics
     ///
@@ -300,7 +300,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - [`u8`] iterator of a valid UTF-8 string to search for.
     ///
     /// # Panics
     ///
@@ -417,7 +417,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - [`u8`] iterator of a valid UTF-8 string to search for.
     ///
     /// # Panics
     ///
@@ -540,6 +540,95 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         LeftmostFindIterator {
             pma: self,
             haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
+            state_id: ROOT_STATE_IDX,
+            pos: 0,
+            matches: vec![],
+            prev_pos_c: None,
+        }
+    }
+
+    /// Returns an iterator of leftmost matches in the given haystack itarator.
+    ///
+    /// The leftmost match greedily searches the longest possible match at each iteration, and
+    /// the match results do not overlap positionally such as
+    /// [`CharwiseDoubleArrayAhoCorasick::find_iter()`].
+    ///
+    /// According to the [`MatchKind`] option you specified in the construction, the behavior is
+    /// changed for multiple possible matches, as follows.
+    ///
+    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match
+    ///    corresponding to the longest pattern.
+    ///
+    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match
+    ///    corresponding to the pattern earlier registered to the automaton.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystack` - [`u8`] iterator of a valid UTF-8 string to search for.
+    ///
+    /// # Panics
+    ///
+    /// If you do not specify [`MatchKind::LeftmostFirst`] or [`MatchKind::LeftmostLongest`] in
+    /// the construction, the iterator is not supported and the function will panic.
+    ///
+    /// # Safety
+    ///
+    /// `haystack` must represent a valid UTF-8 string.
+    ///
+    /// # Examples
+    ///
+    /// ## LeftmostLongest
+    ///
+    /// ```
+    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["世界", "世", "世界中に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///     .match_kind(MatchKind::LeftmostLongest)
+    ///     .build(&patterns)
+    ///     .unwrap();
+    ///
+    /// let haystack = "世界".as_bytes().iter().chain("中に".as_bytes()).copied();
+    ///
+    /// let mut it = unsafe { pma.leftmost_find_iter_from_iter(haystack) };
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 12, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    ///
+    /// ## LeftmostFirst
+    ///
+    /// ```
+    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["世界", "世", "世界中に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///     .match_kind(MatchKind::LeftmostFirst)
+    ///     .build(&patterns)
+    ///     .unwrap();
+    ///
+    /// let haystack = "世界".as_bytes().iter().chain("中に".as_bytes()).copied();
+    ///
+    /// let mut it = unsafe { pma.leftmost_find_iter_from_iter(haystack) };
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 6, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub unsafe fn leftmost_find_iter_from_iter<P>(&self, haystack: P) -> LeftmostFindIterator<P, V>
+    where
+        P: Iterator<Item = u8>,
+    {
+        assert!(
+            self.match_kind.is_leftmost(),
+            "Error: match_kind must be leftmost."
+        );
+        LeftmostFindIterator {
+            pma: self,
+            haystack: CharWithEndOffsetIterator::new(haystack),
             state_id: ROOT_STATE_IDX,
             pos: 0,
             matches: vec![],
