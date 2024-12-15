@@ -272,7 +272,9 @@ impl DoubleArrayAhoCorasickBuilder {
             let state_idx = usize::from_u32(state_id_map[usize::from_u32(state_id)]);
             debug_assert_ne!(state_idx, usize::from_u32(DEAD_STATE_IDX));
 
-            self.state_depths[state_idx] = nfa.state_depths[usize::from_u32(state_id)];
+            if !nfa.state_depths.is_empty() {
+                self.state_depths[state_idx] = nfa.state_depths[usize::from_u32(state_id)];
+            }
 
             let s = &state.borrow();
             if s.edges.is_empty() {

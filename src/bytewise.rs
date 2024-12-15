@@ -590,6 +590,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
         self.outputs.serialize_to_vec(&mut result);
         self.match_kind.serialize_to_vec(&mut result);
         self.num_states.serialize_to_vec(&mut result);
+        self.state_depths.serialize_to_vec(&mut result);
+        self.output_depths.serialize_to_vec(&mut result);
         result
     }
 
