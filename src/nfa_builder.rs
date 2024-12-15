@@ -178,44 +178,51 @@ where
     }
 
     pub(crate) fn build_leftmost_outputs(&mut self) {
-        let mut queue = VecDeque::new();
-        queue.push_back((ROOT_STATE_ID, ROOT_STATE_ID, None, 0));
-        let root_state = self.states[usize::from_u32(ROOT_STATE_ID)].borrow();
         self.state_depths = vec![0; self.states.len()];
-        while let Some((state_id, q_state_id, parent, depth)) = queue.pop_front() {
-            let state = &self.states[usize::from_u32(state_id)];
-            if state.borrow().output_pos.is_some() {
-                continue;
+        for state_id in 0..self.states.len() {
+            let state = self.states[state_id].borrow();
+            let depth = self.state_depths[state_id];
+            for (c, &next_state_id) in &state.edges {
+                self.state_depths[usize::from_u32(next_state_id)] = depth + c.num_bytes() as u32;
             }
-            let q_state = &self.states[usize::from_u32(q_state_id)];
-            let output = q_state.borrow().output;
-            let mut output_pos = parent;
-            if let Some((value, length)) = output {
-                self.outputs.push(Output {
-                    value,
-                    length: length.get(),
-                    parent,
-                });
-                self.output_depths.push(depth);
-                output_pos = NonZeroU32::new(self.outputs.len() as u32);
-                //eprintln!("output_pos={output_pos:?}, length={length}, parent={parent:?}, value={value:?}");
-                state.borrow_mut().output_pos = output_pos;
-            }
-            for (c, &next_state_id) in &state.borrow().edges {
-                if let Some(&next_q_state_id) = q_state.borrow().edges.get(c) {
-                    queue.push_back((next_state_id, next_q_state_id, parent, depth+c.num_bytes() as u32));
+        }
+        for state_id in 0..self.states.len() {
+            let mut queue = VecDeque::new();
+            let parent = self.states[state_id].borrow().output_pos;
+            queue.push_back((state_id as u32, ROOT_STATE_ID));
+            while let Some((state_id, q_state_id)) = queue.pop_front() {
+                if q_state_id != ROOT_STATE_ID && self.states[usize::from_u32(state_id)].borrow().output_pos.is_some() {
+                    continue;
                 }
-                if output_pos != parent {
-                    if let Some(&next_q_state_id) = root_state.edges.get(c) {
-                        queue.push_back((next_state_id, next_q_state_id, output_pos, depth+c.num_bytes() as u32));
+                let output = self.states[usize::from_u32(q_state_id)].borrow().output;
+                if let Some((value, length)) = output {
+                    self.outputs.push(Output {
+                        value,
+                        length: length.get(),
+                        parent,
+                    });
+                    self.output_depths.push(self.state_depths[usize::from_u32(state_id)]);
+                    let output_pos = NonZeroU32::new(self.outputs.len() as u32);
+                    //eprintln!("pos={output_pos:?}, parent={parent:?}");
+                    let mut state = self.states[usize::from_u32(state_id)].borrow_mut();
+                    state.output_pos = output_pos;
+                }
+                let state = self.states[usize::from_u32(state_id)].borrow();
+                let q_state = self.states[usize::from_u32(q_state_id)].borrow();
+                for (c, &next_state_id) in &state.edges {
+                    if let Some(&next_q_state_id) = q_state.edges.get(c) {
+                        queue.push_back((next_state_id, next_q_state_id));
                     }
                 }
-                if q_state_id == ROOT_STATE_ID {
-                    queue.push_back((next_state_id, ROOT_STATE_ID, parent, depth+c.num_bytes() as u32));
+            }
+            let state = self.states[state_id].borrow();
+            for &next_state_id in state.edges.values() {
+                let mut next_state = self.states[usize::from_u32(next_state_id)].borrow_mut();
+                if next_state.output_pos.is_none() {
+                    next_state.output_pos = parent;
                 }
             }
         }
-        drop(root_state);
         let mut queue = VecDeque::new();
         queue.push_back((ROOT_STATE_ID, None, 0));
         while let Some((state_id, output_pos, depth)) = queue.pop_front() {
