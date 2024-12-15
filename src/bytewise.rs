@@ -16,7 +16,7 @@ use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LestmostFindIterator,
+    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LeftmostFindIterator,
     U8SliceIterator,
 };
 
@@ -511,7 +511,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P, V>
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LeftmostFindIterator<U8SliceIterator<P>, V>
     where
         P: AsRef<[u8]>,
     {
@@ -519,10 +519,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
             self.match_kind.is_leftmost(),
             "Error: match_kind must be leftmost."
         );
-        LestmostFindIterator {
+        LeftmostFindIterator {
             pma: self,
-            haystack,
+            haystack: U8SliceIterator::new(haystack).enumerate(),
+            state_id: ROOT_STATE_IDX,
             pos: 0,
+            matches: vec![],
+            prev_pos_c: None,
         }
     }
 
@@ -693,22 +696,18 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
-        // In the loop, state_id is always set to values smaller than states.len(),
-        // because child_index_unchecked() and fail() return such values.
-        loop {
-            if let Some(state_id) = self.child_index_unchecked(state_id, c) {
-                return state_id;
-            }
-            if state_id == ROOT_STATE_IDX {
-                return ROOT_STATE_IDX;
-            }
-            let fail_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
-            if fail_id == DEAD_STATE_IDX {
-                return ROOT_STATE_IDX;
-            }
-            state_id = fail_id;
+    unsafe fn next_state_id_leftmost_unchecked(&self, state_id: u32, c: u8) -> (u32, bool) {
+        if let Some(state_id) = self.child_index_unchecked(state_id, c) {
+            return (state_id, false);
         }
+        if state_id == ROOT_STATE_IDX {
+            return (ROOT_STATE_IDX, false);
+        }
+        let fail_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
+        if fail_id == DEAD_STATE_IDX {
+            return (ROOT_STATE_IDX, true);
+        }
+        (fail_id, true)
     }
 }
 

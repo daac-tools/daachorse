@@ -269,6 +269,9 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             let state_idx = state_id_map[usize::from_u32(state_id)];
             debug_assert_ne!(state_idx, DEAD_STATE_IDX);
 
+            self.state_depths[usize::from_u32(state_idx)] =
+                nfa.state_depths[usize::from_u32(state_id)];
+
             let s = &state.borrow();
             if s.edges.is_empty() {
                 continue;
@@ -293,7 +296,6 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
                 stack.push(child_id);
             }
             self.states[usize::from_u32(state_idx)].set_base(base);
-            self.state_depths[usize::from_u32(state_idx)] = nfa.state_depths[usize::from_u32(state_id)];
         }
 
         // Sets fail & output_pos values
@@ -373,10 +375,8 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             self.states.len() + usize::from_u32(self.block_len),
             State::default(),
         );
-        self.state_depths.resize(
-            self.states.len() + usize::from_u32(self.block_len),
-            0,
-        );
+        self.state_depths
+            .resize(self.states.len() + usize::from_u32(self.block_len), 0);
 
         Ok(())
     }

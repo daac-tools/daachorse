@@ -1,7 +1,7 @@
 use core::cell::RefCell;
 use core::num::NonZeroU32;
-use std::collections::VecDeque;
 
+use alloc::collections::vec_deque::VecDeque;
 use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
@@ -58,6 +58,8 @@ pub struct NfaBuilder<L, V> {
     pub(crate) outputs: Vec<Output<V>>, // in which common parts are merged.
     pub(crate) len: usize,
     pub(crate) match_kind: MatchKind,
+    pub(crate) state_depths: Vec<u32>,
+    pub(crate) output_depths: Vec<u32>,
 }
 
 impl<L, V> NfaBuilder<L, V>
@@ -191,7 +193,12 @@ where
             let parent = self.states[state_id].borrow().output_pos;
             queue.push_back((state_id as u32, ROOT_STATE_ID));
             while let Some((state_id, q_state_id)) = queue.pop_front() {
-                if q_state_id != ROOT_STATE_ID && self.states[usize::from_u32(state_id)].borrow().output_pos.is_some() {
+                if q_state_id != ROOT_STATE_ID
+                    && self.states[usize::from_u32(state_id)]
+                        .borrow()
+                        .output_pos
+                        .is_some()
+                {
                     continue;
                 }
                 let output = self.states[usize::from_u32(q_state_id)].borrow().output;
@@ -201,7 +208,8 @@ where
                         length: length.get(),
                         parent,
                     });
-                    self.output_depths.push(self.state_depths[usize::from_u32(state_id)]);
+                    self.output_depths
+                        .push(self.state_depths[usize::from_u32(state_id)]);
                     let output_pos = NonZeroU32::new(self.outputs.len() as u32);
                     //eprintln!("pos={output_pos:?}, parent={parent:?}");
                     let mut state = self.states[usize::from_u32(state_id)].borrow_mut();
@@ -232,7 +240,11 @@ where
                 state.output_pos = output_pos;
             }
             for (c, &next_state_id) in &state.edges {
-                queue.push_back((next_state_id, state.output_pos, depth + c.num_bytes() as u32));
+                queue.push_back((
+                    next_state_id,
+                    state.output_pos,
+                    depth + c.num_bytes() as u32,
+                ));
             }
             let mut fail_id = state.fail;
             let (new_fail_id, new_output_pos) = 'a: loop {

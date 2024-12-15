@@ -3,6 +3,8 @@
 use core::iter::Enumerate;
 use core::num::NonZeroU32;
 
+use alloc::vec::Vec;
+
 use crate::bytewise::DoubleArrayAhoCorasick;
 use crate::Match;
 
@@ -191,74 +193,111 @@ where
     }
 }
 
-/// Iterator created by [`DoubleArrayAhoCorasick::leftmost_find_iter()`].
-pub struct LestmostFindIterator<'a, P, V>
-where
-    P: AsRef<[u8]>,
-{
+/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::leftmost_find_iter()`].
+pub struct LeftmostFindIterator<'a, P, V> {
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
-    pub(crate) haystack: P,
+    pub(crate) haystack: Enumerate<P>,
+    pub(crate) state_id: u32,
     pub(crate) pos: usize,
+    pub(crate) matches: Vec<Match<V>>,
+    pub(crate) prev_pos_c: Option<(usize, u8)>,
 }
 
-impl<P, V> Iterator for LestmostFindIterator<'_, P, V>
+impl<'a, P, V> LeftmostFindIterator<'a, P, V>
 where
-    P: AsRef<[u8]>,
+    V: Copy,
+{
+    #[inline(always)]
+    unsafe fn retrieve_matches(&mut self, pos: usize) {
+        if let Some(mut output_pos) = self
+            .pma
+            .states
+            .get_unchecked(usize::from_u32(self.state_id))
+            .output_pos()
+        {
+            let state_depth = self
+                .pma
+                .state_depths
+                .get_unchecked(usize::from_u32(self.state_id));
+            loop {
+                let out = self
+                    .pma
+                    .outputs
+                    .get_unchecked(usize::from_u32(output_pos.get() - 1));
+                let output_depth = self
+                    .pma
+                    .output_depths
+                    .get_unchecked(usize::from_u32(output_pos.get() - 1));
+                self.matches.push(Match {
+                    length: usize::from_u32(out.length()),
+                    end: pos + 1 - usize::from_u32(state_depth - output_depth),
+                    value: out.value(),
+                });
+                let Some(parent_pos) = out.parent() else {
+                    return;
+                };
+                output_pos = parent_pos;
+            }
+        }
+    }
+
+    #[inline(always)]
+    fn move_and_retrieve_matches(&mut self, c: u8) -> Option<Match<V>> {
+        loop {
+            let (next_state_id, fail) =
+                unsafe { self.pma.next_state_id_leftmost_unchecked(self.state_id, c) };
+            if !fail {
+                self.state_id = next_state_id;
+                return None;
+            }
+            unsafe { self.retrieve_matches(self.pos) };
+            self.state_id = next_state_id;
+            if let Some(m) = self.matches.pop() {
+                return Some(m);
+            }
+        }
+    }
+}
+
+impl<P, V> Iterator for LeftmostFindIterator<'_, P, V>
+where
+    P: Iterator<Item = u8>,
     V: Copy,
 {
     type Item = Match<V>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        let mut state_id = ROOT_STATE_IDX;
-        let mut last_output_pos: Option<NonZeroU32> = None;
-
-        let haystack = self.haystack.as_ref();
-        for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-            // state_id is always smaller than self.pma.states.len() because
-            // self.pma.next_state_id_leftmost_unchecked() ensures to return such a value.
-            state_id = unsafe { self.pma.next_state_id_leftmost_unchecked(state_id, c) };
-            if state_id == ROOT_STATE_IDX {
-                if let Some(output_pos) = last_output_pos {
-                    // last_output_pos is always smaller than self.pma.outputs.len() because
-                    // State::output_pos() ensures to return such a value when it is Some.
-                    let out = unsafe {
-                        self.pma
-                            .outputs
-                            .get_unchecked(usize::from_u32(output_pos.get() - 1))
-                    };
-                    return Some(Match {
-                        length: usize::from_u32(out.length()),
-                        end: self.pos,
-                        value: out.value(),
-                    });
-                }
-            // state_id is always smaller than self.pma.states.len() because
-            // self.pma.next_state_id_leftmost_unchecked() ensures to return such a value.
-            } else if let Some(output_pos) = unsafe {
+        if let Some(m) = self.matches.pop() {
+            return Some(m);
+        }
+        if let Some((pos, c)) = self.prev_pos_c {
+            if let Some(m) = self.move_and_retrieve_matches(c) {
+                return Some(m);
+            }
+            self.pos = pos;
+            self.prev_pos_c = None;
+        }
+        while let Some((pos, c)) = self.haystack.next() {
+            dbg!(c);
+            if let Some(m) = self.move_and_retrieve_matches(c) {
+                self.prev_pos_c = Some((pos, c));
+                return Some(m);
+            }
+            self.pos = pos;
+        }
+        while self.state_id != ROOT_STATE_IDX {
+            unsafe { self.retrieve_matches(self.pos) };
+            self.state_id = unsafe {
                 self.pma
                     .states
-                    .get_unchecked(usize::from_u32(state_id))
-                    .output_pos()
-            } {
-                last_output_pos.replace(output_pos);
-                self.pos = pos + 1;
+                    .get_unchecked(usize::from_u32(self.state_id))
+                    .fail
+            };
+            if let Some(m) = self.matches.pop() {
+                return Some(m);
             }
         }
-
-        last_output_pos.map(|output_pos| {
-            // last_output_pos is always smaller than self.pma.outputs.len() because
-            // State::output_pos() ensures to return such a value when it is Some.
-            let out = unsafe {
-                self.pma
-                    .outputs
-                    .get_unchecked(usize::from_u32(output_pos.get() - 1))
-            };
-            Match {
-                length: usize::from_u32(out.length()),
-                end: self.pos,
-                value: out.value(),
-            }
-        })
+        None
     }
 }

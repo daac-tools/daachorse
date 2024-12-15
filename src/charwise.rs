@@ -16,7 +16,7 @@ use crate::{MatchKind, Output};
 pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
 use iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
-    FindOverlappingNoSuffixIterator, LestmostFindIterator, StrIterator,
+    FindOverlappingNoSuffixIterator, LeftmostFindIterator, StrIterator,
 };
 use mapper::CodeMapper;
 
@@ -529,7 +529,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P, V>
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LeftmostFindIterator<StrIterator<P>, V>
     where
         P: AsRef<str>,
     {
@@ -537,10 +537,13 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             self.match_kind.is_leftmost(),
             "Error: match_kind must be leftmost."
         );
-        LestmostFindIterator {
+        LeftmostFindIterator {
             pma: self,
-            haystack,
+            haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
+            state_id: ROOT_STATE_IDX,
             pos: 0,
+            matches: vec![],
+            prev_pos_c: None,
         }
     }
 
@@ -744,23 +747,24 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
-    unsafe fn next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: char) -> u32 {
+    unsafe fn next_state_id_leftmost_unchecked(&self, state_id: u32, c: char) -> (u32, bool) {
         if let Some(mapped_c) = self.mapper.get(c) {
-            loop {
-                if let Some(state_id) = self.child_index_unchecked(state_id, mapped_c) {
-                    return state_id;
-                }
-                if state_id == ROOT_STATE_IDX {
-                    return ROOT_STATE_IDX;
-                }
-                let fail_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
-                if fail_id == DEAD_STATE_IDX {
-                    return ROOT_STATE_IDX;
-                }
-                state_id = fail_id;
+            if let Some(state_id) = self.child_index_unchecked(state_id, mapped_c) {
+                return (state_id, false);
             }
+            if state_id == ROOT_STATE_IDX {
+                return (ROOT_STATE_IDX, false);
+            }
+            let fail_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
+            if fail_id == DEAD_STATE_IDX {
+                return (ROOT_STATE_IDX, true);
+            }
+            (fail_id, true)
+        } else if state_id == ROOT_STATE_IDX {
+            (ROOT_STATE_IDX, false)
         } else {
-            ROOT_STATE_IDX
+            let fail_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
+            (fail_id, true)
         }
     }
 }
