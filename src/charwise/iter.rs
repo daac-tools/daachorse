@@ -79,18 +79,18 @@ where
             let (i, rest) = unsafe { self.inner.next().unwrap_unchecked() };
             let c = u32::from(rest & 0x3f);
             if first < 0xe0 {
-                (i + 1, u32::from(first & 0x1f) << 6 | c)
+                (i + 1, (u32::from(first & 0x1f) << 6) | c)
             } else {
                 // 3 bytes ~
                 let (i, rest) = unsafe { self.inner.next().unwrap_unchecked() };
-                let c = c << 6 | u32::from(rest & 0x3f);
+                let c = (c << 6) | u32::from(rest & 0x3f);
                 if first < 0xf0 {
-                    (i + 1, u32::from(first & 0x0f) << 12 | c)
+                    (i + 1, (u32::from(first & 0x0f) << 12) | c)
                 } else {
                     // 4 bytes
                     let (i, rest) = unsafe { self.inner.next().unwrap_unchecked() };
-                    let c = c << 6 | u32::from(rest & 0x3f);
-                    (i + 1, u32::from(first & 0x07) << 18 | c)
+                    let c = (c << 6) | u32::from(rest & 0x3f);
+                    (i + 1, (u32::from(first & 0x07) << 18) | c)
                 }
             }
         };
