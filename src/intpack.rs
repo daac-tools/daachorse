@@ -43,12 +43,12 @@ impl U24nU8 {
 
     #[inline(always)]
     pub fn set_a(&mut self, a: U24) {
-        self.0 = a.get() << 8 | u32::from(self.b());
+        self.0 = (a.get() << 8) | u32::from(self.b());
     }
 
     #[inline(always)]
     pub fn set_b(&mut self, b: u8) {
-        self.0 = self.a().get() << 8 | u32::from(b);
+        self.0 = (self.a().get() << 8) | u32::from(b);
     }
 }
 
