@@ -179,7 +179,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<StrIterator<P>, V>
+    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<'_, StrIterator<P>, V>
     where
         P: AsRef<str>,
     {
@@ -228,7 +228,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub unsafe fn find_iter_from_iter<P>(&self, haystack: P) -> FindIterator<P, V>
+    pub unsafe fn find_iter_from_iter<P>(&self, haystack: P) -> FindIterator<'_, P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -277,7 +277,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     pub fn find_overlapping_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingIterator<StrIterator<P>, V>
+    ) -> FindOverlappingIterator<'_, StrIterator<P>, V>
     where
         P: AsRef<str>,
     {
@@ -335,7 +335,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     pub unsafe fn find_overlapping_iter_from_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingIterator<P, V>
+    ) -> FindOverlappingIterator<'_, P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -390,7 +390,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     pub fn find_overlapping_no_suffix_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<StrIterator<P>, V>
+    ) -> FindOverlappingNoSuffixIterator<'_, StrIterator<P>, V>
     where
         P: AsRef<str>,
     {
@@ -449,7 +449,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     pub unsafe fn find_overlapping_no_suffix_iter_from_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<P, V>
+    ) -> FindOverlappingNoSuffixIterator<'_, P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -527,7 +527,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P, V>
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<'_, P, V>
     where
         P: AsRef<str>,
     {
