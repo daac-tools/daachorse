@@ -84,6 +84,63 @@ where
     }
 }
 
+/// Iterator returning all the matches at a given position.
+pub struct OverlappingStepperIterator<'a, V> {
+    pma: &'a DoubleArrayAhoCorasick<V>,
+    pos: usize,
+    output_pos: Option<NonZeroU32>,
+}
+
+impl<V: Copy> DoubleArrayAhoCorasick<V> {
+    ///
+    #[inline(always)]
+    pub fn consume(
+        &self,
+        state_id: u32,
+        pos: usize,
+        c: u8,
+    ) -> (u32, OverlappingStepperIterator<V>) {
+        // self.state_id is always smaller than self.pma.states.len() because
+        // self.pma.next_state_id_unchecked() ensures to return such a value.
+        let state_id = unsafe { self.next_state_id_unchecked(state_id, c) };
+        let output_pos = unsafe {
+            self.states
+                .get_unchecked(usize::from_u32(state_id))
+                .output_pos()
+        };
+        (
+            state_id,
+            OverlappingStepperIterator {
+                pma: self,
+                pos,
+                output_pos,
+            },
+        )
+    }
+}
+
+impl<'a, V: Copy> Iterator for OverlappingStepperIterator<'a, V> {
+    type Item = Match<V>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Match<V>> {
+        let output_pos = self.output_pos?;
+        // output_pos.get() is always smaller than self.pma.outputs.len() because
+        // Output::parent() ensures to return such a value when it is Some.
+        let out = unsafe {
+            self.pma
+                .outputs
+                .get_unchecked(usize::from_u32(output_pos.get() - 1))
+        };
+        self.output_pos = out.parent();
+        Some(Match {
+            length: usize::from_u32(out.length()),
+            end: self.pos,
+            value: out.value(),
+        })
+    }
+}
+
 /// Iterator created by [`DoubleArrayAhoCorasick::find_overlapping_iter()`].
 pub struct FindOverlappingIterator<'a, P, V> {
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,

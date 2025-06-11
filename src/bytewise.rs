@@ -287,6 +287,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
         }
     }
 
+    ///
+    pub fn start_state(&self) -> u32 {
+        ROOT_STATE_IDX
+    }
+
     /// Returns an iterator of overlapping matches in the given haystack iterator.
     ///
     /// # Arguments
