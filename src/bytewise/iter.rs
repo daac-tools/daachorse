@@ -84,6 +84,51 @@ where
     }
 }
 
+/// In contrast to the iterator APIs, this one requires the caller to feed in bytes
+/// and take out matches.
+pub struct OverlappingStepper<'a, V> {
+    pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
+    pub(crate) state_id: u32,
+    pub(crate) pos: usize,
+    pub(crate) output_pos: Option<NonZeroU32>,
+}
+
+impl<'a, V: Copy> OverlappingStepper<'a, V> {
+    ///
+    #[inline(always)]
+    pub fn consume(&mut self, c: u8) {
+        // self.state_id is always smaller than self.pma.states.len() because
+        // self.pma.next_state_id_unchecked() ensures to return such a value.
+        self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
+        self.output_pos = unsafe {
+            self.pma
+                .states
+                .get_unchecked(usize::from_u32(self.state_id))
+                .output_pos()
+        };
+        self.pos += 1;
+    }
+
+    ///
+    #[inline(always)]
+    pub fn next(&mut self) -> Option<Match<V>> {
+        let output_pos = self.output_pos?;
+        // output_pos.get() is always smaller than self.pma.outputs.len() because
+        // Output::parent() ensures to return such a value when it is Some.
+        let out = unsafe {
+            self.pma
+                .outputs
+                .get_unchecked(usize::from_u32(output_pos.get() - 1))
+        };
+        self.output_pos = out.parent();
+        Some(Match {
+            length: usize::from_u32(out.length()),
+            end: self.pos,
+            value: out.value(),
+        })
+    }
+}
+
 /// Iterator created by [`DoubleArrayAhoCorasick::find_overlapping_iter()`].
 pub struct FindOverlappingIterator<'a, P, V> {
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
