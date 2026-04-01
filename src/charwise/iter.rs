@@ -121,7 +121,7 @@ pub struct FindOverlappingNoSuffixIterator<'a, P, V> {
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::leftmost_find_iter()`].
-pub struct LestmostFindIterator<'a, P, V> {
+pub struct LeftmostFindIterator<'a, P, V> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: P,
     pub(crate) pos: usize,
@@ -258,7 +258,7 @@ where
     }
 }
 
-impl<P, V> Iterator for LestmostFindIterator<'_, P, V>
+impl<P, V> Iterator for LeftmostFindIterator<'_, P, V>
 where
     P: AsRef<str>,
     V: Copy,
