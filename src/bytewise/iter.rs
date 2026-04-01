@@ -202,10 +202,11 @@ where
 }
 
 #[deprecated(
-    since = "1.0.0",
+    since = "1.0.1",
     note = "Renamed to `LeftmostFindIterator`; this alias will be removed in 2.0."
 )]
 pub type LestmostFindIterator<'a, P, V> = LeftmostFindIterator<'a, P, V>;
+
 impl<P, V> Iterator for LeftmostFindIterator<'_, P, V>
 where
     P: AsRef<[u8]>,
