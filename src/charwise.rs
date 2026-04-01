@@ -16,7 +16,7 @@ use crate::{MatchKind, Output};
 pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
 use iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
-    FindOverlappingNoSuffixIterator, LestmostFindIterator, StrIterator,
+    FindOverlappingNoSuffixIterator, LeftmostFindIterator, StrIterator,
 };
 use mapper::CodeMapper;
 
@@ -527,7 +527,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<'_, P, V>
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LeftmostFindIterator<'_, P, V>
     where
         P: AsRef<str>,
     {
@@ -535,7 +535,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             self.match_kind.is_leftmost(),
             "Error: match_kind must be leftmost."
         );
-        LestmostFindIterator {
+        LeftmostFindIterator {
             pma: self,
             haystack,
             pos: 0,
