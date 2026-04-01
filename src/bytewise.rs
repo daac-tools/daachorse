@@ -512,6 +512,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
+    #[deprecated(
+        since = "1.0.0",
+        note = "Renamed to `LeftmostFindIterator`"
+    )]
+    pub type LestmostFindIterator<'a, P, V> = LeftmostFindIterator<'a, P, V>;
     pub fn leftmost_find_iter<P>(&self, haystack: P) -> LeftmostFindIterator<'_, P, V>
     where
         P: AsRef<[u8]>,
