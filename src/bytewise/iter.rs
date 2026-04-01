@@ -192,7 +192,7 @@ where
 }
 
 /// Iterator created by [`DoubleArrayAhoCorasick::leftmost_find_iter()`].
-pub struct LestmostFindIterator<'a, P, V>
+pub struct LeftmostFindIterator<'a, P, V>
 where
     P: AsRef<[u8]>,
 {
@@ -201,7 +201,14 @@ where
     pub(crate) pos: usize,
 }
 
-impl<P, V> Iterator for LestmostFindIterator<'_, P, V>
+/// Alias for [`LeftmostFindIterator`] for backward compatibility. This will be removed in 2.0.
+#[deprecated(
+    since = "1.0.1",
+    note = "Renamed to `LeftmostFindIterator`; this alias will be removed in 2.0."
+)]
+pub type LestmostFindIterator<'a, P, V> = LeftmostFindIterator<'a, P, V>;
+
+impl<P, V> Iterator for LeftmostFindIterator<'_, P, V>
 where
     P: AsRef<[u8]>,
     V: Copy,

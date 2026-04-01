@@ -16,7 +16,7 @@ use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LestmostFindIterator,
+    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LeftmostFindIterator,
     U8SliceIterator,
 };
 
@@ -512,7 +512,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<'_, P, V>
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LeftmostFindIterator<'_, P, V>
     where
         P: AsRef<[u8]>,
     {
@@ -520,7 +520,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
             self.match_kind.is_leftmost(),
             "Error: match_kind must be leftmost."
         );
-        LestmostFindIterator {
+        LeftmostFindIterator {
             pma: self,
             haystack,
             pos: 0,
