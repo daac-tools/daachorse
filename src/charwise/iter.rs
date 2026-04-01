@@ -127,6 +127,7 @@ pub struct LeftmostFindIterator<'a, P, V> {
     pub(crate) pos: usize,
 }
 
+/// Alias for [`LeftmostFindIterator`] for backward compatibility. This will be removed in 2.0.
 #[deprecated(
     since = "1.0.1",
     note = "Renamed to `LeftmostFindIterator`; this alias will be removed in 2.0."
