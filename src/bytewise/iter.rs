@@ -84,51 +84,6 @@ where
     }
 }
 
-/// In contrast to the iterator APIs, this one requires the caller to feed in bytes
-/// and take out matches.
-pub struct OverlappingStepper<'a, V> {
-    pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
-    pub(crate) state_id: u32,
-    pub(crate) pos: usize,
-    pub(crate) output_pos: Option<NonZeroU32>,
-}
-
-impl<'a, V: Copy> OverlappingStepper<'a, V> {
-    ///
-    #[inline(always)]
-    pub fn consume(&mut self, c: u8) {
-        // self.state_id is always smaller than self.pma.states.len() because
-        // self.pma.next_state_id_unchecked() ensures to return such a value.
-        self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
-        self.output_pos = unsafe {
-            self.pma
-                .states
-                .get_unchecked(usize::from_u32(self.state_id))
-                .output_pos()
-        };
-        self.pos += 1;
-    }
-
-    ///
-    #[inline(always)]
-    pub fn next(&mut self) -> Option<Match<V>> {
-        let output_pos = self.output_pos?;
-        // output_pos.get() is always smaller than self.pma.outputs.len() because
-        // Output::parent() ensures to return such a value when it is Some.
-        let out = unsafe {
-            self.pma
-                .outputs
-                .get_unchecked(usize::from_u32(output_pos.get() - 1))
-        };
-        self.output_pos = out.parent();
-        Some(Match {
-            length: usize::from_u32(out.length()),
-            end: self.pos,
-            value: out.value(),
-        })
-    }
-}
-
 /// Iterator created by [`DoubleArrayAhoCorasick::find_overlapping_iter()`].
 pub struct FindOverlappingIterator<'a, P, V> {
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
@@ -312,5 +267,113 @@ where
                 value: out.value(),
             }
         })
+    }
+}
+
+/// Stepper created by [`DoubleArrayAhoCorasick::find_stepper()`].
+pub struct FindStepper<'a, V> {
+    pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
+    pub(crate) state_id: u32,
+    pub(crate) pos: usize,
+}
+
+impl<V> FindStepper<'_, V>
+where
+    V: Copy,
+{
+    /// Consumes a byte and returns a match if the current state has an output.
+    #[inline(always)]
+    pub fn consume(&mut self, c: u8) -> Option<Match<V>> {
+        // state_id is always smaller than self.pma.states.len() because
+        // self.pma.next_state_id_unchecked() ensures to return such a value.
+        self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
+        self.pos += 1;
+        if let Some(output_pos) = unsafe {
+            self.pma
+                .states
+                .get_unchecked(usize::from_u32(self.state_id))
+                .output_pos()
+        } {
+            // output_pos is always smaller than self.pma.outputs.len() because
+            // State::output_pos() ensures to return such a value when it is Some.
+            let out = unsafe {
+                self.pma
+                    .outputs
+                    .get_unchecked(usize::from_u32(output_pos.get() - 1))
+            };
+            self.state_id = ROOT_STATE_IDX;
+            return Some(Match {
+                length: usize::from_u32(out.length()),
+                end: self.pos,
+                value: out.value(),
+            });
+        }
+        None
+    }
+}
+
+/// Iterator created by [`FindOverlappingStepper::consume()`].
+pub struct FindOverlappingStepperIterator<'a, V> {
+    pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
+    pub(crate) pos: usize,
+    pub(crate) output_pos: Option<NonZeroU32>,
+}
+
+impl<V> Iterator for FindOverlappingStepperIterator<'_, V>
+where
+    V: Copy,
+{
+    type Item = Match<V>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(output_pos) = self.output_pos {
+            // output_pos.get() is always smaller than self.pma.outputs.len() because
+            // Output::parent() ensures to return such a value when it is Some.
+            let out = unsafe {
+                self.pma
+                    .outputs
+                    .get_unchecked(usize::from_u32(output_pos.get() - 1))
+            };
+            self.output_pos = out.parent();
+            return Some(Match {
+                length: usize::from_u32(out.length()),
+                end: self.pos,
+                value: out.value(),
+            });
+        }
+        None
+    }
+}
+
+/// Stepper created by [`DoubleArrayAhoCorasick::find_overlapping_stepper()`].
+pub struct FindOverlappingStepper<'a, V> {
+    pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
+    pub(crate) state_id: u32,
+    pub(crate) pos: usize,
+}
+
+impl<V> FindOverlappingStepper<'_, V>
+where
+    V: Copy,
+{
+    /// Consumes a byte and returns an iterator that yields matches.
+    #[inline(always)]
+    pub fn consume(&mut self, c: u8) -> FindOverlappingStepperIterator<'_, V> {
+        // self.state_id is always smaller than self.pma.states.len() because
+        // self.pma.next_state_id_unchecked() ensures to return such a value.
+        self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
+        let output_pos = unsafe {
+            self.pma
+                .states
+                .get_unchecked(usize::from_u32(self.state_id))
+                .output_pos()
+        };
+        self.pos += 1;
+        FindOverlappingStepperIterator {
+            pma: self.pma,
+            pos: self.pos,
+            output_pos,
+        }
     }
 }

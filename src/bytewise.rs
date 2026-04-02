@@ -16,7 +16,8 @@ use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LeftmostFindIterator, OverlappingStepper, U8SliceIterator,
+    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, FindOverlappingStepper,
+    FindStepper, LeftmostFindIterator, U8SliceIterator,
 };
 
 // The root index position.
@@ -286,16 +287,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
         }
     }
 
-    ///
-    pub fn overlapping_stepper(&self) -> OverlappingStepper<V> {
-        OverlappingStepper {
-            pma: self,
-            state_id: ROOT_STATE_IDX,
-            output_pos: None,
-            pos: 0,
-        }
-    }
-
     /// Returns an iterator of overlapping matches in the given haystack iterator.
     ///
     /// # Arguments
@@ -532,6 +523,96 @@ impl<V> DoubleArrayAhoCorasick<V> {
         LeftmostFindIterator {
             pma: self,
             haystack,
+            pos: 0,
+        }
+    }
+
+    /// Returns a stepper of non-overlapping matches that consumes bytes one by one.
+    ///
+    /// # Panics
+    ///
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_stepper();
+    ///
+    /// let m = stepper.consume(b'a');
+    /// let m = m.unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value())); // a
+    ///
+    /// let m = stepper.consume(b'b');
+    /// assert_eq!(None, m);
+    ///
+    /// let m = stepper.consume(b'c');
+    /// assert_eq!(None, m);
+    ///
+    /// let m = stepper.consume(b'd');
+    /// let m = m.unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value())); // bcd
+    /// ```
+    pub fn find_stepper(&self) -> FindStepper<'_, V> {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        FindStepper {
+            pma: self,
+            state_id: ROOT_STATE_IDX,
+            pos: 0,
+        }
+    }
+
+    /// Returns a stepper of overlapping matches that consumes bytes one by one.
+    ///
+    /// # Panics
+    ///
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// supported and the function will panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_overlapping_stepper();
+    ///
+    /// let mut it = stepper.consume(b'a');
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value())); // a
+    /// assert_eq!(None, it.next());
+    ///
+    /// let mut it = stepper.consume(b'b');
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value())); // ab
+    /// assert_eq!(None, it.next());
+    ///
+    /// let mut it = stepper.consume(b'c');
+    /// assert_eq!(None, it.next());
+    ///
+    /// let mut it = stepper.consume(b'd');
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value())); // bcd
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn find_overlapping_stepper(&self) -> FindOverlappingStepper<'_, V> {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        FindOverlappingStepper {
+            pma: self,
+            state_id: ROOT_STATE_IDX,
             pos: 0,
         }
     }
