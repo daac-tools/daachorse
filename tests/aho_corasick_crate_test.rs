@@ -437,6 +437,39 @@ macro_rules! testconfig {
             });
         }
     };
+    (non_overlapping_stepper_bytes, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
+        #[test]
+        fn $name() {
+            run_search_tests($collection, |test| {
+                let pma = $builder::new()
+                    .match_kind(MatchKind::$kind)
+                    .build(test.patterns)
+                    .unwrap();
+                let mut stepper = pma.find_stepper();
+                test.haystack
+                    .as_bytes()
+                    .iter()
+                    .flat_map(|&b| stepper.consume(b))
+                    .collect()
+            });
+        }
+    };
+    (non_overlapping_stepper_chars, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
+        #[test]
+        fn $name() {
+            run_search_tests($collection, |test| {
+                let pma = $builder::new()
+                    .match_kind(MatchKind::$kind)
+                    .build(test.patterns)
+                    .unwrap();
+                let mut stepper = pma.find_stepper();
+                test.haystack
+                    .chars()
+                    .flat_map(|c| stepper.consume(c))
+                    .collect()
+            });
+        }
+    };
     (overlapping, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
         #[test]
         fn $name() {
@@ -446,6 +479,39 @@ macro_rules! testconfig {
                     .build(test.patterns)
                     .unwrap();
                 pma.find_overlapping_iter(test.haystack).collect()
+            });
+        }
+    };
+    (overlapping_stepper_bytes, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
+        #[test]
+        fn $name() {
+            run_search_tests($collection, |test| {
+                let pma = $builder::new()
+                    .match_kind(MatchKind::$kind)
+                    .build(test.patterns)
+                    .unwrap();
+                let mut stepper = pma.find_overlapping_stepper();
+                test.haystack
+                    .as_bytes()
+                    .iter()
+                    .flat_map(|&b| stepper.consume(b).collect::<Vec<_>>())
+                    .collect()
+            });
+        }
+    };
+    (overlapping_stepper_chars, $name:ident, $builder:ident, $collection:expr, $kind:ident, $with:expr) => {
+        #[test]
+        fn $name() {
+            run_search_tests($collection, |test| {
+                let pma = $builder::new()
+                    .match_kind(MatchKind::$kind)
+                    .build(test.patterns)
+                    .unwrap();
+                let mut stepper = pma.find_overlapping_stepper();
+                test.haystack
+                    .chars()
+                    .flat_map(|c| stepper.consume(c).collect::<Vec<_>>())
+                    .collect()
             });
         }
     };
@@ -474,8 +540,26 @@ testconfig!(
 );
 
 testconfig!(
+    non_overlapping_stepper_bytes,
+    search_standard_non_overlapping_stepper,
+    DoubleArrayAhoCorasickBuilder,
+    AC_STANDARD_NON_OVERLAPPING,
+    Standard,
+    |_| ()
+);
+
+testconfig!(
     overlapping,
     search_standard_overlapping,
+    DoubleArrayAhoCorasickBuilder,
+    AC_STANDARD_OVERLAPPING,
+    Standard,
+    |_| ()
+);
+
+testconfig!(
+    overlapping_stepper_bytes,
+    search_standard_overlapping_stepper,
     DoubleArrayAhoCorasickBuilder,
     AC_STANDARD_OVERLAPPING,
     Standard,
@@ -510,9 +594,28 @@ testconfig!(
     |_| ()
 );
 
+// Charwise Daachorse tests
+testconfig!(
+    non_overlapping_stepper_chars,
+    search_standard_non_overlapping_charwise_stepper,
+    CharwiseDoubleArrayAhoCorasickBuilder,
+    AC_STANDARD_NON_OVERLAPPING,
+    Standard,
+    |_| ()
+);
+
 testconfig!(
     overlapping,
     search_standard_overlapping_charwise,
+    CharwiseDoubleArrayAhoCorasickBuilder,
+    AC_STANDARD_OVERLAPPING,
+    Standard,
+    |_| ()
+);
+
+testconfig!(
+    overlapping_stepper_chars,
+    search_standard_overlapping_charwise_stepper,
     CharwiseDoubleArrayAhoCorasickBuilder,
     AC_STANDARD_OVERLAPPING,
     Standard,
