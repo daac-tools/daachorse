@@ -558,6 +558,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// let m = m.unwrap();
     /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value())); // bcd
     /// ```
+    #[must_use]
     pub fn find_stepper(&self) -> FindStepper<'_, V> {
         assert!(
             self.match_kind.is_standard(),
@@ -605,6 +606,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value())); // bcd
     /// assert_eq!(None, it.next());
     /// ```
+    #[must_use]
     pub fn find_overlapping_stepper(&self) -> FindOverlappingStepper<'_, V> {
         assert!(
             self.match_kind.is_standard(),

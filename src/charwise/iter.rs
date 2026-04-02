@@ -429,7 +429,7 @@ where
                 .get_unchecked(usize::from_u32(self.state_id))
                 .output_pos()
         };
-        self.pos = self.pos + c.len_utf8();
+        self.pos += c.len_utf8();
         FindOverlappingStepperIterator {
             pma: self.pma,
             pos: self.pos,

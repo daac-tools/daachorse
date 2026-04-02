@@ -577,6 +577,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// let m = m.unwrap();
     /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value())); // に
     /// ```
+    #[must_use]
     pub fn find_stepper(&self) -> FindStepper<'_, V> {
         assert!(
             self.match_kind.is_standard(),
@@ -627,6 +628,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value())); // に
     /// assert_eq!(None, it.next());
     /// ```
+    #[must_use]
     pub fn find_overlapping_stepper(&self) -> FindOverlappingStepper<'_, V> {
         assert!(
             self.match_kind.is_standard(),
