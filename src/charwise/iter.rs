@@ -98,7 +98,7 @@ where
     }
 }
 
-/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`].
+/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_iter()`].
 pub struct FindIterator<'a, P, V> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: CharWithEndOffsetIterator<P>,
@@ -142,7 +142,7 @@ where
     }
 }
 
-/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_iter()`].
+/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`].
 pub struct FindOverlappingIterator<'a, P, V> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: CharWithEndOffsetIterator<P>,
@@ -341,7 +341,7 @@ impl<V> FindStepper<'_, V>
 where
     V: Copy,
 {
-    /// Consumes a byte and returns a match if the current state has an output.
+    /// Consumes a character and returns a match if the current state has an output.
     #[inline(always)]
     pub fn consume(&mut self, c: char) -> Option<Match<V>> {
         // state_id is always smaller than self.pma.states.len() because
@@ -417,7 +417,7 @@ impl<V> FindOverlappingStepper<'_, V>
 where
     V: Copy,
 {
-    /// Consumes a byte and returns an iterator that yields matches.
+    /// Consumes a character and returns an iterator that yields matches.
     #[inline(always)]
     pub fn consume(&mut self, c: char) -> FindOverlappingStepperIterator<'_, V> {
         // self.state_id is always smaller than self.pma.states.len() because

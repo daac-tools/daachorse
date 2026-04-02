@@ -543,11 +543,11 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         }
     }
 
-    /// Returns a stepper of non-overlapping matches that consumes bytes one by one.
+    /// Returns a stepper of non-overlapping matches that consumes characters one by one.
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -594,7 +594,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
     /// supported and the function will panic.
     ///
     /// # Examples
