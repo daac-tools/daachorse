@@ -16,7 +16,7 @@ use crate::utils::FromU32;
 use crate::{MatchKind, Output};
 pub use builder::DoubleArrayAhoCorasickBuilder;
 use iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LestmostFindIterator, OverlappingStepper, U8SliceIterator
+    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, LeftmostFindIterator, OverlappingStepper, U8SliceIterator,
 };
 
 // The root index position.
@@ -175,7 +175,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<U8SliceIterator<P>, V>
+    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<'_, U8SliceIterator<P>, V>
     where
         P: AsRef<[u8]>,
     {
@@ -220,7 +220,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_iter_from_iter<P>(&self, haystack: P) -> FindIterator<P, V>
+    pub fn find_iter_from_iter<P>(&self, haystack: P) -> FindIterator<'_, P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -269,7 +269,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     pub fn find_overlapping_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingIterator<U8SliceIterator<P>, V>
+    ) -> FindOverlappingIterator<'_, U8SliceIterator<P>, V>
     where
         P: AsRef<[u8]>,
     {
@@ -330,7 +330,10 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_overlapping_iter_from_iter<P>(&self, haystack: P) -> FindOverlappingIterator<P, V>
+    pub fn find_overlapping_iter_from_iter<P>(
+        &self,
+        haystack: P,
+    ) -> FindOverlappingIterator<'_, P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -385,7 +388,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     pub fn find_overlapping_no_suffix_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<U8SliceIterator<P>, V>
+    ) -> FindOverlappingNoSuffixIterator<'_, U8SliceIterator<P>, V>
     where
         P: AsRef<[u8]>,
     {
@@ -440,7 +443,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     pub fn find_overlapping_no_suffix_iter_from_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<P, V>
+    ) -> FindOverlappingNoSuffixIterator<'_, P, V>
     where
         P: Iterator<Item = u8>,
     {
@@ -518,7 +521,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LestmostFindIterator<P, V>
+    pub fn leftmost_find_iter<P>(&self, haystack: P) -> LeftmostFindIterator<'_, P, V>
     where
         P: AsRef<[u8]>,
     {
@@ -526,7 +529,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
             self.match_kind.is_leftmost(),
             "Error: match_kind must be leftmost."
         );
-        LestmostFindIterator {
+        LeftmostFindIterator {
             pma: self,
             haystack,
             pos: 0,

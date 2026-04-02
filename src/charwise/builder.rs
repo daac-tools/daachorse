@@ -274,7 +274,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             for (&label, &child_id) in &s.edges {
                 mapped.push((self.mapper.get(label).unwrap(), child_id));
             }
-            mapped.sort_by(|(c1, _), (c2, _)| c1.cmp(c2));
+            mapped.sort_by_key(|x| x.0);
 
             let base = self.find_base(&mapped, &helper);
             if self.states.len() <= usize::from_u32(base.get()) {

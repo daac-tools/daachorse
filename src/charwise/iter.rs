@@ -79,18 +79,18 @@ where
             let (i, rest) = unsafe { self.inner.next().unwrap_unchecked() };
             let c = u32::from(rest & 0x3f);
             if first < 0xe0 {
-                (i + 1, u32::from(first & 0x1f) << 6 | c)
+                (i + 1, (u32::from(first & 0x1f) << 6) | c)
             } else {
                 // 3 bytes ~
                 let (i, rest) = unsafe { self.inner.next().unwrap_unchecked() };
-                let c = c << 6 | u32::from(rest & 0x3f);
+                let c = (c << 6) | u32::from(rest & 0x3f);
                 if first < 0xf0 {
-                    (i + 1, u32::from(first & 0x0f) << 12 | c)
+                    (i + 1, (u32::from(first & 0x0f) << 12) | c)
                 } else {
                     // 4 bytes
                     let (i, rest) = unsafe { self.inner.next().unwrap_unchecked() };
-                    let c = c << 6 | u32::from(rest & 0x3f);
-                    (i + 1, u32::from(first & 0x07) << 18 | c)
+                    let c = (c << 6) | u32::from(rest & 0x3f);
+                    (i + 1, (u32::from(first & 0x07) << 18) | c)
                 }
             }
         };
@@ -121,13 +121,20 @@ pub struct FindOverlappingNoSuffixIterator<'a, P, V> {
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::leftmost_find_iter()`].
-pub struct LestmostFindIterator<'a, P, V> {
+pub struct LeftmostFindIterator<'a, P, V> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: P,
     pub(crate) pos: usize,
 }
 
-impl<'a, P, V> Iterator for FindOverlappingIterator<'a, P, V>
+/// Alias for [`LeftmostFindIterator`] for backward compatibility. This will be removed in 2.0.
+#[deprecated(
+    since = "1.0.1",
+    note = "Renamed to `LeftmostFindIterator`; this alias will be removed in 2.0."
+)]
+pub type LestmostFindIterator<'a, P, V> = LeftmostFindIterator<'a, P, V>;
+
+impl<P, V> Iterator for FindOverlappingIterator<'_, P, V>
 where
     P: Iterator<Item = u8>,
     V: Copy,
@@ -183,7 +190,7 @@ where
     }
 }
 
-impl<'a, P, V> Iterator for FindIterator<'a, P, V>
+impl<P, V> Iterator for FindIterator<'_, P, V>
 where
     P: Iterator<Item = u8>,
     V: Copy,
@@ -221,7 +228,7 @@ where
     }
 }
 
-impl<'a, P, V> Iterator for FindOverlappingNoSuffixIterator<'a, P, V>
+impl<P, V> Iterator for FindOverlappingNoSuffixIterator<'_, P, V>
 where
     P: Iterator<Item = u8>,
     V: Copy,
@@ -258,7 +265,7 @@ where
     }
 }
 
-impl<'a, P, V> Iterator for LestmostFindIterator<'a, P, V>
+impl<P, V> Iterator for LeftmostFindIterator<'_, P, V>
 where
     P: AsRef<str>,
     V: Copy,
