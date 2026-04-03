@@ -413,13 +413,13 @@ pub struct FindOverlappingStepper<'a, V> {
     pub(crate) pos: usize,
 }
 
-impl<V> FindOverlappingStepper<'_, V>
+impl<'a, V> FindOverlappingStepper<'a, V>
 where
     V: Copy,
 {
     /// Consumes a character and returns an iterator that yields matches.
     #[inline(always)]
-    pub fn consume(&mut self, c: char) -> FindOverlappingStepperIterator<'_, V> {
+    pub fn consume(&mut self, c: char) -> FindOverlappingStepperIterator<'a, V> {
         // self.state_id is always smaller than self.pma.states.len() because
         // self.pma.next_state_id_unchecked() ensures to return such a value.
         self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
@@ -493,5 +493,29 @@ mod tests {
         // end of iterator
         assert_eq!(None, it.next());
         assert_eq!(None, it.next());
+    }
+
+    #[test]
+    fn test_overlapping_stepper_lifetime() {
+        let pma = CharwiseDoubleArrayAhoCorasick::new(["a", "ab"]).unwrap();
+        let mut stepper = pma.find_overlapping_stepper();
+        let mut it1 = stepper.consume('a');
+        let mut it2 = stepper.consume('b');
+        assert_eq!(
+            Some(Match {
+                length: 1,
+                end: 1,
+                value: 0
+            }),
+            it1.next()
+        );
+        assert_eq!(
+            Some(Match {
+                length: 2,
+                end: 2,
+                value: 1
+            }),
+            it2.next()
+        );
     }
 }
