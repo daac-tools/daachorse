@@ -74,7 +74,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Errors
     ///
-    /// [`DaachorseError`](super::errors::DaachorseError) is returned when
+    /// [`DaachorseError`] is returned when
     ///   - `patterns` is empty,
     ///   - `patterns` contains entries of length zero,
     ///   - `patterns` contains duplicate entries,
@@ -117,7 +117,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Errors
     ///
-    /// [`DaachorseError`](super::errors::DaachorseError) is returned when
+    /// [`DaachorseError`] is returned when
     ///   - `patvals` is empty,
     ///   - `patvals` contains patterns of length zero,
     ///   - `patvals` contains duplicate patterns,
