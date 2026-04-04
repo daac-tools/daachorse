@@ -763,7 +763,6 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    #[must_use]
     pub fn deserialize(source: &[u8]) -> Result<(Self, &[u8])>
     where
         V: Serializable,
@@ -803,7 +802,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                 }
             };
             if usize::from_u32(state.fail()) >= states_len {
-                panic!();
+                return Err(DaachorseError::invalid_automaton());
             }
             if let Some(output_pos) = state.output_pos() {
                 if usize::from_u32(output_pos.get() - 1) >= outputs_len {

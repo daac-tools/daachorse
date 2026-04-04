@@ -721,7 +721,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    #[must_use]
     pub fn deserialize(source: &[u8]) -> Result<(Self, &[u8])>
     where
         V: Serializable,
