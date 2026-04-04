@@ -99,6 +99,50 @@ where
 }
 
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_iter()`].
+pub struct FindIterator<'a, P, V> {
+    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
+    pub(crate) haystack: CharWithEndOffsetIterator<P>,
+}
+
+impl<P, V> Iterator for FindIterator<'_, P, V>
+where
+    P: Iterator<Item = u8>,
+    V: Copy,
+{
+    type Item = Match<V>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut state_id = ROOT_STATE_IDX;
+        for (pos, c) in self.haystack.by_ref() {
+            // self.state_id is always smaller than self.pma.states.len() because
+            // self.pma.next_state_id_unchecked() ensures to return such a value.
+            state_id = unsafe { self.pma.next_state_id_unchecked(state_id, c) };
+            if let Some(output_pos) = unsafe {
+                self.pma
+                    .states
+                    .get_unchecked(usize::from_u32(state_id))
+                    .output_pos()
+            } {
+                // output_pos is always smaller than self.pma.outputs.len() because
+                // State::output_pos() ensures to return such a value when it is Some.
+                let out = unsafe {
+                    self.pma
+                        .outputs
+                        .get_unchecked(usize::from_u32(output_pos.get() - 1))
+                };
+                return Some(Match {
+                    length: usize::from_u32(out.length()),
+                    end: pos,
+                    value: out.value(),
+                });
+            }
+        }
+        None
+    }
+}
+
+/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`].
 pub struct FindOverlappingIterator<'a, P, V> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: CharWithEndOffsetIterator<P>,
@@ -106,33 +150,6 @@ pub struct FindOverlappingIterator<'a, P, V> {
     pub(crate) pos: usize,
     pub(crate) output_pos: Option<NonZeroU32>,
 }
-
-/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`].
-pub struct FindIterator<'a, P, V> {
-    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
-    pub(crate) haystack: CharWithEndOffsetIterator<P>,
-}
-
-/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`].
-pub struct FindOverlappingNoSuffixIterator<'a, P, V> {
-    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
-    pub(crate) haystack: CharWithEndOffsetIterator<P>,
-    pub(crate) state_id: u32,
-}
-
-/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::leftmost_find_iter()`].
-pub struct LeftmostFindIterator<'a, P, V> {
-    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
-    pub(crate) haystack: P,
-    pub(crate) pos: usize,
-}
-
-/// Alias for [`LeftmostFindIterator`] for backward compatibility. This will be removed in 2.0.
-#[deprecated(
-    since = "1.0.1",
-    note = "Renamed to `LeftmostFindIterator`; this alias will be removed in 2.0."
-)]
-pub type LestmostFindIterator<'a, P, V> = LeftmostFindIterator<'a, P, V>;
 
 impl<P, V> Iterator for FindOverlappingIterator<'_, P, V>
 where
@@ -190,42 +207,11 @@ where
     }
 }
 
-impl<P, V> Iterator for FindIterator<'_, P, V>
-where
-    P: Iterator<Item = u8>,
-    V: Copy,
-{
-    type Item = Match<V>;
-
-    #[inline(always)]
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut state_id = ROOT_STATE_IDX;
-        for (pos, c) in self.haystack.by_ref() {
-            // self.state_id is always smaller than self.pma.states.len() because
-            // self.pma.next_state_id_unchecked() ensures to return such a value.
-            state_id = unsafe { self.pma.next_state_id_unchecked(state_id, c) };
-            if let Some(output_pos) = unsafe {
-                self.pma
-                    .states
-                    .get_unchecked(usize::from_u32(state_id))
-                    .output_pos()
-            } {
-                // output_pos is always smaller than self.pma.outputs.len() because
-                // State::output_pos() ensures to return such a value when it is Some.
-                let out = unsafe {
-                    self.pma
-                        .outputs
-                        .get_unchecked(usize::from_u32(output_pos.get() - 1))
-                };
-                return Some(Match {
-                    length: usize::from_u32(out.length()),
-                    end: pos,
-                    value: out.value(),
-                });
-            }
-        }
-        None
-    }
+/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`].
+pub struct FindOverlappingNoSuffixIterator<'a, P, V> {
+    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
+    pub(crate) haystack: CharWithEndOffsetIterator<P>,
+    pub(crate) state_id: u32,
 }
 
 impl<P, V> Iterator for FindOverlappingNoSuffixIterator<'_, P, V>
@@ -264,6 +250,20 @@ where
         None
     }
 }
+
+/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::leftmost_find_iter()`].
+pub struct LeftmostFindIterator<'a, P, V> {
+    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
+    pub(crate) haystack: P,
+    pub(crate) pos: usize,
+}
+
+/// Alias for [`LeftmostFindIterator`] for backward compatibility. This will be removed in 2.0.
+#[deprecated(
+    since = "1.0.1",
+    note = "Renamed to `LeftmostFindIterator`; this alias will be removed in 2.0."
+)]
+pub type LestmostFindIterator<'a, P, V> = LeftmostFindIterator<'a, P, V>;
 
 impl<P, V> Iterator for LeftmostFindIterator<'_, P, V>
 where
@@ -330,6 +330,114 @@ where
     }
 }
 
+/// Stepper created by [`CharwiseDoubleArrayAhoCorasick::find_stepper()`].
+pub struct FindStepper<'a, V> {
+    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
+    pub(crate) state_id: u32,
+    pub(crate) pos: usize,
+}
+
+impl<V> FindStepper<'_, V>
+where
+    V: Copy,
+{
+    /// Consumes a character and returns a match if the current state has an output.
+    #[inline(always)]
+    pub fn consume(&mut self, c: char) -> Option<Match<V>> {
+        // state_id is always smaller than self.pma.states.len() because
+        // self.pma.next_state_id_unchecked() ensures to return such a value.
+        self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
+        self.pos += c.len_utf8();
+        if let Some(output_pos) = unsafe {
+            self.pma
+                .states
+                .get_unchecked(usize::from_u32(self.state_id))
+                .output_pos()
+        } {
+            // output_pos is always smaller than self.pma.outputs.len() because
+            // State::output_pos() ensures to return such a value when it is Some.
+            let out = unsafe {
+                self.pma
+                    .outputs
+                    .get_unchecked(usize::from_u32(output_pos.get() - 1))
+            };
+            self.state_id = ROOT_STATE_IDX;
+            return Some(Match {
+                length: usize::from_u32(out.length()),
+                end: self.pos,
+                value: out.value(),
+            });
+        }
+        None
+    }
+}
+
+/// Iterator created by [`FindOverlappingStepper::consume()`].
+pub struct FindOverlappingStepperIterator<'a, V> {
+    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
+    pub(crate) pos: usize,
+    pub(crate) output_pos: Option<NonZeroU32>,
+}
+
+impl<V> Iterator for FindOverlappingStepperIterator<'_, V>
+where
+    V: Copy,
+{
+    type Item = Match<V>;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(output_pos) = self.output_pos {
+            // output_pos.get() is always smaller than self.pma.outputs.len() because
+            // Output::parent() ensures to return such a value when it is Some.
+            let out = unsafe {
+                self.pma
+                    .outputs
+                    .get_unchecked(usize::from_u32(output_pos.get() - 1))
+            };
+            self.output_pos = out.parent();
+            return Some(Match {
+                length: usize::from_u32(out.length()),
+                end: self.pos,
+                value: out.value(),
+            });
+        }
+        None
+    }
+}
+
+/// Stepper created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_stepper()`].
+pub struct FindOverlappingStepper<'a, V> {
+    pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
+    pub(crate) state_id: u32,
+    pub(crate) pos: usize,
+}
+
+impl<'a, V> FindOverlappingStepper<'a, V>
+where
+    V: Copy,
+{
+    /// Consumes a character and returns an iterator that yields matches.
+    #[inline(always)]
+    pub fn consume(&mut self, c: char) -> FindOverlappingStepperIterator<'a, V> {
+        // self.state_id is always smaller than self.pma.states.len() because
+        // self.pma.next_state_id_unchecked() ensures to return such a value.
+        self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
+        let output_pos = unsafe {
+            self.pma
+                .states
+                .get_unchecked(usize::from_u32(self.state_id))
+                .output_pos()
+        };
+        self.pos += c.len_utf8();
+        FindOverlappingStepperIterator {
+            pma: self.pma,
+            pos: self.pos,
+            output_pos,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -385,5 +493,29 @@ mod tests {
         // end of iterator
         assert_eq!(None, it.next());
         assert_eq!(None, it.next());
+    }
+
+    #[test]
+    fn test_overlapping_stepper_lifetime() {
+        let pma = CharwiseDoubleArrayAhoCorasick::new(["a", "ab"]).unwrap();
+        let mut stepper = pma.find_overlapping_stepper();
+        let mut it1 = stepper.consume('a');
+        let mut it2 = stepper.consume('b');
+        assert_eq!(
+            Some(Match {
+                length: 1,
+                end: 1,
+                value: 0
+            }),
+            it1.next()
+        );
+        assert_eq!(
+            Some(Match {
+                length: 2,
+                end: 2,
+                value: 1
+            }),
+            it2.next()
+        );
     }
 }

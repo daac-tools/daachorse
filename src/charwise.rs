@@ -16,7 +16,8 @@ use crate::{MatchKind, Output};
 pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
 use iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
-    FindOverlappingNoSuffixIterator, LeftmostFindIterator, StrIterator,
+    FindOverlappingNoSuffixIterator, FindOverlappingStepper, FindStepper, LeftmostFindIterator,
+    StrIterator,
 };
 use mapper::CodeMapper;
 
@@ -538,6 +539,104 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         LeftmostFindIterator {
             pma: self,
             haystack,
+            pos: 0,
+        }
+    }
+
+    /// Returns a stepper of non-overlapping matches that consumes characters one by one.
+    ///
+    /// # Panics
+    ///
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
+    /// supported and the function will panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_stepper();
+    ///
+    /// let m = stepper.consume('全');
+    /// assert_eq!(None, m);
+    ///
+    /// let m = stepper.consume('世');
+    /// assert_eq!(None, m);
+    ///
+    /// let m = stepper.consume('界');
+    /// let m = m.unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value())); // 全世界
+    ///
+    /// let m = stepper.consume('中');
+    /// assert_eq!(None, m);
+    ///
+    /// let m = stepper.consume('に');
+    /// let m = m.unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value())); // に
+    /// ```
+    #[must_use]
+    pub fn find_stepper(&self) -> FindStepper<'_, V> {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        FindStepper {
+            pma: self,
+            state_id: ROOT_STATE_IDX,
+            pos: 0,
+        }
+    }
+
+    /// Returns a stepper of overlapping matches that consumes characters one by one.
+    ///
+    /// # Panics
+    ///
+    /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
+    /// supported and the function will panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_overlapping_stepper();
+    ///
+    /// let mut it = stepper.consume('全');
+    /// assert_eq!(None, it.next());
+    ///
+    /// let mut it = stepper.consume('世');
+    /// assert_eq!(None, it.next());
+    ///
+    /// let mut it = stepper.consume('界');
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value())); // 全世界
+    /// let m = it.next().unwrap();
+    /// assert_eq!((3, 9, 1), (m.start(), m.end(), m.value())); // 世界
+    /// assert_eq!(None, it.next());
+    ///
+    /// let mut it = stepper.consume('中');
+    /// assert_eq!(None, it.next());
+    ///
+    /// let mut it = stepper.consume('に');
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value())); // に
+    /// assert_eq!(None, it.next());
+    /// ```
+    #[must_use]
+    pub fn find_overlapping_stepper(&self) -> FindOverlappingStepper<'_, V> {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        FindOverlappingStepper {
+            pma: self,
+            state_id: ROOT_STATE_IDX,
             pos: 0,
         }
     }
