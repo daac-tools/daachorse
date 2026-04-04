@@ -32,6 +32,8 @@ bytes.
 
 ![](./figures/comparison.svg)
 
+Pattern set: Word dictionary of 675K patterns
+
 ## Requirements
 
 Rust 1.61 or higher is required to build this crate.
