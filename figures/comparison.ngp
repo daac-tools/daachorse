@@ -1,6 +1,6 @@
 #!ngraph
 #%creator: Ngraph 
-#%version: 6.09.05
+#%version: 6.09.09
 new axis name:fX1
 	axis::hidden=false
 	axis::R=0
@@ -10,7 +10,7 @@ new axis name:fX1
 	axis::clip=true
 	axis::redraw_flag=true
 	axis::min=0
-	axis::max=30
+	axis::max=40
 	axis::inc=1
 	axis::div=0
 	axis::type=linear
@@ -292,9 +292,9 @@ new axis name:fX2
 	axis::clip=true
 	axis::redraw_flag=true
 	axis::min=0
-	axis::max=80
+	axis::max=40
 	axis::inc=10
-	axis::div=1
+	axis::div=0
 	axis::type=linear
 	axis::x=5600
 	axis::y=8400
@@ -333,7 +333,7 @@ new axis name:fX2
 	axis::num_num=-1
 	axis::num_auto_norm=5
 	axis::num_head=
-	axis::num_format='%.1f'
+	axis::num_format='%g'
 	axis::num_tail=
 	axis::num_log_pow=true
 	axis::num_pt=1200
@@ -677,7 +677,7 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='aho-corasick (0.7.18, NFA)'
+	text::text='aho-corasick (1.1.4, NFA)'
 	text::x=200
 	text::y=800
 	text::pt=1200
@@ -696,7 +696,7 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (1.0.0, bytewise)'
+	text::text='daachorse (1.0.1, bytewise)'
 	text::x=200
 	text::y=1800
 	text::pt=1200
@@ -753,7 +753,7 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='aho-corasick (0.7.18, NFA)'
+	text::text='aho-corasick (1.1.4, NFA)'
 	text::x=200
 	text::y=6000
 	text::pt=1200
@@ -772,7 +772,7 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (1.0.0, bytewise)'
+	text::text='daachorse (1.0.1, bytewise)'
 	text::x=200
 	text::y=7000
 	text::pt=1200
@@ -791,7 +791,7 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (1.0.0, charwise)'
+	text::text='daachorse (1.0.1, charwise)'
 	text::x=200
 	text::y=8000
 	text::pt=1200
@@ -810,7 +810,7 @@ new text
 	text::A=255
 	text::clip=true
 	text::redraw_flag=true
-	text::text='daachorse (1.0.0, charwise)'
+	text::text='daachorse (1.0.1, charwise)'
 	text::x=200
 	text::y=2800
 	text::pt=1200
