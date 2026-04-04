@@ -25,7 +25,7 @@ pub trait Serializable: Sized {
     /// # Arguments
     ///
     /// * `src` - the source slice containing the serialized data.
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]);
+    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])>;
 
     /// Returns the size of serialized data.
     fn serialized_bytes() -> usize;
@@ -40,9 +40,9 @@ macro_rules! define_serializable_primitive {
             }
 
             #[inline(always)]
-            fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-                let x = Self::from_le_bytes(src[..$size].try_into().unwrap());
-                (x, &src[$size..])
+            fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+                let x = Self::from_le_bytes(src.get(..$size)?.try_into().ok()?);
+                Some((x, &src[$size..]))
             }
 
             #[inline(always)]
@@ -80,9 +80,9 @@ impl Serializable for Option<NonZeroU32> {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (x, src) = u32::deserialize_from_slice(src);
-        (NonZeroU32::new(x), src)
+    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+        let (x, src) = u32::deserialize_from_slice(src)?;
+        Some((NonZeroU32::new(x), src))
     }
 
     #[inline(always)]
@@ -94,7 +94,7 @@ impl Serializable for Option<NonZeroU32> {
 pub trait SerializableVec: Sized {
     fn serialize_to_vec(&self, dst: &mut Vec<u8>);
 
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]);
+    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])>;
 
     fn serialized_bytes(&self) -> usize;
 }
@@ -110,15 +110,15 @@ where
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (len, mut src) = u32::deserialize_from_slice(src);
+    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+        let (len, mut src) = u32::deserialize_from_slice(src)?;
         let mut dst = Self::with_capacity(usize::from_u32(len));
         for _ in 0..len {
-            let (x, rest) = S::deserialize_from_slice(src);
+            let (x, rest) = S::deserialize_from_slice(src)?;
             dst.push(x);
             src = rest;
         }
-        (dst, src)
+        Some((dst, src))
     }
 
     fn serialized_bytes(&self) -> usize {
@@ -131,8 +131,8 @@ impl Serializable for Empty {
     fn serialize_to_vec(&self, _dst: &mut Vec<u8>) {}
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        (Self, src)
+    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+        Some((Self, src))
     }
 
     #[inline(always)]
@@ -153,7 +153,7 @@ mod tests {
         assert_eq!(vec![0x67, 0x45, 0x23, 0x01], data);
         assert_eq!(4, u32::serialized_bytes());
         data.push(42);
-        let (y, rest) = u32::deserialize_from_slice(&data);
+        let (y, rest) = u32::deserialize_from_slice(&data).unwrap();
         assert_eq!(&[42], rest);
         assert_eq!(x, y);
     }
@@ -166,7 +166,7 @@ mod tests {
         assert_eq!(vec![0x67, 0x45, 0x23, 0x01], data);
         assert_eq!(4, Option::<NonZeroU32>::serialized_bytes());
         data.push(42);
-        let (y, rest) = Option::<NonZeroU32>::deserialize_from_slice(&data);
+        let (y, rest) = Option::<NonZeroU32>::deserialize_from_slice(&data).unwrap();
         assert_eq!(&[42], rest);
         assert_eq!(x, y);
     }
@@ -187,7 +187,7 @@ mod tests {
         );
         assert_eq!(16, x.serialized_bytes());
         data.push(42);
-        let (y, rest) = Vec::<u32>::deserialize_from_slice(&data);
+        let (y, rest) = Vec::<u32>::deserialize_from_slice(&data).unwrap();
         assert_eq!(&[42], rest);
         assert_eq!(x, y);
     }

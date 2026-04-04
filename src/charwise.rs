@@ -9,7 +9,7 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
-use crate::errors::Result;
+use crate::errors::{DaachorseError, Result};
 use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output};
@@ -735,6 +735,108 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// A tuple of the automaton and the slice not used for the deserialization.
     ///
+    /// # Errors
+    ///
+    /// [`DaachorseError`] is returned when the given data is an invalid automaton.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+    /// let bytes = pma.serialize();
+    ///
+    /// let (pma, _) = CharwiseDoubleArrayAhoCorasick::<u32>::deserialize(&bytes).unwrap();
+    ///
+    /// let mut it = pma.find_overlapping_iter("全世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((3, 9, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    #[must_use]
+    pub fn deserialize(source: &[u8]) -> Result<(Self, &[u8])>
+    where
+        V: Serializable,
+    {
+        let Some((states, source)) = Vec::<State>::deserialize_from_slice(source) else {
+            return Err(DaachorseError::invalid_automaton());
+        };
+        let Some((mapper, source)) = CodeMapper::deserialize_from_slice(source) else {
+            return Err(DaachorseError::invalid_automaton());
+        };
+        let Some((outputs, source)) = Vec::<Output<V>>::deserialize_from_slice(source) else {
+            return Err(DaachorseError::invalid_automaton());
+        };
+        let Some((match_kind, source)) = MatchKind::deserialize_from_slice(source) else {
+            return Err(DaachorseError::invalid_automaton());
+        };
+        let Some((num_states, source)) = u32::deserialize_from_slice(source) else {
+            return Err(DaachorseError::invalid_automaton());
+        };
+        let pma = Self {
+            states,
+            mapper,
+            outputs,
+            match_kind,
+            num_states,
+        };
+        let block_len = usize::from_u32(pma.mapper.alphabet_size().next_power_of_two().max(2));
+        if pma.states.len() % block_len != 0 {
+            return Err(DaachorseError::invalid_automaton());
+        }
+        let states_len = pma.states.len();
+        let outputs_len = pma.outputs.len();
+        for state in &pma.states {
+            if let Some(base) = state.base() {
+                if usize::from_u32(base.get()) >= states_len {
+                    return Err(DaachorseError::invalid_automaton());
+                }
+            };
+            if usize::from_u32(state.fail()) >= states_len {
+                panic!();
+            }
+            if let Some(output_pos) = state.output_pos() {
+                if usize::from_u32(output_pos.get() - 1) >= outputs_len {
+                    return Err(DaachorseError::invalid_automaton());
+                }
+            };
+        }
+        for (i, output) in pma.outputs.iter().enumerate() {
+            if let Some(parent) = output.parent {
+                if usize::from_u32(parent.get() - 1) >= i {
+                    return Err(DaachorseError::invalid_automaton());
+                }
+                if usize::from_u32(parent.get() - 1) >= outputs_len {
+                    return Err(DaachorseError::invalid_automaton());
+                }
+            };
+        }
+        Ok((pma, source))
+    }
+
+    /// Deserializes the automaton from a given slice.
+    ///
+    /// This function does not perform any validation on the input data. If processing speed is not
+    /// critical, consider using [`CharwiseDoubleArrayAhoCorasick::deserialize()`].
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - A source slice.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of the automaton and the slice not used for the deserialization.
+    ///
     /// # Safety
     ///
     /// The given data must be a correct automaton exported by
@@ -769,11 +871,11 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     where
         V: Serializable,
     {
-        let (states, source) = Vec::<State>::deserialize_from_slice(source);
-        let (mapper, source) = CodeMapper::deserialize_from_slice(source);
-        let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source);
-        let (match_kind, source) = MatchKind::deserialize_from_slice(source);
-        let (num_states, source) = u32::deserialize_from_slice(source);
+        let (states, source) = Vec::<State>::deserialize_from_slice(source).unwrap_unchecked();
+        let (mapper, source) = CodeMapper::deserialize_from_slice(source).unwrap_unchecked();
+        let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source).unwrap_unchecked();
+        let (match_kind, source) = MatchKind::deserialize_from_slice(source).unwrap_unchecked();
+        let (num_states, source) = u32::deserialize_from_slice(source).unwrap_unchecked();
         (
             Self {
                 states,
@@ -933,12 +1035,12 @@ impl Serializable for State {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (base, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
-        let (check, src) = u32::deserialize_from_slice(src);
-        let (fail, src) = u32::deserialize_from_slice(src);
-        let (output_pos, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
-        (
+    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+        let (base, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
+        let (check, src) = u32::deserialize_from_slice(src)?;
+        let (fail, src) = u32::deserialize_from_slice(src)?;
+        let (output_pos, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
+        Some((
             Self {
                 base,
                 check,
@@ -946,7 +1048,7 @@ impl Serializable for State {
                 output_pos,
             },
             src,
-        )
+        ))
     }
 
     #[inline(always)]
@@ -1146,7 +1248,7 @@ mod tests {
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
         assert_eq!(data.len(), State::serialized_bytes());
-        let (y, rest) = State::deserialize_from_slice(&data);
+        let (y, rest) = State::deserialize_from_slice(&data).unwrap();
         assert!(rest.is_empty());
         assert_eq!(x, y);
     }

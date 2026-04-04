@@ -258,18 +258,18 @@ where
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (value, src) = V::deserialize_from_slice(src);
-        let (length, src) = u32::deserialize_from_slice(src);
-        let (parent, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
-        (
+    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+        let (value, src) = V::deserialize_from_slice(src)?;
+        let (length, src) = u32::deserialize_from_slice(src)?;
+        let (parent, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
+        Some((
             Self {
                 value,
                 length,
                 parent,
             },
             src,
-        )
+        ))
     }
 
     #[inline(always)]
@@ -384,8 +384,8 @@ impl Serializable for MatchKind {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        (Self::from(src[0]), &src[1..])
+    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+        Some((Self::from(src[0]), &src[1..]))
     }
 
     #[inline(always)]
@@ -435,7 +435,7 @@ mod tests {
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
         assert_eq!(data.len(), Output::<u32>::serialized_bytes());
-        let (y, rest) = Output::deserialize_from_slice(&data);
+        let (y, rest) = Output::deserialize_from_slice(&data).unwrap();
         assert!(rest.is_empty());
         assert_eq!(x, y);
     }
@@ -446,7 +446,7 @@ mod tests {
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
         assert_eq!(data.len(), MatchKind::serialized_bytes());
-        let (y, rest) = MatchKind::deserialize_from_slice(&data);
+        let (y, rest) = MatchKind::deserialize_from_slice(&data).unwrap();
         assert!(rest.is_empty());
         assert_eq!(x, y);
     }

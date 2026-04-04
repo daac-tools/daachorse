@@ -61,16 +61,16 @@ impl SerializableVec for CodeMapper {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (table, src) = Vec::<u32>::deserialize_from_slice(src);
-        let (alphabet_size, src) = u32::deserialize_from_slice(src);
-        (
+    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+        let (table, src) = Vec::<u32>::deserialize_from_slice(src)?;
+        let (alphabet_size, src) = u32::deserialize_from_slice(src)?;
+        Some((
             Self {
                 table,
                 alphabet_size,
             },
             src,
-        )
+        ))
     }
 
     #[inline(always)]
@@ -106,7 +106,7 @@ mod tests {
         let mut data = vec![];
         mapper.serialize_to_vec(&mut data);
         assert_eq!(data.len(), mapper.serialized_bytes());
-        let (other, rest) = CodeMapper::deserialize_from_slice(&data);
+        let (other, rest) = CodeMapper::deserialize_from_slice(&data).unwrap();
         assert!(rest.is_empty());
         assert_eq!(mapper, other);
     }

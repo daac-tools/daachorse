@@ -59,9 +59,9 @@ impl Serializable for U24nU8 {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (x, src) = u32::deserialize_from_slice(src);
-        (Self(x), src)
+    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+        let (x, src) = u32::deserialize_from_slice(src)?;
+        Some((Self(x), src))
     }
 
     #[inline(always)]
