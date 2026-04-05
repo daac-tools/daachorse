@@ -10,7 +10,7 @@ new axis name:fX1
 	axis::clip=true
 	axis::redraw_flag=true
 	axis::min=0
-	axis::max=40
+	axis::max=30
 	axis::inc=1
 	axis::div=0
 	axis::type=linear
@@ -574,7 +574,7 @@ new data
 	data::clip=true
 	data::redraw_flag=true
 	data::source=file
-	data::save_path=unchange
+	data::save_path=relative
 	data::x=3
 	data::y=0
 	data::type=bar_fill_x
@@ -615,7 +615,7 @@ new data
 	data::range_max=10
 	data::range_div=512
 	data::array=
-	data::file='/home/akabe/developments/daachorse/figures/overlapping.txt'
+	data::file='./overlapping.txt'
 
 new data
 	data::hidden=false
@@ -626,7 +626,7 @@ new data
 	data::clip=true
 	data::redraw_flag=true
 	data::source=file
-	data::save_path=unchange
+	data::save_path=relative
 	data::x=3
 	data::y=0
 	data::type=bar_fill_x
@@ -667,7 +667,7 @@ new data
 	data::range_max=10
 	data::range_div=512
 	data::array=
-	data::file='/home/akabe/developments/daachorse/figures/memory.txt'
+	data::file='./memory.txt'
 
 new text
 	text::hidden=false
