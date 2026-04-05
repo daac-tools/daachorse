@@ -32,7 +32,8 @@ bytes.
 
 ![](./figures/comparison.svg)
 
-Pattern set: Word dictionary of 675K patterns
+Details are available on
+[Wiki](https://github.com/daac-tools/daachorse/wiki/Performance-Comparison).
 
 ## Requirements
 
