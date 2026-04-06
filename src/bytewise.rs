@@ -769,9 +769,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
                 if usize::from_u32(parent.get() - 1) >= i {
                     return Err(DaachorseError::invalid_automaton());
                 }
-                if usize::from_u32(parent.get() - 1) >= outputs_len {
-                    return Err(DaachorseError::invalid_automaton());
-                }
             };
         }
         Ok((pma, source))
