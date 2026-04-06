@@ -201,10 +201,11 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
-use build_helper::BuildHelper;
-pub use bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
-pub use charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
-pub use serializer::Serializable;
+use crate::build_helper::BuildHelper;
+pub use crate::bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
+pub use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
+pub use crate::errors::Result;
+pub use crate::serializer::Serializable;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 struct Output<V> {
@@ -258,11 +259,11 @@ where
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
         let (value, src) = V::deserialize_from_slice(src)?;
         let (length, src) = u32::deserialize_from_slice(src)?;
         let (parent, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
-        Some((
+        Ok((
             Self {
                 value,
                 length,
@@ -384,8 +385,8 @@ impl Serializable for MatchKind {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
-        Some((Self::from(src[0]), &src[1..]))
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
+        Ok((Self::from(src[0]), &src[1..]))
     }
 
     #[inline(always)]

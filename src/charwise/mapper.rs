@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
+use crate::errors::Result;
 use crate::serializer::{Serializable, SerializableVec};
-
 use crate::utils::FromU32;
 
 pub const INVALID_CODE: u32 = u32::MAX;
@@ -61,10 +61,10 @@ impl SerializableVec for CodeMapper {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
         let (table, src) = Vec::<u32>::deserialize_from_slice(src)?;
         let (alphabet_size, src) = u32::deserialize_from_slice(src)?;
-        Some((
+        Ok((
             Self {
                 table,
                 alphabet_size,

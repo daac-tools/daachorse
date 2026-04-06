@@ -9,16 +9,16 @@ use core::num::NonZeroU32;
 use alloc::vec::Vec;
 
 use crate::build_helper::BuildHelper;
+pub use crate::bytewise::builder::DoubleArrayAhoCorasickBuilder;
+use crate::bytewise::iter::{
+    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, FindOverlappingStepper,
+    FindStepper, LeftmostFindIterator, U8SliceIterator,
+};
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
 use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output};
-pub use builder::DoubleArrayAhoCorasickBuilder;
-use iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, FindOverlappingStepper,
-    FindStepper, LeftmostFindIterator, U8SliceIterator,
-};
 
 // The root index position.
 const ROOT_STATE_IDX: u32 = 0;
@@ -725,18 +725,10 @@ impl<V> DoubleArrayAhoCorasick<V> {
     where
         V: Serializable,
     {
-        let Some((states, source)) = Vec::<State>::deserialize_from_slice(source) else {
-            return Err(DaachorseError::invalid_automaton());
-        };
-        let Some((outputs, source)) = Vec::<Output<V>>::deserialize_from_slice(source) else {
-            return Err(DaachorseError::invalid_automaton());
-        };
-        let Some((match_kind, source)) = MatchKind::deserialize_from_slice(source) else {
-            return Err(DaachorseError::invalid_automaton());
-        };
-        let Some((num_states, source)) = u32::deserialize_from_slice(source) else {
-            return Err(DaachorseError::invalid_automaton());
-        };
+        let (states, source) = Vec::<State>::deserialize_from_slice(source)?;
+        let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source)?;
+        let (match_kind, source) = MatchKind::deserialize_from_slice(source)?;
+        let (num_states, source) = u32::deserialize_from_slice(source)?;
         let pma = Self {
             states,
             outputs,
@@ -963,11 +955,11 @@ impl Serializable for State {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
         let (base, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
         let (fail, src) = u32::deserialize_from_slice(src)?;
         let (opos_ch, src) = U24nU8::deserialize_from_slice(src)?;
-        Some((
+        Ok((
             Self {
                 base,
                 fail,

@@ -9,17 +9,17 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
-use crate::errors::{DaachorseError, Result};
-use crate::serializer::{Serializable, SerializableVec};
-use crate::utils::FromU32;
-use crate::{MatchKind, Output};
-pub use builder::CharwiseDoubleArrayAhoCorasickBuilder;
-use iter::{
+pub use crate::charwise::builder::CharwiseDoubleArrayAhoCorasickBuilder;
+use crate::charwise::iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
     FindOverlappingNoSuffixIterator, FindOverlappingStepper, FindStepper, LeftmostFindIterator,
     StrIterator,
 };
-use mapper::CodeMapper;
+use crate::charwise::mapper::CodeMapper;
+use crate::errors::{DaachorseError, Result};
+use crate::serializer::{Serializable, SerializableVec};
+use crate::utils::FromU32;
+use crate::{MatchKind, Output};
 
 // The root index position.
 const ROOT_STATE_IDX: u32 = 0;
@@ -767,21 +767,11 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     where
         V: Serializable,
     {
-        let Some((states, source)) = Vec::<State>::deserialize_from_slice(source) else {
-            return Err(DaachorseError::invalid_automaton());
-        };
-        let Some((mapper, source)) = CodeMapper::deserialize_from_slice(source) else {
-            return Err(DaachorseError::invalid_automaton());
-        };
-        let Some((outputs, source)) = Vec::<Output<V>>::deserialize_from_slice(source) else {
-            return Err(DaachorseError::invalid_automaton());
-        };
-        let Some((match_kind, source)) = MatchKind::deserialize_from_slice(source) else {
-            return Err(DaachorseError::invalid_automaton());
-        };
-        let Some((num_states, source)) = u32::deserialize_from_slice(source) else {
-            return Err(DaachorseError::invalid_automaton());
-        };
+        let (states, source) = Vec::<State>::deserialize_from_slice(source)?;
+        let (mapper, source) = CodeMapper::deserialize_from_slice(source)?;
+        let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source)?;
+        let (match_kind, source) = MatchKind::deserialize_from_slice(source)?;
+        let (num_states, source) = u32::deserialize_from_slice(source)?;
         let pma = Self {
             states,
             mapper,
@@ -1034,12 +1024,12 @@ impl Serializable for State {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
         let (base, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
         let (check, src) = u32::deserialize_from_slice(src)?;
         let (fail, src) = u32::deserialize_from_slice(src)?;
         let (output_pos, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
-        Some((
+        Ok((
             Self {
                 base,
                 check,

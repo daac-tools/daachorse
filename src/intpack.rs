@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 
+use crate::errors::Result;
 use crate::serializer::Serializable;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash)]
@@ -59,9 +60,9 @@ impl Serializable for U24nU8 {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
         let (x, src) = u32::deserialize_from_slice(src)?;
-        Some((Self(x), src))
+        Ok((Self(x), src))
     }
 
     #[inline(always)]

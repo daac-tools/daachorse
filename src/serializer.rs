@@ -4,6 +4,7 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
+use crate::errors::{DaachorseError, Result};
 use crate::utils::FromU32;
 use crate::Empty;
 
@@ -25,7 +26,7 @@ pub trait Serializable: Sized {
     /// # Arguments
     ///
     /// * `src` - the source slice containing the serialized data.
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])>;
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])>;
 
     /// Returns the size of serialized data.
     fn serialized_bytes() -> usize;
@@ -40,9 +41,13 @@ macro_rules! define_serializable_primitive {
             }
 
             #[inline(always)]
-            fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
-                let x = Self::from_le_bytes(src.get(..$size)?.try_into().ok()?);
-                Some((x, &src[$size..]))
+            fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
+                let x = Self::from_le_bytes(
+                    src.get(..$size)
+                        .and_then(|x| x.try_into().ok())
+                        .ok_or(DaachorseError::invalid_automaton())?,
+                );
+                Ok((x, &src[$size..]))
             }
 
             #[inline(always)]
@@ -58,20 +63,12 @@ define_serializable_primitive!(u16, 2);
 define_serializable_primitive!(u32, 4);
 define_serializable_primitive!(u64, 8);
 define_serializable_primitive!(u128, 16);
-#[cfg(target_pointer_width = "32")]
-define_serializable_primitive!(usize, 4);
-#[cfg(target_pointer_width = "64")]
-define_serializable_primitive!(usize, 8);
 
 define_serializable_primitive!(i8, 1);
 define_serializable_primitive!(i16, 2);
 define_serializable_primitive!(i32, 4);
 define_serializable_primitive!(i64, 8);
 define_serializable_primitive!(i128, 16);
-#[cfg(target_pointer_width = "32")]
-define_serializable_primitive!(isize, 4);
-#[cfg(target_pointer_width = "64")]
-define_serializable_primitive!(isize, 8);
 
 impl Serializable for Option<NonZeroU32> {
     #[inline(always)]
@@ -80,9 +77,9 @@ impl Serializable for Option<NonZeroU32> {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
         let (x, src) = u32::deserialize_from_slice(src)?;
-        Some((NonZeroU32::new(x), src))
+        Ok((NonZeroU32::new(x), src))
     }
 
     #[inline(always)]
@@ -94,7 +91,7 @@ impl Serializable for Option<NonZeroU32> {
 pub trait SerializableVec: Sized {
     fn serialize_to_vec(&self, dst: &mut Vec<u8>);
 
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])>;
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])>;
 
     fn serialized_bytes(&self) -> usize;
 }
@@ -110,7 +107,7 @@ where
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
         let (len, mut src) = u32::deserialize_from_slice(src)?;
         let mut dst = Self::with_capacity(usize::from_u32(len));
         for _ in 0..len {
@@ -118,7 +115,7 @@ where
             dst.push(x);
             src = rest;
         }
-        Some((dst, src))
+        Ok((dst, src))
     }
 
     fn serialized_bytes(&self) -> usize {
@@ -131,8 +128,8 @@ impl Serializable for Empty {
     fn serialize_to_vec(&self, _dst: &mut Vec<u8>) {}
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> Option<(Self, &[u8])> {
-        Some((Self, src))
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
+        Ok((Self, src))
     }
 
     #[inline(always)]
