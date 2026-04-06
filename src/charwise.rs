@@ -725,7 +725,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         result
     }
 
-    /// Deserializes the automaton from a given slice.
+    /// Deserializes the automaton from the given slice.
     ///
     /// # Warning
     ///
@@ -821,7 +821,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         Ok((pma, source))
     }
 
-    /// Deserializes the automaton from a given slice.
+    /// Deserializes the automaton from the given slice without performing any validation.
     ///
     /// This function does not perform any validation on the input data. If processing speed is not
     /// critical, consider using [`CharwiseDoubleArrayAhoCorasick::deserialize()`].
