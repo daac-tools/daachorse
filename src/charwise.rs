@@ -787,6 +787,14 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             match_kind,
             num_states,
         };
+        for &id in &pma.mapper.table {
+            if id == crate::charwise::mapper::INVALID_CODE {
+                continue;
+            }
+            if id >= pma.mapper.alphabet_size() {
+                return Err(DaachorseError::invalid_automaton());
+            }
+        }
         let block_len = usize::from_u32(pma.mapper.alphabet_size().next_power_of_two().max(2));
         if pma.states.len() % block_len != 0 {
             return Err(DaachorseError::invalid_automaton());
