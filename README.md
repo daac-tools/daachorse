@@ -20,7 +20,7 @@ A Python wrapper is also available [here](https://github.com/daac-tools/python-d
 
 ## Overview
 
-Daachorse is a crate for fast multiple pattern matching using the
+Daachorse (pronounced "dark horse") is a crate for fast multiple pattern matching using the
 [Aho-Corasick algorithm](https://dl.acm.org/doi/10.1145/360825.360855), running in linear time over
 the length of the input text. This crate uses the
 [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004) for implementing
@@ -28,13 +28,12 @@ the pattern match automaton for time and memory efficiency. The data structure n
 constant-time state-to-state traversal but also represents each state in the space of only 12
 bytes.
 
-For example, compared to the NFA of the [aho-corasick](https://github.com/BurntSushi/aho-corasick)
-crate, which is the most popular Aho-Corasick implementation in Rust, Daachorse can perform pattern
-matching **3.0–5.2 times faster** while consuming **56–60% smaller** memory when using a word
-dictionary of 675K patterns. Other experimental results are available on
-[Wiki](https://github.com/daac-tools/daachorse/wiki/Performance-Comparison).
+## Performance comparison
 
 ![](./figures/comparison.svg)
+
+Details are available on
+[Wiki](https://github.com/daac-tools/daachorse/wiki/Performance-Comparison).
 
 ## Requirements
 
