@@ -204,6 +204,7 @@ use alloc::vec::Vec;
 use crate::build_helper::BuildHelper;
 pub use crate::bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
 pub use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
+use crate::errors::DaachorseError;
 pub use crate::errors::Result;
 pub use crate::serializer::Serializable;
 
@@ -386,7 +387,10 @@ impl Serializable for MatchKind {
 
     #[inline(always)]
     fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
-        Ok((Self::from(src[0]), &src[1..]))
+        let (&kind, rest) = src
+            .split_first()
+            .ok_or(DaachorseError::invalid_automaton())?;
+        Ok((Self::from(kind), rest))
     }
 
     #[inline(always)]

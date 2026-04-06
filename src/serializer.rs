@@ -33,7 +33,7 @@ pub trait Serializable: Sized {
 }
 
 macro_rules! define_serializable_primitive {
-    ($type:ty, $size:expr) => {
+    ($type:ty) => {
         impl Serializable for $type {
             #[inline(always)]
             fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
@@ -42,33 +42,32 @@ macro_rules! define_serializable_primitive {
 
             #[inline(always)]
             fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
-                let x = Self::from_le_bytes(
-                    src.get(..$size)
-                        .and_then(|x| x.try_into().ok())
-                        .ok_or(DaachorseError::invalid_automaton())?,
-                );
-                Ok((x, &src[$size..]))
+                let (&x, rest) = src
+                    .split_first_chunk()
+                    .ok_or(DaachorseError::invalid_automaton())?;
+                let x = Self::from_le_bytes(x);
+                Ok((x, rest))
             }
 
             #[inline(always)]
             fn serialized_bytes() -> usize {
-                $size
+                core::mem::size_of::<Self>()
             }
         }
     };
 }
 
-define_serializable_primitive!(u8, 1);
-define_serializable_primitive!(u16, 2);
-define_serializable_primitive!(u32, 4);
-define_serializable_primitive!(u64, 8);
-define_serializable_primitive!(u128, 16);
+define_serializable_primitive!(u8);
+define_serializable_primitive!(u16);
+define_serializable_primitive!(u32);
+define_serializable_primitive!(u64);
+define_serializable_primitive!(u128);
 
-define_serializable_primitive!(i8, 1);
-define_serializable_primitive!(i16, 2);
-define_serializable_primitive!(i32, 4);
-define_serializable_primitive!(i64, 8);
-define_serializable_primitive!(i128, 16);
+define_serializable_primitive!(i8);
+define_serializable_primitive!(i16);
+define_serializable_primitive!(i32);
+define_serializable_primitive!(i64);
+define_serializable_primitive!(i128);
 
 impl Serializable for Option<NonZeroU32> {
     #[inline(always)]

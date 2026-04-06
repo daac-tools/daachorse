@@ -140,7 +140,7 @@ pub struct InvalidAutomatonError;
 
 impl fmt::Display for InvalidAutomatonError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "InvalidAutomatonError",)
+        write!(f, "InvalidAutomatonError: invalid serialized automaton")
     }
 }
 
