@@ -232,6 +232,14 @@ unsafe fn
   the haystack must be a sequence of integers. This library is specially
   optimized for `str` and `[u8]` among integer sequences.
 
+* **Does this library support case-insensitive matching?**
+
+  Not supported. As a matter of policy, this library prioritizes implementation
+  simplicity. Case-insensitive matching is a language-specific concept, and a different
+  normalization process is required for non-Western text. If you want to treat
+  multiple characters identically, you can achieve this by lowercasing or applying
+  NFKC normalization to both the patterns and the haystack outside of this library.
+
 * **Does this library provide bindings to programming languages other
   than Rust?**
 
