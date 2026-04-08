@@ -19,6 +19,9 @@ pub enum DaachorseError {
 
     /// Contains [`InvalidConversionError`].
     InvalidConversion(InvalidConversionError),
+
+    /// Contains [`InvalidAutomatonError`].
+    InvalidAutomaton(InvalidAutomatonError),
 }
 
 impl fmt::Display for DaachorseError {
@@ -28,6 +31,7 @@ impl fmt::Display for DaachorseError {
             Self::DuplicatePattern(e) => e.fmt(f),
             Self::AutomatonScale(e) => e.fmt(f),
             Self::InvalidConversion(e) => e.fmt(f),
+            Self::InvalidAutomaton(e) => e.fmt(f),
         }
     }
 }
@@ -47,6 +51,10 @@ impl DaachorseError {
 
     pub(crate) const fn invalid_conversion(arg: &'static str, target: &'static str) -> Self {
         Self::InvalidConversion(InvalidConversionError { arg, target })
+    }
+
+    pub(crate) const fn invalid_automaton() -> Self {
+        Self::InvalidAutomaton(InvalidAutomatonError)
     }
 }
 
@@ -123,6 +131,16 @@ impl fmt::Display for InvalidConversionError {
             "InvalidConversionError: {} cannot be converted to {}",
             self.arg, self.target
         )
+    }
+}
+
+/// Error used when the deserialization failed.
+#[derive(Debug)]
+pub struct InvalidAutomatonError;
+
+impl fmt::Display for InvalidAutomatonError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "InvalidAutomatonError: invalid serialized automaton")
     }
 }
 

@@ -1,8 +1,8 @@
 [package]
 name = "daachorse"
-version = "1.0.1"
+version = "2.0.0"
 edition = "2021"
-rust-version = "1.61"
+rust-version = "1.77"
 authors = [
     "Koichi Akabe <vbkaisetsu@gmail.com>",
     "Shunsuke Kanda <shnsk.knd@gmail.com>",

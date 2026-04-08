@@ -9,16 +9,16 @@ use core::num::NonZeroU32;
 use alloc::vec::Vec;
 
 use crate::build_helper::BuildHelper;
+pub use crate::bytewise::builder::DoubleArrayAhoCorasickBuilder;
+use crate::bytewise::iter::{
+    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, FindOverlappingStepper,
+    FindStepper, LeftmostFindIterator, U8SliceIterator,
+};
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
 use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output};
-pub use builder::DoubleArrayAhoCorasickBuilder;
-use iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, FindOverlappingStepper,
-    FindStepper, LeftmostFindIterator, U8SliceIterator,
-};
 
 // The root index position.
 const ROOT_STATE_IDX: u32 = 0;
@@ -683,7 +683,101 @@ impl<V> DoubleArrayAhoCorasick<V> {
         result
     }
 
-    /// Deserializes the automaton from a given slice.
+    /// Deserializes the automaton from the given slice.
+    ///
+    /// # Warning
+    ///
+    /// This function verifies that the input automaton data will not cause out-of-bounds memory
+    /// access within this crate; however, it does not verify that the data is a valid
+    /// Aho-Corasick automaton. Consequently, if malformed data is provided, it may lead to
+    /// infinite loops or cause [`Match`](crate::Match) to return inaccurate ranges. Use this
+    /// function only if you can tolerate such errors.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - A source slice.
+    ///
+    /// # Returns
+    ///
+    /// A tuple of the automaton and the slice not used for the deserialization.
+    ///
+    /// # Errors
+    ///
+    /// [`DaachorseError`] is returned when the given data is an invalid automaton.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+    /// let bytes = pma.serialize();
+    ///
+    /// let (pma, _) = DoubleArrayAhoCorasick::<u32>::deserialize(&bytes).unwrap();
+    ///
+    /// let mut it = pma.find_overlapping_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    pub fn deserialize(source: &[u8]) -> Result<(Self, &[u8])>
+    where
+        V: Serializable,
+    {
+        let (states, source) = Vec::<State>::deserialize_from_slice(source)?;
+        let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source)?;
+        let (match_kind, source) = MatchKind::deserialize_from_slice(source)?;
+        let (num_states, source) = u32::deserialize_from_slice(source)?;
+        let pma = Self {
+            states,
+            outputs,
+            match_kind,
+            num_states,
+        };
+        let block_len = 256;
+        if pma.states.len() % block_len != 0 {
+            return Err(DaachorseError::invalid_automaton());
+        }
+        let states_len = pma.states.len();
+        let outputs_len = pma.outputs.len();
+        for state in &pma.states {
+            if let Some(base) = state.base() {
+                if usize::from_u32(base.get()) >= states_len {
+                    return Err(DaachorseError::invalid_automaton());
+                }
+            };
+            if usize::from_u32(state.fail()) >= states_len {
+                return Err(DaachorseError::invalid_automaton());
+            }
+            if let Some(output_pos) = state.output_pos() {
+                if usize::from_u32(output_pos.get() - 1) >= outputs_len {
+                    return Err(DaachorseError::invalid_automaton());
+                }
+            };
+        }
+        for (i, output) in pma.outputs.iter().enumerate() {
+            if let Some(parent) = output.parent {
+                if usize::from_u32(parent.get() - 1) >= i {
+                    return Err(DaachorseError::invalid_automaton());
+                }
+            };
+        }
+        Ok((pma, source))
+    }
+
+    /// Deserializes the automaton from the given slice without performing any validation.
+    ///
+    /// This function does not perform any validation on the input data. If processing speed is not
+    /// critical, consider using [`DoubleArrayAhoCorasick::deserialize()`].
     ///
     /// # Arguments
     ///
@@ -727,10 +821,10 @@ impl<V> DoubleArrayAhoCorasick<V> {
     where
         V: Serializable,
     {
-        let (states, source) = Vec::<State>::deserialize_from_slice(source);
-        let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source);
-        let (match_kind, source) = MatchKind::deserialize_from_slice(source);
-        let (num_states, source) = u32::deserialize_from_slice(source);
+        let (states, source) = Vec::<State>::deserialize_from_slice(source).unwrap_unchecked();
+        let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source).unwrap_unchecked();
+        let (match_kind, source) = MatchKind::deserialize_from_slice(source).unwrap_unchecked();
+        let (num_states, source) = u32::deserialize_from_slice(source).unwrap_unchecked();
         (
             Self {
                 states,
@@ -866,18 +960,18 @@ impl Serializable for State {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (base, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
-        let (fail, src) = u32::deserialize_from_slice(src);
-        let (opos_ch, src) = U24nU8::deserialize_from_slice(src);
-        (
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
+        let (base, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
+        let (fail, src) = u32::deserialize_from_slice(src)?;
+        let (opos_ch, src) = U24nU8::deserialize_from_slice(src)?;
+        Ok((
             Self {
                 base,
                 fail,
                 opos_ch,
             },
             src,
-        )
+        ))
     }
 
     #[inline(always)]
@@ -1092,7 +1186,7 @@ mod tests {
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
         assert_eq!(data.len(), State::serialized_bytes());
-        let (y, rest) = State::deserialize_from_slice(&data);
+        let (y, rest) = State::deserialize_from_slice(&data).unwrap();
         assert!(rest.is_empty());
         assert_eq!(x, y);
     }

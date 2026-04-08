@@ -3,13 +3,12 @@ use core::num::NonZeroU32;
 use alloc::vec::Vec;
 
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State};
+use crate::charwise::{DEAD_STATE_IDX, ROOT_STATE_IDX};
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
+use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID};
 use crate::utils::FromU32;
 use crate::BuildHelper;
-
-use crate::charwise::{DEAD_STATE_IDX, ROOT_STATE_IDX};
-use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID};
 
 // Specialized [`NfaBuilder`] handling labels of `char`.
 type CharwiseNfaBuilder<V> = NfaBuilder<char, V>;

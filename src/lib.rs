@@ -201,10 +201,12 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
-use build_helper::BuildHelper;
-pub use bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
-pub use charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
-pub use serializer::Serializable;
+use crate::build_helper::BuildHelper;
+pub use crate::bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
+pub use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
+use crate::errors::DaachorseError;
+pub use crate::errors::Result;
+pub use crate::serializer::Serializable;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 struct Output<V> {
@@ -258,18 +260,18 @@ where
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        let (value, src) = V::deserialize_from_slice(src);
-        let (length, src) = u32::deserialize_from_slice(src);
-        let (parent, src) = Option::<NonZeroU32>::deserialize_from_slice(src);
-        (
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
+        let (value, src) = V::deserialize_from_slice(src)?;
+        let (length, src) = u32::deserialize_from_slice(src)?;
+        let (parent, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
+        Ok((
             Self {
                 value,
                 length,
                 parent,
             },
             src,
-        )
+        ))
     }
 
     #[inline(always)]
@@ -384,8 +386,11 @@ impl Serializable for MatchKind {
     }
 
     #[inline(always)]
-    fn deserialize_from_slice(src: &[u8]) -> (Self, &[u8]) {
-        (Self::from(src[0]), &src[1..])
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
+        let (&kind, rest) = src
+            .split_first()
+            .ok_or(DaachorseError::invalid_automaton())?;
+        Ok((Self::from(kind), rest))
     }
 
     #[inline(always)]
@@ -435,7 +440,7 @@ mod tests {
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
         assert_eq!(data.len(), Output::<u32>::serialized_bytes());
-        let (y, rest) = Output::deserialize_from_slice(&data);
+        let (y, rest) = Output::deserialize_from_slice(&data).unwrap();
         assert!(rest.is_empty());
         assert_eq!(x, y);
     }
@@ -446,7 +451,7 @@ mod tests {
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
         assert_eq!(data.len(), MatchKind::serialized_bytes());
-        let (y, rest) = MatchKind::deserialize_from_slice(&data);
+        let (y, rest) = MatchKind::deserialize_from_slice(&data).unwrap();
         assert!(rest.is_empty());
         assert_eq!(x, y);
     }
