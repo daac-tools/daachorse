@@ -619,6 +619,25 @@ impl<V> DoubleArrayAhoCorasick<V> {
         }
     }
 
+    /// Returns the match kind for this automaton.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///     .match_kind(MatchKind::LeftmostLongest)
+    ///     .build::<_, _, u32>(&patterns)
+    ///     .unwrap();
+    ///
+    /// assert_eq!(MatchKind::LeftmostLongest, pma.match_kind());
+    #[must_use]
+    pub const fn match_kind(&self) -> MatchKind {
+        self.match_kind
+    }
+
     /// Returns the total amount of heap used by this automaton in bytes.
     ///
     /// # Examples
