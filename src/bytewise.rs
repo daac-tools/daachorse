@@ -633,6 +633,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///     .unwrap();
     ///
     /// assert_eq!(MatchKind::LeftmostLongest, pma.match_kind());
+    /// ```
     #[must_use]
     pub const fn match_kind(&self) -> MatchKind {
         self.match_kind
