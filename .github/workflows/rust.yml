@@ -10,10 +10,10 @@ on:
     tags:
       - 'v*.*.*'
 
-name: build
+permissions:
+  contents: read
 
-env:
-  CARGO_UNSTABLE_SPARSE_REGISTRY: true
+name: build
 
 jobs:
   build:
@@ -26,7 +26,7 @@ jobs:
           - stable
           - nightly
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - name: Install ${{ matrix.rust }}
         run: |
           rustup toolchain install ${{ matrix.rust }} --profile minimal --component rustfmt,clippy
@@ -74,7 +74,7 @@ jobs:
     if: "startsWith(github.ref, 'refs/tags/')"
     needs: [ build ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
       - name: Install latest stable
         run: |
           rustup toolchain install stable --profile minimal
