@@ -1,4 +1,5 @@
-Library,Word100K [ms],Unidic [ms]
-aho-corasick (NFA),7.90,25.39
-daachorse-bytewise,4.94,14.95
-daachorse-charwise,3.67,7.85
+Library,Word15K,Word100K,Unidic,o200k_base
+aho-corasick (NFA),5.04,6.19,20.55,16.93
+aho-corasick (DFA),2.44,4.58,23.46,11.58
+daachorse-bytewise,3.97,4.33,11.11,6.35
+daachorse-charwise,3.02,2.81,6.44,0
