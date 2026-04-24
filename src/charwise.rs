@@ -816,6 +816,9 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             }
         }
         let block_len = usize::from_u32(pma.mapper.alphabet_size().next_power_of_two().max(2));
+        if pma.states.is_empty() {
+            return Err(DaachorseError::invalid_automaton());
+        }
         if pma.states.len() % block_len != 0 {
             return Err(DaachorseError::invalid_automaton());
         }

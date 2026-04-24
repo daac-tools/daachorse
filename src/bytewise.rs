@@ -764,6 +764,9 @@ impl<V> DoubleArrayAhoCorasick<V> {
             num_states,
         };
         let block_len = 256;
+        if pma.states.is_empty() {
+            return Err(DaachorseError::invalid_automaton());
+        }
         if pma.states.len() % block_len != 0 {
             return Err(DaachorseError::invalid_automaton());
         }
