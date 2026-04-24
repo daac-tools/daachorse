@@ -1292,4 +1292,18 @@ mod tests {
         assert_eq!(pma.match_kind, other.match_kind);
         assert_eq!(pma.num_states, other.num_states);
     }
+
+    #[test]
+    fn test_deserialize_invalid_pma() {
+        let bytes = [
+            0, 0, 0, 0, // states
+            0, 0, 0, 0, // table
+            0, 0, 0, 0, // alphabet_size
+            0, 0, 0, 0, // outputs
+            0, // match_kind
+            0, 0, 0, 0, // num_states
+        ];
+        let pma = CharwiseDoubleArrayAhoCorasick::<u32>::deserialize(&bytes);
+        assert!(pma.is_err());
+    }
 }
