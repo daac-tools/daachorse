@@ -764,6 +764,9 @@ impl<V> DoubleArrayAhoCorasick<V> {
             num_states,
         };
         let block_len = 256;
+        if pma.states.is_empty() {
+            return Err(DaachorseError::invalid_automaton());
+        }
         if pma.states.len() % block_len != 0 {
             return Err(DaachorseError::invalid_automaton());
         }
@@ -1222,5 +1225,17 @@ mod tests {
         assert_eq!(pma.outputs, other.outputs);
         assert_eq!(pma.match_kind, other.match_kind);
         assert_eq!(pma.num_states, other.num_states);
+    }
+
+    #[test]
+    fn test_deserialize_invalid_pma() {
+        let bytes = [
+            0, 0, 0, 0, // states
+            0, 0, 0, 0, // outputs
+            0, // match_kind
+            0, 0, 0, 0, // num_states
+        ];
+        let pma = DoubleArrayAhoCorasick::<u32>::deserialize(&bytes);
+        assert!(pma.is_err());
     }
 }

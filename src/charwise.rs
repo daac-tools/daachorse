@@ -816,6 +816,9 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             }
         }
         let block_len = usize::from_u32(pma.mapper.alphabet_size().next_power_of_two().max(2));
+        if pma.states.is_empty() {
+            return Err(DaachorseError::invalid_automaton());
+        }
         if pma.states.len() % block_len != 0 {
             return Err(DaachorseError::invalid_automaton());
         }
@@ -1288,5 +1291,19 @@ mod tests {
         assert_eq!(pma.outputs, other.outputs);
         assert_eq!(pma.match_kind, other.match_kind);
         assert_eq!(pma.num_states, other.num_states);
+    }
+
+    #[test]
+    fn test_deserialize_invalid_pma() {
+        let bytes = [
+            0, 0, 0, 0, // states
+            0, 0, 0, 0, // table
+            0, 0, 0, 0, // alphabet_size
+            0, 0, 0, 0, // outputs
+            0, // match_kind
+            0, 0, 0, 0, // num_states
+        ];
+        let pma = CharwiseDoubleArrayAhoCorasick::<u32>::deserialize(&bytes);
+        assert!(pma.is_err());
     }
 }
