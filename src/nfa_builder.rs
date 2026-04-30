@@ -207,13 +207,15 @@ where
     }
 
     pub(crate) fn build_outputs(&mut self, q: &[u32]) {
-        // The queue (built in build_fails or _leftmost) will not have the root state id,
-        // so in the following processing the output of the root state will not be handled.
-        // But, there is no problem since Daachorse does not allow an empty pattern.
+        // The queue can be empty when the builder received zero patterns to
+        // be added to the automaton.
         if q.is_empty() {
             return;
         }
 
+        // The queue (built in build_fails or _leftmost) will not have the root state id,
+        // so in the following processing the output of the root state will not be handled.
+        // But, there is no problem since Daachorse does not allow an empty pattern.
         debug_assert_ne!(q[0], ROOT_STATE_ID);
 
         for &state_id in q {
