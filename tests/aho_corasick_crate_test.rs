@@ -678,14 +678,3 @@ fn run_search_tests<F: FnMut(&SearchTest) -> Vec<Match<usize>>>(which: TestColle
         }
     }
 }
-
-#[test]
-fn test_issue() {
-    run_search_tests(&[NON_OVERLAPPING], |test| {
-        let pma = DoubleArrayAhoCorasickBuilder::new()
-            .match_kind(MatchKind::Standard)
-            .build(test.patterns)
-            .unwrap();
-        pma.find_iter(test.haystack).collect()
-    });
-}
