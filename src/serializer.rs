@@ -108,6 +108,11 @@ where
     #[inline(always)]
     fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
         let (len, mut src) = u32::deserialize_from_slice(src)?;
+        // To mitigate out-of-memory crashes when parsing a maliciously crafted automaton, restrict
+        // the memory allocation to not exceed the byte limit provided as an argument.
+        if usize::from_u32(len) * core::mem::size_of::<S>() > src.len() {
+            return Err(DaachorseError::invalid_automaton());
+        }
         let mut dst = Self::with_capacity(usize::from_u32(len));
         for _ in 0..len {
             let (x, rest) = S::deserialize_from_slice(src)?;
