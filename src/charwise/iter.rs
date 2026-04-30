@@ -336,6 +336,8 @@ where
     /// Consumes a character and returns a match if the current state has an output.
     #[inline(always)]
     pub fn consume(&mut self, c: char) -> Option<Match<V>> {
+        // state_id is always smaller than self.pma.states.len() because
+        // self.pma.next_state_id_unchecked() ensures to return such a value.
         self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
         self.pos += c.len_utf8();
         if let Some(output_pos) = unsafe {
@@ -344,6 +346,8 @@ where
                 .get_unchecked(usize::from_u32(self.state_id))
                 .output_pos()
         } {
+            // output_pos is always smaller than self.pma.outputs.len() because
+            // State::output_pos() ensures to return such a value when it is Some.
             let out = unsafe {
                 self.pma
                     .outputs

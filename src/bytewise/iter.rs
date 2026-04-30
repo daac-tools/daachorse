@@ -277,6 +277,8 @@ where
     /// Consumes a byte and returns a match if the current state has an output.
     #[inline(always)]
     pub fn consume(&mut self, c: u8) -> Option<Match<V>> {
+        // state_id is always smaller than self.pma.states.len() because
+        // self.pma.next_state_id_unchecked() ensures to return such a value.
         self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
         self.pos += 1;
         if let Some(output_pos) = unsafe {
