@@ -334,12 +334,7 @@ const NON_OVERLAPPING: &'static [SearchTest] = &[
     t!(nover010, &["abcd", "bcd", "cd"], "abcd", &[(0, 0, 4),]),
     t!(nover020, &["bcd", "cd", "abcd"], "abcd", &[(2, 0, 4),]),
     t!(nover030, &["abc", "bc"], "zazabcz", &[(0, 3, 6),]),
-    t!(
-        nover040,
-        &["abc", "abc"],
-        "abcabc",
-        &[(0, 0, 3), (0, 3, 6)]
-    ),
+    t!(nover040, &["abc", "abc"], "abcabc", &[(0, 0, 3), (0, 3, 6)]),
     t!(
         nover100,
         &["ab", "ba"],
