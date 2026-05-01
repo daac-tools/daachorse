@@ -124,9 +124,7 @@ impl DoubleArrayAhoCorasickBuilder {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patterns` is empty,
     ///   - `patterns` contains entries of length zero,
-    ///   - `patterns` contains duplicate entries,
     ///   - the conversion from the index `i` to the specified type `V` fails,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
@@ -177,9 +175,7 @@ impl DoubleArrayAhoCorasickBuilder {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patvals` is empty,
     ///   - `patvals` contains patterns of length zero,
-    ///   - `patvals` contains duplicate patterns,
     ///   - the scale of `patvals` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -236,9 +232,6 @@ impl DoubleArrayAhoCorasickBuilder {
         let mut nfa = BytewiseNfaBuilder::new(self.match_kind);
         for (pattern, value) in patvals {
             nfa.add(pattern.as_ref(), value)?;
-        }
-        if nfa.len == 0 {
-            return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
         }
         if nfa.len > usize::from_u32(U24::MAX) {
             return Err(DaachorseError::automaton_scale("patvals.len()", U24::MAX));

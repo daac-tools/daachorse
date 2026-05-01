@@ -36,7 +36,7 @@ type EdgeMap<L> = alloc::collections::BTreeMap<L, u32>;
 pub struct NfaBuilderState<L, V> {
     pub(crate) edges: EdgeMap<L>,
     pub(crate) fail: u32,
-    pub(crate) output: Option<(V, NonZeroU32)>,
+    pub(crate) output: Vec<(V, NonZeroU32)>,
     pub(crate) output_pos: Option<NonZeroU32>,
 }
 
@@ -45,7 +45,7 @@ impl<L, V> Default for NfaBuilderState<L, V> {
         Self {
             edges: EdgeMap::<L>::default(),
             fail: ROOT_STATE_ID,
-            output: None,
+            output: vec![],
             output_pos: None,
         }
     }
@@ -91,7 +91,7 @@ where
             if self.match_kind.is_leftmost_first() {
                 // If state_id has an output, the descendants will never searched.
                 let output = &self.states[usize::from_u32(state_id)].borrow().output;
-                if output.is_some() {
+                if !output.is_empty() {
                     return Ok(());
                 }
             }
@@ -111,10 +111,10 @@ where
             }
         }
 
-        let output = &mut self.states[usize::from_u32(state_id)].borrow_mut().output;
-        if output.replace((value, pattern_len)).is_some() {
-            return Err(DaachorseError::duplicate_pattern(format!("{pattern:?}")));
-        }
+        self.states[usize::from_u32(state_id)]
+            .borrow_mut()
+            .output
+            .push((value, pattern_len));
 
         self.len += 1;
         Ok(())
@@ -173,7 +173,7 @@ where
             let s = &mut self.states[state_id].borrow_mut();
 
             // Sets the output state to the dead fail.
-            if s.output.is_some() {
+            if !s.output.is_empty() {
                 s.fail = DEAD_STATE_ID;
             }
 
@@ -207,6 +207,12 @@ where
     }
 
     pub(crate) fn build_outputs(&mut self, q: &[u32]) {
+        // The queue can be empty when the builder received zero patterns to
+        // be added to the automaton.
+        if q.is_empty() {
+            return;
+        }
+
         // The queue (built in build_fails or _leftmost) will not have the root state id,
         // so in the following processing the output of the root state will not be handled.
         // But, there is no problem since Daachorse does not allow an empty pattern.
@@ -214,11 +220,15 @@ where
 
         for &state_id in q {
             let s = &mut self.states[usize::from_u32(state_id)].borrow_mut();
-            if let Some(output) = s.output {
-                s.output_pos = NonZeroU32::new(u32::try_from(self.outputs.len() + 1).unwrap());
-                let parent = self.states[usize::from_u32(s.fail)].borrow().output_pos;
-                self.outputs
-                    .push(Output::new(output.0, output.1.get(), parent));
+            if !s.output.is_empty() {
+                let mut last_pos = self.states[usize::from_u32(s.fail)].borrow().output_pos;
+                for output in s.output.iter().rev() {
+                    let new_pos = NonZeroU32::new(u32::try_from(self.outputs.len() + 1).unwrap());
+                    self.outputs
+                        .push(Output::new(output.0, output.1.get(), last_pos));
+                    last_pos = new_pos;
+                }
+                s.output_pos = last_pos;
             } else {
                 s.output_pos = self.states[usize::from_u32(s.fail)].borrow().output_pos;
             }

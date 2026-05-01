@@ -102,9 +102,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patterns` is empty,
     ///   - `patterns` contains entries of length zero,
-    ///   - `patterns` contains duplicate entries,
     ///   - the conversion from the index `i` to the specified type `V` fails,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
@@ -155,9 +153,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patvals` is empty,
     ///   - `patvals` contains patterns of length zero,
-    ///   - `patvals` contains duplicate patterns,
     ///   - the scale of `patvals` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -236,9 +232,6 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         }
         self.mapper = CodeMapper::new(&freqs);
 
-        if nfa.len == 0 {
-            return Err(DaachorseError::invalid_argument("patvals.len()", ">=", 1));
-        }
         let q = match self.match_kind {
             MatchKind::Standard => nfa.build_fails(),
             MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),

@@ -3,9 +3,8 @@ use daachorse::{
 };
 
 /// The following test suites are copied from
-/// [aho-corasick crate](https://github.com/BurntSushi/aho-corasick/blob/master/src/tests.rs),
-/// although duplicate and empty patterns are removed.
-
+/// [aho-corasick crate](https://github.com/BurntSushi/aho-corasick/blob/master/src/tests.rs).
+///
 /// A description of a single test against an Aho-Corasick automaton.
 ///
 /// A single test may not necessarily pass on every configuration of an
@@ -59,7 +58,8 @@ const AC_LEFTMOST_FIRST: TestCollection = &[BASICS, NON_OVERLAPPING, LEFTMOST, L
 /// A collection of tests for the Aho-Corasick algorithm that should always be true.
 /// That is, all iterators should produce the same answer.
 const BASICS: &'static [SearchTest] = &[
-    t!(basic001, &["a"], "", &[]),
+    t!(basic000, &[], "", &[]),
+    t!(basic002, &["a"], "", &[]),
     t!(basic010, &["a"], "a", &[(0, 0, 1)]),
     t!(basic020, &["a"], "aa", &[(0, 0, 1), (0, 1, 2)]),
     t!(basic030, &["a"], "aaa", &[(0, 0, 1), (0, 1, 2), (0, 2, 3)]),
@@ -334,11 +334,18 @@ const NON_OVERLAPPING: &'static [SearchTest] = &[
     t!(nover010, &["abcd", "bcd", "cd"], "abcd", &[(0, 0, 4),]),
     t!(nover020, &["bcd", "cd", "abcd"], "abcd", &[(2, 0, 4),]),
     t!(nover030, &["abc", "bc"], "zazabcz", &[(0, 3, 6),]),
+    t!(nover040, &["abc", "abc"], "abcabc", &[(0, 0, 3), (0, 3, 6)]),
     t!(
         nover100,
         &["ab", "ba"],
         "abababa",
         &[(0, 0, 2), (0, 2, 4), (0, 4, 6),]
+    ),
+    t!(
+        nover200,
+        &["foo", "foo"],
+        "foobarfoo",
+        &[(0, 0, 3), (0, 6, 9),]
     ),
 ];
 
@@ -390,6 +397,12 @@ const OVERLAPPING: &'static [SearchTest] = &[
             (0, 4, 6),
             (1, 5, 7),
         ]
+    ),
+    t!(
+        over200,
+        &["foo", "foo"],
+        "foobarfoo",
+        &[(0, 0, 3), (1, 0, 3), (0, 6, 9), (1, 6, 9),]
     ),
     t!(
         over360,

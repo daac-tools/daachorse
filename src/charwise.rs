@@ -75,9 +75,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patterns` is empty,
     ///   - `patterns` contains entries of length zero,
-    ///   - `patterns` contains duplicate entries,
     ///   - the conversion from the index `i` to the specified type `V` fails,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
@@ -118,9 +116,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patvals` is empty,
     ///   - `patvals` contains patterns of length zero,
-    ///   - `patvals` contains duplicate patterns,
     ///   - the scale of `patvals` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
