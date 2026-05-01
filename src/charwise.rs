@@ -1296,6 +1296,7 @@ mod tests {
         let (other, rest) = CharwiseDoubleArrayAhoCorasick::deserialize(&bytes).unwrap();
         assert!(rest.is_empty());
         assert_eq!(pma.states, other.states);
+        assert_eq!(pma.mapper, other.mapper);
         assert_eq!(pma.outputs, other.outputs);
         assert_eq!(pma.match_kind, other.match_kind);
         assert_eq!(pma.num_states, other.num_states);
