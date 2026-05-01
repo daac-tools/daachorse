@@ -59,6 +59,8 @@ const AC_LEFTMOST_FIRST: TestCollection = &[BASICS, NON_OVERLAPPING, LEFTMOST, L
 /// That is, all iterators should produce the same answer.
 const BASICS: &'static [SearchTest] = &[
     t!(basic000, &[], "", &[]),
+    t!(basic0001, &[], "a", &[]),
+    t!(basic0002, &[], "abc", &[]),
     t!(basic002, &["a"], "", &[]),
     t!(basic010, &["a"], "a", &[(0, 0, 1)]),
     t!(basic020, &["a"], "aa", &[(0, 0, 1), (0, 1, 2)]),
@@ -230,6 +232,7 @@ const LEFTMOST: &'static [SearchTest] = &[
         "abcdefghz",
         &[(3, 0, 8), (0, 8, 9),]
     ),
+    t!(leftmost500, &["a", "a"], "abab", &[(0, 0, 1), (0, 2, 3)]),
 ];
 
 /// Tests for non-overlapping leftmost-first match semantics. These tests

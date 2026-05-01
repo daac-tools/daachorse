@@ -1215,7 +1215,20 @@ mod tests {
         let patterns = vec!["abba", "baaba", "ababa"];
         let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
         let bytes = pma.serialize();
-        let (other, rest) = unsafe { DoubleArrayAhoCorasick::deserialize_unchecked(&bytes) };
+        let (other, rest) = DoubleArrayAhoCorasick::deserialize(&bytes).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(pma.states, other.states);
+        assert_eq!(pma.outputs, other.outputs);
+        assert_eq!(pma.match_kind, other.match_kind);
+        assert_eq!(pma.num_states, other.num_states);
+    }
+
+    #[test]
+    fn test_serialize_empty_pma() {
+        let patterns: [&str; 0] = [];
+        let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        let bytes = pma.serialize();
+        let (other, rest) = DoubleArrayAhoCorasick::deserialize(&bytes).unwrap();
         assert!(rest.is_empty());
         assert_eq!(pma.states, other.states);
         assert_eq!(pma.outputs, other.outputs);
