@@ -207,31 +207,22 @@ where
     }
 
     pub(crate) fn build_outputs(&mut self, q: &[u32]) {
-        // The queue can be empty when the builder received zero patterns to
-        // be added to the automaton.
+        // The queue can be empty when the builder received zero patterns to be added to the
+        // automaton.
         if q.is_empty() {
             return;
         }
-
-        // The queue (built in build_fails or _leftmost) will not have the root state id,
-        // so in the following processing the output of the root state will not be handled.
-        // But, there is no problem since Daachorse does not allow an empty pattern.
         debug_assert_ne!(q[0], ROOT_STATE_ID);
 
         for &state_id in q {
             let s = &mut self.states[usize::from_u32(state_id)].borrow_mut();
-            if !s.output.is_empty() {
-                let mut last_pos = self.states[usize::from_u32(s.fail)].borrow().output_pos;
-                for output in s.output.iter().rev() {
-                    let new_pos = NonZeroU32::new(u32::try_from(self.outputs.len() + 1).unwrap());
-                    self.outputs
-                        .push(Output::new(output.0, output.1.get(), last_pos));
-                    last_pos = new_pos;
-                }
-                s.output_pos = last_pos;
-            } else {
-                s.output_pos = self.states[usize::from_u32(s.fail)].borrow().output_pos;
+            let mut last_pos = self.states[usize::from_u32(s.fail)].borrow().output_pos;
+            for output in s.output.iter().rev() {
+                self.outputs
+                    .push(Output::new(output.0, output.1.get(), last_pos));
+                last_pos = NonZeroU32::new(u32::try_from(self.outputs.len()).unwrap());
             }
+            s.output_pos = last_pos;
         }
     }
 
