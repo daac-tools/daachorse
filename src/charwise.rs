@@ -1279,8 +1279,21 @@ mod tests {
         let patterns = vec!["全世界", "世界", "に"];
         let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
         let bytes = pma.serialize();
-        let (other, rest) =
-            unsafe { CharwiseDoubleArrayAhoCorasick::deserialize_unchecked(&bytes) };
+        let (other, rest) = CharwiseDoubleArrayAhoCorasick::deserialize(&bytes).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(pma.states, other.states);
+        assert_eq!(pma.mapper, other.mapper);
+        assert_eq!(pma.outputs, other.outputs);
+        assert_eq!(pma.match_kind, other.match_kind);
+        assert_eq!(pma.num_states, other.num_states);
+    }
+
+    #[test]
+    fn test_serialize_empty_pma() {
+        let patterns: [&str; 0] = [];
+        let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        let bytes = pma.serialize();
+        let (other, rest) = CharwiseDoubleArrayAhoCorasick::deserialize(&bytes).unwrap();
         assert!(rest.is_empty());
         assert_eq!(pma.states, other.states);
         assert_eq!(pma.mapper, other.mapper);
