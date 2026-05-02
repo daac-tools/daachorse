@@ -11,10 +11,6 @@ pub enum DaachorseError {
     /// Contains [`InvalidArgumentError`].
     InvalidArgument(InvalidArgumentError),
 
-    /// Contains [`DuplicatePatternError`].
-    #[deprecated(since = "2.2.0", note = "This error is no longer returned")]
-    DuplicatePattern(DuplicatePatternError),
-
     /// Contains [`AutomatonScaleError`].
     AutomatonScale(AutomatonScaleError),
 
@@ -29,8 +25,6 @@ impl fmt::Display for DaachorseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::InvalidArgument(e) => e.fmt(f),
-            #[allow(deprecated)]
-            Self::DuplicatePattern(e) => e.fmt(f),
             Self::AutomatonScale(e) => e.fmt(f),
             Self::InvalidConversion(e) => e.fmt(f),
             Self::InvalidAutomaton(e) => e.fmt(f),

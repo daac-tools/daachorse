@@ -1193,6 +1193,21 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)] // too slow on miri
+    fn test_empty_pattern_set() {
+        let patterns: [&str; 0] = [];
+        let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+        for a in 0..=255u8 {
+            let mut it = pma.find_overlapping_iter([a]);
+            assert_eq!(None, it.next());
+            for b in 0..=255u8 {
+                let mut it = pma.find_overlapping_iter([a, b]);
+                assert_eq!(None, it.next());
+            }
+        }
+    }
+
+    #[test]
     fn test_serialize_state() {
         let mut opos_ch = U24nU8::default();
         opos_ch.set_a(U24::try_from(57).unwrap());
