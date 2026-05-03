@@ -312,6 +312,7 @@ where
                     let end = self.pos;
                     if last_output_pos == self.init_output_pos {
                         self.pos += c.len_utf8();
+                        skips = 0;
                         if self.skip_empty {
                             self.skip_empty = false;
                             continue;
