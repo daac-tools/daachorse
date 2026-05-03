@@ -235,6 +235,8 @@ where
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
     pub(crate) haystack: P,
     pub(crate) pos: usize,
+    pub(crate) init_output_pos: Option<NonZeroU32>,
+    pub(crate) skip_empty: bool,
 }
 
 impl<P, V> Iterator for LeftmostFindIterator<'_, P, V>
@@ -247,7 +249,7 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         let mut state_id = ROOT_STATE_IDX;
-        let mut last_output_pos: Option<NonZeroU32> = None;
+        let mut last_output_pos = self.init_output_pos;
 
         let haystack = self.haystack.as_ref();
         for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
@@ -256,6 +258,16 @@ where
             state_id = unsafe { self.pma.next_state_id_leftmost_unchecked(state_id, c) };
             if state_id == ROOT_STATE_IDX {
                 if let Some(output_pos) = last_output_pos {
+                    let end = self.pos;
+                    if last_output_pos == self.init_output_pos {
+                        self.pos += 1;
+                        if self.skip_empty {
+                            self.skip_empty = false;
+                            continue;
+                        }
+                    } else {
+                        self.skip_empty = true;
+                    }
                     // last_output_pos is always smaller than self.pma.outputs.len() because
                     // State::output_pos() ensures to return such a value when it is Some.
                     let out = unsafe {
@@ -265,7 +277,7 @@ where
                     };
                     return Some(Match {
                         length: usize::from_u32(out.length()),
-                        end: self.pos,
+                        end,
                         value: out.value(),
                     });
                 }
@@ -282,6 +294,9 @@ where
             }
         }
 
+        if self.pos == self.haystack.as_ref().len() {
+            self.init_output_pos.take();
+        }
         last_output_pos.map(|output_pos| {
             // last_output_pos is always smaller than self.pma.outputs.len() because
             // State::output_pos() ensures to return such a value when it is Some.
@@ -313,10 +328,27 @@ where
     /// Consumes a byte and returns a match if the current state has an output.
     #[inline(always)]
     pub fn consume(&mut self, c: u8) -> Option<Match<V>> {
+        self.pos += 1;
+        if let Some(output_pos) = unsafe {
+            self.pma
+                .states
+                .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                .output_pos()
+        } {
+            return Some(Match {
+                length: 0,
+                end: self.pos,
+                value: unsafe {
+                    self.pma
+                        .outputs
+                        .get_unchecked(usize::from_u32(output_pos.get() - 1))
+                        .value()
+                },
+            });
+        }
         // state_id is always smaller than self.pma.states.len() because
         // self.pma.next_state_id_unchecked() ensures to return such a value.
         self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
-        self.pos += 1;
         if let Some(output_pos) = unsafe {
             self.pma
                 .states
@@ -414,7 +446,7 @@ mod tests {
     #[test]
     fn test_overlapping_stepper_lifetime() {
         let pma = DoubleArrayAhoCorasick::new(["a", "ab"]).unwrap();
-        let mut stepper = pma.find_overlapping_stepper();
+        let (mut stepper, _) = pma.find_overlapping_stepper();
         let mut it1 = stepper.consume(b'a');
         let mut it2 = stepper.consume(b'b');
         assert_eq!(

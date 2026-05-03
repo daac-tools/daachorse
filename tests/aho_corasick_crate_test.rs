@@ -531,11 +531,14 @@ macro_rules! testconfig {
                     .match_kind(MatchKind::$kind)
                     .build(test.patterns)
                     .unwrap();
-                let mut stepper = pma.find_stepper();
-                test.haystack
-                    .as_bytes()
-                    .iter()
-                    .flat_map(|&b| stepper.consume(b))
+                let (mut stepper, m) = pma.find_stepper();
+                m.into_iter()
+                    .chain(
+                        test.haystack
+                            .as_bytes()
+                            .iter()
+                            .flat_map(|&b| stepper.consume(b)),
+                    )
                     .collect()
             });
         }
@@ -548,10 +551,9 @@ macro_rules! testconfig {
                     .match_kind(MatchKind::$kind)
                     .build(test.patterns)
                     .unwrap();
-                let mut stepper = pma.find_stepper();
-                test.haystack
-                    .chars()
-                    .flat_map(|c| stepper.consume(c))
+                let (mut stepper, m) = pma.find_stepper();
+                m.into_iter()
+                    .chain(test.haystack.chars().flat_map(|c| stepper.consume(c)))
                     .collect()
             });
         }
@@ -576,12 +578,14 @@ macro_rules! testconfig {
                     .match_kind(MatchKind::$kind)
                     .build(test.patterns)
                     .unwrap();
-                let mut stepper = pma.find_overlapping_stepper();
-                test.haystack
-                    .as_bytes()
-                    .iter()
-                    .flat_map(|&b| stepper.consume(b).collect::<Vec<_>>())
-                    .collect()
+                let (mut stepper, m) = pma.find_overlapping_stepper();
+                m.chain(
+                    test.haystack
+                        .as_bytes()
+                        .iter()
+                        .flat_map(|&b| stepper.consume(b).collect::<Vec<_>>()),
+                )
+                .collect()
             });
         }
     };
@@ -593,11 +597,13 @@ macro_rules! testconfig {
                     .match_kind(MatchKind::$kind)
                     .build(test.patterns)
                     .unwrap();
-                let mut stepper = pma.find_overlapping_stepper();
-                test.haystack
-                    .chars()
-                    .flat_map(|c| stepper.consume(c).collect::<Vec<_>>())
-                    .collect()
+                let (mut stepper, m) = pma.find_overlapping_stepper();
+                m.chain(
+                    test.haystack
+                        .chars()
+                        .flat_map(|c| stepper.consume(c).collect::<Vec<_>>()),
+                )
+                .collect()
             });
         }
     };

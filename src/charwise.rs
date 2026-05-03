@@ -12,14 +12,14 @@ use alloc::vec::Vec;
 pub use crate::charwise::builder::CharwiseDoubleArrayAhoCorasickBuilder;
 use crate::charwise::iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
-    FindOverlappingNoSuffixIterator, FindOverlappingStepper, FindStepper, LeftmostFindIterator,
-    StrIterator,
+    FindOverlappingNoSuffixIterator, FindOverlappingStepper, FindOverlappingStepperIterator,
+    FindStepper, LeftmostFindIterator, StrIterator,
 };
 use crate::charwise::mapper::CodeMapper;
 use crate::errors::{DaachorseError, Result};
 use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
-use crate::{MatchKind, Output};
+use crate::{Match, MatchKind, Output};
 
 // The root index position.
 const ROOT_STATE_IDX: u32 = 0;
@@ -546,10 +546,19 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             pma: self,
             haystack,
             pos: 0,
+            init_output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
+            skip_empty: false,
         }
     }
 
     /// Returns a stepper of non-overlapping matches that consumes characters one by one.
+    ///
+    /// This function returns a tuple. If the pattern set contains a zero-length string, the second
+    /// element will contain a [`Match`] struct indicating a match at the beginning of the haystack.
     ///
     /// # Panics
     ///
@@ -558,13 +567,17 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Examples
     ///
+    /// ## Example 1
+    ///
     /// ```
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// let mut stepper = pma.find_stepper();
+    /// let (mut stepper, m) = pma.find_stepper();
+    ///
+    /// assert_eq!(None, m);
     ///
     /// let m = stepper.consume('全');
     /// assert_eq!(None, m);
@@ -583,20 +596,61 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// let m = m.unwrap();
     /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value())); // に
     /// ```
+    ///
+    /// ## Example 2
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に", ""];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let (mut stepper, m) = pma.find_stepper();
+    ///
+    /// let m = m.unwrap();
+    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = stepper.consume('全');
+    /// let m = m.unwrap();
+    /// assert_eq!((3, 3, 3), (m.start(), m.end(), m.value()));
+    /// ```
     #[must_use]
-    pub fn find_stepper(&self) -> FindStepper<'_, V> {
+    pub fn find_stepper(&self) -> (FindStepper<'_, V>, Option<Match<V>>)
+    where
+        V: Copy,
+    {
         assert!(
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
         );
-        FindStepper {
-            pma: self,
-            state_id: ROOT_STATE_IDX,
-            pos: 0,
-        }
+        (
+            FindStepper {
+                pma: self,
+                state_id: ROOT_STATE_IDX,
+                pos: 0,
+            },
+            unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+                    .map(|output_pos| {
+                        let out = self
+                            .outputs
+                            .get_unchecked(usize::from_u32(output_pos.get() - 1));
+                        Match {
+                            length: 0,
+                            end: 0,
+                            value: out.value(),
+                        }
+                    })
+            },
+        )
     }
 
     /// Returns a stepper of overlapping matches that consumes characters one by one.
+    ///
+    /// This function returns a tuple. The second element contains an iterator corresponding to the
+    /// beginning of the haystack.
     ///
     /// # Panics
     ///
@@ -605,13 +659,17 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Examples
     ///
+    /// ## Example 1
+    ///
     /// ```
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
     ///
     /// let patterns = vec!["全世界", "世界", "に"];
     /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// let mut stepper = pma.find_overlapping_stepper();
+    /// let (mut stepper, mut it) = pma.find_overlapping_stepper();
+    ///
+    /// assert_eq!(None, it.next());
     ///
     /// let mut it = stepper.consume('全');
     /// assert_eq!(None, it.next());
@@ -634,17 +692,55 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value())); // に
     /// assert_eq!(None, it.next());
     /// ```
+    ///
+    /// ## Example 2
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に", ""];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let (mut stepper, mut it) = pma.find_overlapping_stepper();
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value()));
+    ///
+    /// let mut it = stepper.consume('に');
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.value()));
+    /// let m = it.next().unwrap();
+    /// assert_eq!((3, 3, 3), (m.start(), m.end(), m.value()));
+    /// assert_eq!(None, it.next());
+    /// ```
     #[must_use]
-    pub fn find_overlapping_stepper(&self) -> FindOverlappingStepper<'_, V> {
+    pub fn find_overlapping_stepper(
+        &self,
+    ) -> (
+        FindOverlappingStepper<'_, V>,
+        FindOverlappingStepperIterator<'_, V>,
+    ) {
         assert!(
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
         );
-        FindOverlappingStepper {
-            pma: self,
-            state_id: ROOT_STATE_IDX,
-            pos: 0,
-        }
+        let output_pos = unsafe {
+            self.states
+                .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                .output_pos()
+        };
+        (
+            FindOverlappingStepper {
+                pma: self,
+                state_id: ROOT_STATE_IDX,
+                pos: 0,
+            },
+            FindOverlappingStepperIterator {
+                pma: self,
+                pos: 0,
+                output_pos,
+            },
+        )
     }
 
     /// Returns the match kind for this automaton.
