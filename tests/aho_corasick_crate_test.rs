@@ -202,6 +202,18 @@ const LEFTMOST: &'static [SearchTest] = &[
         "abcdefghz",
         &[(3, 0, 8), (0, 8, 9),]
     ),
+    t!(
+        leftmost_daachorse500,
+        &["a", "xyz", ""],
+        "axyw",
+        &[(0, 0, 1), (2, 2, 2), (2, 3, 3), (2, 4, 4)]
+    ),
+    t!(
+        leftmost_daachorse501,
+        &["a", "xyz", ""],
+        "axywa",
+        &[(0, 0, 1), (2, 2, 2), (2, 3, 3), (0, 4, 5)]
+    ),
 ];
 
 /// Tests for non-overlapping leftmost-first match semantics. These tests

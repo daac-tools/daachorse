@@ -300,51 +300,54 @@ where
         let mut state_id = ROOT_STATE_IDX;
         let mut last_output_pos: Option<NonZeroU32> = self.init_output_pos;
 
-        let mut skips = 0;
-        for c in unsafe { self.haystack.as_ref().get_unchecked(self.pos..) }.chars() {
-            skips += c.len_utf8();
+        'a: loop {
+            let mut skips = 0;
+            for c in unsafe { self.haystack.as_ref().get_unchecked(self.pos..) }.chars() {
+                skips += c.len_utf8();
 
-            // state_id is always smaller than self.pma.states.len() because
-            // self.pma.next_state_id_leftmost_unchecked() ensures to return such a value.
-            state_id = unsafe { self.pma.next_state_id_leftmost_unchecked(state_id, c) };
-            if state_id == ROOT_STATE_IDX {
-                if let Some(output_pos) = last_output_pos {
-                    let end = self.pos;
-                    if last_output_pos == self.init_output_pos {
-                        self.pos += c.len_utf8();
-                        skips = 0;
-                        if self.skip_empty {
-                            self.skip_empty = false;
-                            continue;
+                // state_id is always smaller than self.pma.states.len() because
+                // self.pma.next_state_id_leftmost_unchecked() ensures to return such a value.
+                state_id = unsafe { self.pma.next_state_id_leftmost_unchecked(state_id, c) };
+                if state_id == ROOT_STATE_IDX {
+                    if let Some(output_pos) = last_output_pos {
+                        let end = self.pos;
+                        if last_output_pos == self.init_output_pos {
+                            self.pos += c.len_utf8();
+                            skips = 0;
+                            if self.skip_empty {
+                                self.skip_empty = false;
+                                continue 'a;
+                            }
+                        } else {
+                            self.skip_empty = true;
                         }
-                    } else {
-                        self.skip_empty = true;
+                        // last_output_pos is always smaller than self.pma.outputs.len() because
+                        // State::output_pos() ensures to return such a value when it is Some.
+                        let out = unsafe {
+                            self.pma
+                                .outputs
+                                .get_unchecked(usize::from_u32(output_pos.get() - 1))
+                        };
+                        return Some(Match {
+                            length: usize::from_u32(out.length()),
+                            end,
+                            value: out.value(),
+                        });
                     }
-                    // last_output_pos is always smaller than self.pma.outputs.len() because
-                    // State::output_pos() ensures to return such a value when it is Some.
-                    let out = unsafe {
-                        self.pma
-                            .outputs
-                            .get_unchecked(usize::from_u32(output_pos.get() - 1))
-                    };
-                    return Some(Match {
-                        length: usize::from_u32(out.length()),
-                        end,
-                        value: out.value(),
-                    });
+                // state_id is always smaller than self.pma.states.len() because
+                // self.pma.next_state_id_leftmost_unchecked() ensures to return such a value.
+                } else if let Some(output_pos) = unsafe {
+                    self.pma
+                        .states
+                        .get_unchecked(usize::from_u32(state_id))
+                        .output_pos()
+                } {
+                    last_output_pos.replace(output_pos);
+                    self.pos += skips;
+                    skips = 0;
                 }
-            // state_id is always smaller than self.pma.states.len() because
-            // self.pma.next_state_id_leftmost_unchecked() ensures to return such a value.
-            } else if let Some(output_pos) = unsafe {
-                self.pma
-                    .states
-                    .get_unchecked(usize::from_u32(state_id))
-                    .output_pos()
-            } {
-                last_output_pos.replace(output_pos);
-                self.pos += skips;
-                skips = 0;
             }
+            break;
         }
 
         if self.pos == self.haystack.as_ref().len() {

@@ -162,6 +162,19 @@ where
         {
             q.push(child_id);
         }
+        if !self.states[usize::from_u32(ROOT_STATE_ID)]
+            .borrow_mut()
+            .output
+            .is_empty()
+        {
+            for &child_id in self.states[usize::from_u32(ROOT_STATE_ID)]
+                .borrow()
+                .edges
+                .values()
+            {
+                self.states[usize::from_u32(child_id)].borrow_mut().fail = DEAD_STATE_ID;
+            }
+        }
 
         let mut qi = 0;
         while qi < q.len() {
