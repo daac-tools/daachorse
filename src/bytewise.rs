@@ -68,7 +68,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patterns` contains entries of length zero,
     ///   - the conversion from the index `i` to the specified type `V` fails,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
@@ -109,7 +108,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patvals` contains patterns of length zero,
     ///   - the scale of `patvals` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -813,7 +811,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// This function verifies that the input automaton data will not cause out-of-bounds memory
     /// access within this crate; however, it does not verify that the data is a valid
     /// Aho-Corasick automaton. Consequently, if malformed data is provided, it may lead to
-    /// infinite loops or cause [`Match`](crate::Match) to return inaccurate ranges. Use this
+    /// infinite loops or cause [`Match`] to return inaccurate ranges. Use this
     /// function only if you can tolerate such errors.
     ///
     /// # Arguments

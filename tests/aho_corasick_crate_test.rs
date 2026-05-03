@@ -1,9 +1,12 @@
+#![cfg_attr(rustfmt, rustfmt_skip)]
+
 use daachorse::{
     CharwiseDoubleArrayAhoCorasickBuilder, DoubleArrayAhoCorasickBuilder, Match, MatchKind,
 };
 
-/// The following test suites are copied from
-/// [aho-corasick crate](https://github.com/BurntSushi/aho-corasick/blob/master/src/tests.rs).
+/// Most of the following tests were copied from,
+/// [the aho-corasick crate](https://github.com/BurntSushi/aho-corasick/blob/master/src/tests.rs),
+/// but we have also included some of our own tests.
 ///
 /// A description of a single test against an Aho-Corasick automaton.
 ///
@@ -59,8 +62,8 @@ const AC_LEFTMOST_FIRST: TestCollection = &[BASICS, NON_OVERLAPPING, LEFTMOST, L
 /// That is, all iterators should produce the same answer.
 const BASICS: &'static [SearchTest] = &[
     t!(basic000, &[], "", &[]),
-    t!(basic0001, &[], "a", &[]),
-    t!(basic0002, &[], "abc", &[]),
+    t!(basic_daachorse001, &[], "a", &[]),
+    t!(basic_daachorse002, &[], "abc", &[]),
     t!(basic001, &[""], "a", &[(0, 0, 0), (0, 1, 1)]),
     t!(basic002, &["a"], "", &[]),
     t!(basic010, &["a"], "a", &[(0, 0, 1)]),
@@ -69,12 +72,7 @@ const BASICS: &'static [SearchTest] = &[
     t!(basic040, &["a"], "aba", &[(0, 0, 1), (0, 2, 3)]),
     t!(basic050, &["a"], "bba", &[(0, 2, 3)]),
     t!(basic060, &["a"], "bbb", &[]),
-    t!(
-        basic070,
-        &["a"],
-        "bababbbba",
-        &[(0, 1, 2), (0, 3, 4), (0, 8, 9)]
-    ),
+    t!(basic070, &["a"], "bababbbba", &[(0, 1, 2), (0, 3, 4), (0, 8, 9)]),
     t!(basic100, &["aa"], "", &[]),
     t!(basic110, &["aa"], "aa", &[(0, 0, 2)]),
     t!(basic120, &["aa"], "aabbaa", &[(0, 0, 2), (0, 4, 6)]),
@@ -101,54 +99,19 @@ const BASICS: &'static [SearchTest] = &[
     ),
     t!(basic360, &["abc", "bc"], "xbc", &[(1, 1, 3),]),
     t!(basic400, &["foo", "bar"], "", &[]),
-    t!(
-        basic410,
-        &["foo", "bar"],
-        "foobar",
-        &[(0, 0, 3), (1, 3, 6),]
-    ),
-    t!(
-        basic420,
-        &["foo", "bar"],
-        "barfoo",
-        &[(1, 0, 3), (0, 3, 6),]
-    ),
-    t!(
-        basic430,
-        &["foo", "bar"],
-        "foofoo",
-        &[(0, 0, 3), (0, 3, 6),]
-    ),
-    t!(
-        basic440,
-        &["foo", "bar"],
-        "barbar",
-        &[(1, 0, 3), (1, 3, 6),]
-    ),
+    t!(basic410, &["foo", "bar"], "foobar", &[(0, 0, 3), (1, 3, 6),]),
+    t!(basic420, &["foo", "bar"], "barfoo", &[(1, 0, 3), (0, 3, 6),]),
+    t!(basic430, &["foo", "bar"], "foofoo", &[(0, 0, 3), (0, 3, 6),]),
+    t!(basic440, &["foo", "bar"], "barbar", &[(1, 0, 3), (1, 3, 6),]),
     t!(basic450, &["foo", "bar"], "bafofoo", &[(0, 4, 7),]),
     t!(basic460, &["bar", "foo"], "bafofoo", &[(1, 4, 7),]),
     t!(basic470, &["foo", "bar"], "fobabar", &[(1, 4, 7),]),
     t!(basic480, &["bar", "foo"], "fobabar", &[(0, 4, 7),]),
     t!(basic600, &[""], "", &[(0, 0, 0)]),
     t!(basic610, &[""], "a", &[(0, 0, 0), (0, 1, 1)]),
-    t!(
-        basic620,
-        &[""],
-        "abc",
-        &[(0, 0, 0), (0, 1, 1), (0, 2, 2), (0, 3, 3)]
-    ),
-    t!(
-        basic700,
-        &["yabcdef", "abcdezghi"],
-        "yabcdefghi",
-        &[(0, 0, 7),]
-    ),
-    t!(
-        basic710,
-        &["yabcdef", "abcdezghi"],
-        "yabcdezghi",
-        &[(1, 1, 10),]
-    ),
+    t!(basic620, &[""], "abc", &[(0, 0, 0), (0, 1, 1), (0, 2, 2), (0, 3, 3)]),
+    t!(basic700, &["yabcdef", "abcdezghi"], "yabcdefghi", &[(0, 0, 7),]),
+    t!(basic710, &["yabcdef", "abcdezghi"], "yabcdezghi", &[(1, 1, 10),]),
     t!(
         basic720,
         &["yabcdef", "bcdeyabc", "abcdezghi"],
@@ -176,12 +139,7 @@ const STANDARD: &'static [SearchTest] = &[
         &[(3, 1, 2), (2, 2, 4),]
     ),
     t!(standard410, &["", "a"], "a", &[(0, 0, 0), (0, 1, 1),]),
-    t!(
-        standard420,
-        &["", "a"],
-        "aa",
-        &[(0, 0, 0), (0, 1, 1), (0, 2, 2),]
-    ),
+    t!(standard420, &["", "a"], "aa", &[(0, 0, 0), (0, 1, 1), (0, 2, 2),]),
     t!(standard430, &["", "a", ""], "a", &[(0, 0, 0), (0, 1, 1),]),
     t!(standard440, &["a", "", ""], "a", &[(1, 0, 0), (1, 1, 1),]),
     t!(standard450, &["", "", "a"], "a", &[(0, 0, 0), (0, 1, 1),]),
@@ -195,29 +153,16 @@ const LEFTMOST: &'static [SearchTest] = &[
     t!(leftmost000, &["ab", "ab"], "abcd", &[(0, 0, 2)]),
     t!(leftmost010, &["a", ""], "a", &[(0, 0, 1)]),
     t!(leftmost011, &["a", ""], "ab", &[(0, 0, 1), (1, 2, 2)]),
+    t!(leftmost_daachorse001, &["a", ""], "ba", &[(1, 0, 0), (0, 1, 2)]),
+    t!(leftmost_daachorse002, &["a", "a"], "abab", &[(0, 0, 1), (0, 2, 3)]),
     t!(leftmost020, &["", ""], "a", &[(0, 0, 0), (0, 1, 1)]),
     t!(leftmost030, &["a", "ab"], "aa", &[(0, 0, 1), (0, 1, 2)]),
     t!(leftmost031, &["ab", "a"], "aa", &[(1, 0, 1), (1, 1, 2)]),
-    t!(
-        leftmost032,
-        &["ab", "a"],
-        "xayabbbz",
-        &[(1, 1, 2), (0, 3, 5)]
-    ),
+    t!(leftmost032, &["ab", "a"], "xayabbbz", &[(1, 1, 2), (0, 3, 5)]),
     t!(leftmost300, &["abcd", "bce", "b"], "abce", &[(1, 1, 4)]),
     t!(leftmost310, &["abcd", "ce", "bc"], "abce", &[(2, 1, 3)]),
-    t!(
-        leftmost320,
-        &["abcd", "bce", "ce", "b"],
-        "abce",
-        &[(1, 1, 4)]
-    ),
-    t!(
-        leftmost330,
-        &["abcd", "bce", "cz", "bc"],
-        "abcz",
-        &[(3, 1, 3)]
-    ),
+    t!(leftmost320, &["abcd", "bce", "ce", "b"], "abce", &[(1, 1, 4)]),
+    t!(leftmost330, &["abcd", "bce", "cz", "bc"], "abcz", &[(3, 1, 3)]),
     t!(leftmost340, &["bce", "cz", "bc"], "bcz", &[(2, 0, 2)]),
     t!(leftmost350, &["abc", "bd", "ab"], "abd", &[(2, 0, 2)]),
     t!(
@@ -256,7 +201,6 @@ const LEFTMOST: &'static [SearchTest] = &[
         "abcdefghz",
         &[(3, 0, 8), (0, 8, 9),]
     ),
-    t!(leftmost500, &["a", "a"], "abab", &[(0, 0, 1), (0, 2, 3)]),
 ];
 
 /// Tests for non-overlapping leftmost-first match semantics. These tests
@@ -272,24 +216,9 @@ const LEFTMOST_FIRST: &'static [SearchTest] = &[
     t!(leftfirst015, &["a", ""], "ab", &[(0, 0, 1), (1, 2, 2)]),
     t!(leftfirst020, &["abcd", "ab"], "abcd", &[(0, 0, 4)]),
     t!(leftfirst030, &["ab", "ab"], "abcd", &[(0, 0, 2)]),
-    t!(
-        leftfirst040,
-        &["a", "ab"],
-        "xayabbbz",
-        &[(0, 1, 2), (0, 3, 4)]
-    ),
-    t!(
-        leftfirst100,
-        &["abcdefg", "bcde", "bcdef"],
-        "abcdef",
-        &[(1, 1, 5)]
-    ),
-    t!(
-        leftfirst110,
-        &["abcdefg", "bcdef", "bcde"],
-        "abcdef",
-        &[(1, 1, 6)]
-    ),
+    t!(leftfirst040, &["a", "ab"], "xayabbbz", &[(0, 1, 2), (0, 3, 4)]),
+    t!(leftfirst100, &["abcdefg", "bcde", "bcdef"], "abcdef", &[(1, 1, 5)]),
+    t!(leftfirst110, &["abcdefg", "bcdef", "bcde"], "abcdef", &[(1, 1, 6)]),
     t!(leftfirst300, &["abcd", "b", "bce"], "abce", &[(1, 1, 2)]),
     t!(
         leftfirst310,
@@ -303,12 +232,8 @@ const LEFTMOST_FIRST: &'static [SearchTest] = &[
         "abcdefghz",
         &[(0, 0, 1), (2, 7, 9),]
     ),
-    t!(
-        leftfirst330,
-        &["a", "abab"],
-        "abab",
-        &[(0, 0, 1), (0, 2, 3)]
-    ),
+    t!(leftfirst330, &["a", "abab"], "abab", &[(0, 0, 1), (0, 2, 3)]),
+    t!(leftfirst400, &["amwix", "samwise", "sam"], "Zsamwix", &[(2, 1, 4)]),
 ];
 
 /// Tests for non-overlapping leftmost-longest match semantics. These tests
@@ -316,12 +241,7 @@ const LEFTMOST_FIRST: &'static [SearchTest] = &[
 /// generally fail under leftmost-first semantics.
 const LEFTMOST_LONGEST: &'static [SearchTest] = &[
     t!(leftlong000, &["ab", "abcd"], "abcd", &[(1, 0, 4)]),
-    t!(
-        leftlong010,
-        &["abcd", "bcd", "cd", "b"],
-        "abcd",
-        &[(0, 0, 4),]
-    ),
+    t!(leftlong010, &["abcd", "bcd", "cd", "b"], "abcd", &[(0, 0, 4),]),
     t!(leftlong020, &["", "a"], "a", &[(1, 0, 1)]),
     t!(leftlong021, &["", "a", ""], "a", &[(1, 0, 1)]),
     t!(leftlong022, &["a", "", ""], "a", &[(0, 0, 1)]),
@@ -332,18 +252,8 @@ const LEFTMOST_LONGEST: &'static [SearchTest] = &[
     t!(leftlong050, &["a", "ab"], "ab", &[(1, 0, 2)]),
     t!(leftlong060, &["ab", "a"], "a", &[(1, 0, 1)]),
     t!(leftlong070, &["ab", "a"], "ab", &[(0, 0, 2)]),
-    t!(
-        leftlong100,
-        &["abcdefg", "bcde", "bcdef"],
-        "abcdef",
-        &[(2, 1, 6)]
-    ),
-    t!(
-        leftlong110,
-        &["abcdefg", "bcdef", "bcde"],
-        "abcdef",
-        &[(1, 1, 6)]
-    ),
+    t!(leftlong100, &["abcdefg", "bcde", "bcdef"], "abcdef", &[(2, 1, 6)]),
+    t!(leftlong110, &["abcdefg", "bcdef", "bcde"], "abcdef", &[(1, 1, 6)]),
     t!(leftlong300, &["abcd", "b", "bce"], "abce", &[(2, 1, 4)]),
     t!(
         leftlong310,
@@ -352,18 +262,8 @@ const LEFTMOST_LONGEST: &'static [SearchTest] = &[
         &[(3, 0, 8),]
     ),
     t!(leftlong320, &["a", "abab"], "abab", &[(1, 0, 4)]),
-    t!(
-        leftlong330,
-        &["abcd", "b", "ce"],
-        "abce",
-        &[(1, 1, 2), (2, 2, 4),]
-    ),
-    t!(
-        leftlong340,
-        &["a", "ab"],
-        "xayabbbz",
-        &[(0, 1, 2), (1, 3, 5)]
-    ),
+    t!(leftlong330, &["abcd", "b", "ce"], "abce", &[(1, 1, 2), (2, 2, 4),]),
+    t!(leftlong340, &["a", "ab"], "xayabbbz", &[(0, 1, 2), (1, 3, 5)]),
 ];
 
 /// Tests for non-overlapping match semantics.
@@ -374,19 +274,14 @@ const NON_OVERLAPPING: &'static [SearchTest] = &[
     t!(nover010, &["abcd", "bcd", "cd"], "abcd", &[(0, 0, 4),]),
     t!(nover020, &["bcd", "cd", "abcd"], "abcd", &[(2, 0, 4),]),
     t!(nover030, &["abc", "bc"], "zazabcz", &[(0, 3, 6),]),
-    t!(nover040, &["abc", "abc"], "abcabc", &[(0, 0, 3), (0, 3, 6)]),
+    t!(nover_daachorse001, &["abc", "abc"], "abcabc", &[(0, 0, 3), (0, 3, 6)]),
     t!(
         nover100,
         &["ab", "ba"],
         "abababa",
         &[(0, 0, 2), (0, 2, 4), (0, 4, 6),]
     ),
-    t!(
-        nover200,
-        &["foo", "foo"],
-        "foobarfoo",
-        &[(0, 0, 3), (0, 6, 9),]
-    ),
+    t!(nover200, &["foo", "foo"], "foobarfoo", &[(0, 0, 3), (0, 6, 9),]),
     t!(nover300, &["", ""], "", &[(0, 0, 0),]),
     t!(nover310, &["", ""], "a", &[(0, 0, 0), (0, 1, 1),]),
 ];
@@ -431,14 +326,7 @@ const OVERLAPPING: &'static [SearchTest] = &[
         over100,
         &["ab", "ba"],
         "abababa",
-        &[
-            (0, 0, 2),
-            (1, 1, 3),
-            (0, 2, 4),
-            (1, 3, 5),
-            (0, 4, 6),
-            (1, 5, 7),
-        ]
+        &[(0, 0, 2), (1, 1, 3), (0, 2, 4), (1, 3, 5), (0, 4, 6), (1, 5, 7),]
     ),
     t!(
         over200,
@@ -453,12 +341,7 @@ const OVERLAPPING: &'static [SearchTest] = &[
         "a",
         &[(0, 0, 0), (1, 0, 0), (0, 1, 1), (1, 1, 1),]
     ),
-    t!(
-        over320,
-        &["", "a"],
-        "a",
-        &[(0, 0, 0), (1, 0, 1), (0, 1, 1),]
-    ),
+    t!(over320, &["", "a"], "a", &[(0, 0, 0), (1, 0, 1), (0, 1, 1),]),
     t!(
         over330,
         &["", "a", ""],
