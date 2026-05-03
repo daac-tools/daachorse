@@ -183,6 +183,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
         FindIterator {
             pma: self,
             haystack: U8SliceIterator::new(haystack).enumerate(),
+            first_call: true,
         }
     }
 
@@ -228,6 +229,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
         FindIterator {
             pma: self,
             haystack: haystack.enumerate(),
+            first_call: true,
         }
     }
 
@@ -278,7 +280,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
             pma: self,
             haystack: U8SliceIterator::new(haystack).enumerate(),
             state_id: ROOT_STATE_IDX,
-            output_pos: None,
+            output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
             pos: 0,
         }
     }
@@ -332,7 +338,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
             pma: self,
             haystack: haystack.enumerate(),
             state_id: ROOT_STATE_IDX,
-            output_pos: None,
+            output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
             pos: 0,
         }
     }

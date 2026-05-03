@@ -187,6 +187,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         FindIterator {
             pma: self,
             haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
+            first_call: true,
         }
     }
 
@@ -236,6 +237,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         FindIterator {
             pma: self,
             haystack: CharWithEndOffsetIterator::new(haystack),
+            first_call: true,
         }
     }
 
@@ -287,7 +289,11 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
             state_id: ROOT_STATE_IDX,
             pos: 0,
-            output_pos: None,
+            output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
         }
     }
 
@@ -345,7 +351,11 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             haystack: CharWithEndOffsetIterator::new(haystack),
             state_id: ROOT_STATE_IDX,
             pos: 0,
-            output_pos: None,
+            output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
         }
     }
 

@@ -36,7 +36,7 @@ type EdgeMap<L> = alloc::collections::BTreeMap<L, u32>;
 pub struct NfaBuilderState<L, V> {
     pub(crate) edges: EdgeMap<L>,
     pub(crate) fail: u32,
-    pub(crate) output: Vec<(V, NonZeroU32)>,
+    pub(crate) output: Vec<(V, u32)>,
     pub(crate) output_pos: Option<NonZeroU32>,
 }
 
@@ -83,8 +83,6 @@ where
             .fold(0, |acc, c| acc + c.num_bytes())
             .try_into()
             .map_err(|_| DaachorseError::invalid_argument("pattern.len()", "<=", u32::MAX))?;
-        let pattern_len = NonZeroU32::new(pattern_len)
-            .ok_or_else(|| DaachorseError::invalid_argument("pattern.len()", ">=", 1))?;
 
         let mut state_id = ROOT_STATE_ID;
         for &c in pattern {
@@ -207,19 +205,20 @@ where
     }
 
     pub(crate) fn build_outputs(&mut self, q: &[u32]) {
-        // The queue can be empty when the builder received zero patterns to be added to the
-        // automaton.
-        if q.is_empty() {
-            return;
+        {
+            let s = &mut self.states[usize::from_u32(ROOT_STATE_ID)].borrow_mut();
+            let mut last_pos = None;
+            for output in s.output.iter().rev() {
+                self.outputs.push(Output::new(output.0, output.1, last_pos));
+                last_pos = NonZeroU32::new(u32::try_from(self.outputs.len()).unwrap());
+            }
+            s.output_pos = last_pos;
         }
-        debug_assert_ne!(q[0], ROOT_STATE_ID);
-
         for &state_id in q {
             let s = &mut self.states[usize::from_u32(state_id)].borrow_mut();
             let mut last_pos = self.states[usize::from_u32(s.fail)].borrow().output_pos;
             for output in s.output.iter().rev() {
-                self.outputs
-                    .push(Output::new(output.0, output.1.get(), last_pos));
+                self.outputs.push(Output::new(output.0, output.1, last_pos));
                 last_pos = NonZeroU32::new(u32::try_from(self.outputs.len()).unwrap());
             }
             s.output_pos = last_pos;
