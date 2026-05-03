@@ -56,42 +56,35 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        let mut state_id = ROOT_STATE_IDX;
-        if let Some(output_pos) = unsafe {
-            self.pma
+        unsafe {
+            if let Some(output_pos) = self
+                .pma
                 .states
-                .get_unchecked(usize::from_u32(state_id))
+                .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
                 .output_pos()
-        } {
-            unsafe {
+            {
+                let value = self
+                    .pma
+                    .outputs
+                    .get_unchecked(usize::from_u32(output_pos.get() - 1))
+                    .value();
                 return if self.first_call {
                     self.first_call = false;
-                    let value = self
-                        .pma
-                        .outputs
-                        .get_unchecked(usize::from_u32(output_pos.get() - 1))
-                        .value();
                     Some(Match {
                         length: 0,
                         end: 0,
                         value,
                     })
-                } else if let Some((pos, _)) = self.haystack.next() {
-                    let value = self
-                        .pma
-                        .outputs
-                        .get_unchecked(usize::from_u32(output_pos.get() - 1))
-                        .value();
-                    Some(Match {
+                } else {
+                    self.haystack.next().map(|(pos, _)| Match {
                         length: 0,
                         end: pos + 1,
                         value,
                     })
-                } else {
-                    None
                 };
             }
         }
+        let mut state_id = ROOT_STATE_IDX;
         for (pos, c) in self.haystack.by_ref() {
             // state_id is always smaller than self.pma.states.len() because
             // self.pma.next_state_id_unchecked() ensures to return such a value.
@@ -329,22 +322,23 @@ where
     #[inline(always)]
     pub fn consume(&mut self, c: u8) -> Option<Match<V>> {
         self.pos += 1;
-        if let Some(output_pos) = unsafe {
-            self.pma
+        unsafe {
+            if let Some(output_pos) = self
+                .pma
                 .states
                 .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
                 .output_pos()
-        } {
-            return Some(Match {
-                length: 0,
-                end: self.pos,
-                value: unsafe {
-                    self.pma
+            {
+                return Some(Match {
+                    length: 0,
+                    end: self.pos,
+                    value: self
+                        .pma
                         .outputs
                         .get_unchecked(usize::from_u32(output_pos.get() - 1))
-                        .value()
-                },
-            });
+                        .value(),
+                });
+            }
         }
         // state_id is always smaller than self.pma.states.len() because
         // self.pma.next_state_id_unchecked() ensures to return such a value.
