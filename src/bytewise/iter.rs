@@ -181,6 +181,7 @@ pub struct FindOverlappingNoSuffixIterator<'a, P, V> {
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
     pub(crate) haystack: Enumerate<P>,
     pub(crate) state_id: u32,
+    pub(crate) first_call: bool,
 }
 
 impl<P, V> Iterator for FindOverlappingNoSuffixIterator<'_, P, V>
@@ -192,6 +193,28 @@ where
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
+        if self.first_call {
+            self.first_call = false;
+            unsafe {
+                if let Some(output_pos) = self
+                    .pma
+                    .states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+                {
+                    let value = self
+                        .pma
+                        .outputs
+                        .get_unchecked(usize::from_u32(output_pos.get() - 1))
+                        .value();
+                    return Some(Match {
+                        length: 0,
+                        end: 0,
+                        value,
+                    });
+                }
+            }
+        }
         for (pos, c) in self.haystack.by_ref() {
             // self.state_id is always smaller than self.pma.states.len() because
             // self.pma.next_state_id_unchecked() ensures to return such a value.

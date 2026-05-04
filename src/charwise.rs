@@ -151,8 +151,8 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// when a pattern is found. The next search resumes from the end of the previously found
     /// pattern.
     ///
-    /// If the set contains an empty string, all other patterns are ignored, and it will only match
-    /// between characters.
+    /// If the set contains an empty string (length 0), all other patterns are ignored, and it will
+    /// only match between character positions.
     ///
     /// # Arguments
     ///
@@ -378,7 +378,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
 
     /// Returns an iterator of overlapping matches without suffixes in the given haystack.
     ///
-    /// The behavior of the iterator returned by this function is fundamentally similar to
+    /// The behavior of the iterator returned by this function is similar to
     /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`], except that upon reaching a
     /// given position, it yields only the single longest pattern ending at that position.
     ///
@@ -426,6 +426,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             pma: self,
             haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
             state_id: ROOT_STATE_IDX,
+            first_call: true,
         }
     }
 
@@ -482,6 +483,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             pma: self,
             haystack: CharWithEndOffsetIterator::new(haystack),
             state_id: ROOT_STATE_IDX,
+            first_call: true,
         }
     }
 
@@ -499,8 +501,8 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match corresponding to the
     ///    pattern earlier registered to the automaton.
     ///
-    /// If the pattern set contains an empty string, the empty string matches at all positions
-    /// between characters that do not overlap with other patterns.
+    /// If the pattern set contains an empty string (length 0), the empty string matches at all
+    /// positions between characters that do not overlap with other patterns.
     ///
     /// # Arguments
     ///

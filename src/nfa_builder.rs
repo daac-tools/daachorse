@@ -163,7 +163,7 @@ where
             q.push(child_id);
         }
         if !self.states[usize::from_u32(ROOT_STATE_ID)]
-            .borrow_mut()
+            .borrow()
             .output
             .is_empty()
         {
