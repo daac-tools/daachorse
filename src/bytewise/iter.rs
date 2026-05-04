@@ -345,58 +345,57 @@ pub struct FindStepper<'a, V> {
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
     pub(crate) state_id: u32,
     pub(crate) pos: usize,
+    pub(crate) output_pos: Option<NonZeroU32>,
 }
 
 impl<V> FindStepper<'_, V>
 where
     V: Copy,
 {
-    /// Consumes a byte and returns a match if the current state has an output.
+    /// Consumes one byte and transitions the state.
     #[inline(always)]
-    pub fn consume(&mut self, c: u8) -> Option<Match<V>> {
+    pub fn consume(&mut self, c: u8) {
         self.pos += 1;
+        // state_id is always smaller than self.pma.states.len() because
+        // self.pma.next_state_id_unchecked() ensures to return such a value.
         unsafe {
-            if let Some(output_pos) = self
+            if self
                 .pma
                 .states
                 .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
                 .output_pos()
+                .is_some()
             {
-                return Some(Match {
-                    length: 0,
-                    end: self.pos,
-                    value: self
-                        .pma
-                        .outputs
-                        .get_unchecked(usize::from_u32(output_pos.get() - 1))
-                        .value(),
-                });
+                return;
             }
-        }
-        // state_id is always smaller than self.pma.states.len() because
-        // self.pma.next_state_id_unchecked() ensures to return such a value.
-        self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
-        if let Some(output_pos) = unsafe {
-            self.pma
+            self.state_id = self.pma.next_state_id_unchecked(self.state_id, c);
+            self.output_pos = self
+                .pma
                 .states
                 .get_unchecked(usize::from_u32(self.state_id))
-                .output_pos()
-        } {
+                .output_pos();
+        }
+        if self.output_pos.is_some() {
+            self.state_id = ROOT_STATE_IDX;
+        }
+    }
+
+    /// Returns the match at the current state, if any.
+    #[inline(always)]
+    pub fn matches(&self) -> Option<Match<V>> {
+        self.output_pos.map(|output_pos| unsafe {
             // output_pos is always smaller than self.pma.outputs.len() because
             // State::output_pos() ensures to return such a value when it is Some.
-            let out = unsafe {
-                self.pma
-                    .outputs
-                    .get_unchecked(usize::from_u32(output_pos.get() - 1))
-            };
-            self.state_id = ROOT_STATE_IDX;
-            return Some(Match {
+            let out = self
+                .pma
+                .outputs
+                .get_unchecked(usize::from_u32(output_pos.get() - 1));
+            Match {
                 length: usize::from_u32(out.length()),
                 end: self.pos,
                 value: out.value(),
-            });
-        }
-        None
+            }
+        })
     }
 }
 
@@ -445,19 +444,26 @@ impl<'a, V> FindOverlappingStepper<'a, V>
 where
     V: Copy,
 {
-    /// Consumes a byte and returns an iterator that yields matches.
+    /// Consumes one byte and transitions the state.
     #[inline(always)]
-    pub fn consume(&mut self, c: u8) -> FindOverlappingStepperIterator<'a, V> {
+    pub fn consume(&mut self, c: u8) {
         // self.state_id is always smaller than self.pma.states.len() because
         // self.pma.next_state_id_unchecked() ensures to return such a value.
         self.state_id = unsafe { self.pma.next_state_id_unchecked(self.state_id, c) };
+        self.pos += 1;
+    }
+
+    /// Returns an iterator that yields matches at the current position.
+    #[inline(always)]
+    pub fn matches(&self) -> FindOverlappingStepperIterator<'a, V> {
         let output_pos = unsafe {
+            // self.state_id is always smaller than self.pma.states.len() because
+            // self.pma.next_state_id_unchecked() ensures to return such a value.
             self.pma
                 .states
                 .get_unchecked(usize::from_u32(self.state_id))
                 .output_pos()
         };
-        self.pos += 1;
         FindOverlappingStepperIterator {
             pma: self.pma,
             pos: self.pos,
@@ -503,9 +509,11 @@ mod tests {
     #[test]
     fn test_overlapping_stepper_lifetime() {
         let pma = DoubleArrayAhoCorasick::new(["a", "ab"]).unwrap();
-        let (mut stepper, _) = pma.find_overlapping_stepper();
-        let mut it1 = stepper.consume(b'a');
-        let mut it2 = stepper.consume(b'b');
+        let mut stepper = pma.find_overlapping_stepper();
+        stepper.consume(b'a');
+        let mut it1 = stepper.matches();
+        stepper.consume(b'b');
+        let mut it2 = stepper.matches();
         assert_eq!(
             Some(Match {
                 length: 1,

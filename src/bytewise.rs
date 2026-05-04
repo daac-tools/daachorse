@@ -561,9 +561,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_iter()`] function.
     ///
-    /// This function returns a tuple. If the pattern set contains a zero-length string, the second
-    /// element will contain a [`Match`] struct indicating a match at the beginning of the haystack.
-    ///
     /// # Panics
     ///
     /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
@@ -579,22 +576,25 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// let (mut stepper, m) = pma.find_stepper();
+    /// let mut stepper = pma.find_stepper();
     ///
+    /// let m = stepper.matches();
     /// assert_eq!(None, m);
     ///
-    /// let m = stepper.consume(b'a');
-    /// let m = m.unwrap();
+    /// stepper.consume(b'a');
+    /// let m = stepper.matches().unwrap();
     /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value())); // a
     ///
-    /// let m = stepper.consume(b'b');
+    /// stepper.consume(b'b');
+    /// let m = stepper.matches();
     /// assert_eq!(None, m);
     ///
-    /// let m = stepper.consume(b'c');
+    /// stepper.consume(b'c');
+    /// let m = stepper.matches();
     /// assert_eq!(None, m);
     ///
-    /// let m = stepper.consume(b'd');
-    /// let m = m.unwrap();
+    /// stepper.consume(b'd');
+    /// let m = stepper.matches().unwrap();
     /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value())); // bcd
     /// ```
     ///
@@ -606,17 +606,17 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// let patterns = vec!["bcd", "ab", "a", ""];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// let (mut stepper, m) = pma.find_stepper();
+    /// let mut stepper = pma.find_stepper();
     ///
-    /// let m = m.unwrap();
+    /// let m = stepper.matches().unwrap();
     /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value()));
     ///
-    /// let m = stepper.consume(b'a');
-    /// let m = m.unwrap();
+    /// stepper.consume(b'a');
+    /// let m = stepper.matches().unwrap();
     /// assert_eq!((1, 1, 3), (m.start(), m.end(), m.value()));
     /// ```
     #[must_use]
-    pub fn find_stepper(&self) -> (FindStepper<'_, V>, Option<Match<V>>)
+    pub fn find_stepper(&self) -> FindStepper<'_, V>
     where
         V: Copy,
     {
@@ -624,37 +624,22 @@ impl<V> DoubleArrayAhoCorasick<V> {
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
         );
-        (
-            FindStepper {
-                pma: self,
-                state_id: ROOT_STATE_IDX,
-                pos: 0,
-            },
-            unsafe {
+        FindStepper {
+            pma: self,
+            state_id: ROOT_STATE_IDX,
+            pos: 0,
+            output_pos: unsafe {
                 self.states
                     .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
                     .output_pos()
-                    .map(|output_pos| {
-                        let out = self
-                            .outputs
-                            .get_unchecked(usize::from_u32(output_pos.get() - 1));
-                        Match {
-                            length: 0,
-                            end: 0,
-                            value: out.value(),
-                        }
-                    })
             },
-        )
+        }
     }
 
     /// Returns a stepper of overlapping matches that consumes bytes one by one.
     ///
     /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_overlapping_iter()`]
     /// function.
-    ///
-    /// This function returns a tuple. The second element contains an iterator corresponding to the
-    /// beginning of the haystack.
     ///
     /// # Panics
     ///
@@ -671,24 +656,29 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// let (mut stepper, mut it) = pma.find_overlapping_stepper();
+    /// let mut stepper = pma.find_overlapping_stepper();
     ///
+    /// let mut it = stepper.matches();
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume(b'a');
+    /// stepper.consume(b'a');
+    /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
     /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value())); // a
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume(b'b');
+    /// stepper.consume(b'b');
+    /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
     /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value())); // ab
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume(b'c');
+    /// stepper.consume(b'c');
+    /// let mut it = stepper.matches();
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume(b'd');
+    /// stepper.consume(b'd');
+    /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
     /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value())); // bcd
     /// assert_eq!(None, it.next());
@@ -702,13 +692,15 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// let patterns = vec!["bcd", "ab", "a", ""];
     /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
     ///
-    /// let (mut stepper, mut it) = pma.find_overlapping_stepper();
+    /// let mut stepper = pma.find_overlapping_stepper();
     ///
+    /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
     /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value()));
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume(b'a');
+    /// stepper.consume(b'a');
+    /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
     /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value())); // a
     /// let m = it.next().unwrap();
@@ -716,33 +708,16 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
-    pub fn find_overlapping_stepper(
-        &self,
-    ) -> (
-        FindOverlappingStepper<'_, V>,
-        FindOverlappingStepperIterator<'_, V>,
-    ) {
+    pub fn find_overlapping_stepper(&self) -> FindOverlappingStepper<'_, V> {
         assert!(
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
         );
-        let output_pos = unsafe {
-            self.states
-                .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
-                .output_pos()
-        };
-        (
-            FindOverlappingStepper {
-                pma: self,
-                state_id: ROOT_STATE_IDX,
-                pos: 0,
-            },
-            FindOverlappingStepperIterator {
-                pma: self,
-                pos: 0,
-                output_pos,
-            },
-        )
+        FindOverlappingStepper {
+            pma: self,
+            state_id: ROOT_STATE_IDX,
+            pos: 0,
+        }
     }
 
     /// Returns the match kind for this automaton.
