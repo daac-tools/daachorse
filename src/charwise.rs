@@ -630,11 +630,11 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// let mut stepper = pma.find_stepper();
     ///
     /// let m = stepper.matches().unwrap();
-    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value()));
+    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value())); // ""
     ///
     /// stepper.consume('全');
     /// let m = stepper.matches().unwrap();
-    /// assert_eq!((3, 3, 3), (m.start(), m.end(), m.value()));
+    /// assert_eq!((3, 3, 3), (m.start(), m.end(), m.value())); // ""
     /// ```
     #[must_use]
     pub fn find_stepper(&self) -> FindStepper<'_, V>
@@ -724,15 +724,15 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value()));
+    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value())); // ""
     /// assert_eq!(None, it.next());
     ///
     /// stepper.consume('に');
     /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.value()));
+    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.value())); // に
     /// let m = it.next().unwrap();
-    /// assert_eq!((3, 3, 3), (m.start(), m.end(), m.value()));
+    /// assert_eq!((3, 3, 3), (m.start(), m.end(), m.value())); // ""
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]

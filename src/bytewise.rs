@@ -609,11 +609,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// let mut stepper = pma.find_stepper();
     ///
     /// let m = stepper.matches().unwrap();
-    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value()));
+    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value())); // ""
     ///
     /// stepper.consume(b'a');
     /// let m = stepper.matches().unwrap();
-    /// assert_eq!((1, 1, 3), (m.start(), m.end(), m.value()));
+    /// assert_eq!((1, 1, 3), (m.start(), m.end(), m.value())); // ""
     /// ```
     #[must_use]
     pub fn find_stepper(&self) -> FindStepper<'_, V>
@@ -696,7 +696,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
-    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value()));
+    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value())); // ""
     /// assert_eq!(None, it.next());
     ///
     /// stepper.consume(b'a');
