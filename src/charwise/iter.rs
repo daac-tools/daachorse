@@ -307,7 +307,13 @@ pub struct LeftmostFindIterator<'a, P, V> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: P,
     pub(crate) pos: usize,
+    // Cached ROOT state's output_pos.
+    // Used to detect the presence of a zero-length pattern ("") and to treat it as a match
+    // at every boundary between chars under leftmost semantics.
     pub(crate) init_output_pos: Option<NonZeroU32>,
+
+    // When a zero-length pattern is enabled, we may encounter the ROOT output again without
+    // consuming input. This flag ensures we advance/loop without yielding duplicate empty matches.
     pub(crate) skip_empty: bool,
 }
 
