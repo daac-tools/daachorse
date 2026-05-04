@@ -462,7 +462,37 @@ where
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use super::*;
+
+    #[test]
+    fn test_overlapping_no_suffix_iter() {
+        let pma = DoubleArrayAhoCorasick::<u32>::new(["a", "ab", ""]).unwrap();
+        let result = pma
+            .find_overlapping_no_suffix_iter("ab")
+            .collect::<Vec<_>>();
+        assert_eq!(
+            vec![
+                Match {
+                    length: 0,
+                    end: 0,
+                    value: 2
+                },
+                Match {
+                    length: 1,
+                    end: 1,
+                    value: 0
+                },
+                Match {
+                    length: 2,
+                    end: 2,
+                    value: 1
+                },
+            ],
+            result
+        );
+    }
 
     #[test]
     fn test_overlapping_stepper_lifetime() {
