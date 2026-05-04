@@ -352,7 +352,7 @@ where
         if self.pos == self.haystack.as_ref().len() {
             self.init_output_pos.take();
         }
-        last_output_pos.map(|output_pos| {
+        if let Some(output_pos) = last_output_pos {
             // last_output_pos is always smaller than self.pma.outputs.len() because
             // State::output_pos() ensures to return such a value when it is Some.
             let out = unsafe {
@@ -360,12 +360,15 @@ where
                     .outputs
                     .get_unchecked(usize::from_u32(output_pos.get() - 1))
             };
-            Match {
+            Some(Match {
                 length: usize::from_u32(out.length()),
                 end: self.pos,
                 value: out.value(),
-            }
-        })
+            })
+        } else {
+            self.pos = self.haystack.as_ref().len();
+            None
+        }
     }
 }
 
