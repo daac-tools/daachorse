@@ -194,7 +194,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Returns an iterator of non-overlapping matches in the given haystack iterator.
     ///
-    /// The algorithm used is the same as the [`find_iter()`] function.
+    /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_iter()`] function.
     ///
     /// # Arguments
     ///
@@ -305,7 +305,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Returns an iterator of overlapping matches in the given haystack iterator.
     ///
-    /// The algorithm used is the same as the [`find_overlapping_iter()`] function.
+    /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_overlapping_iter()`]
+    /// function.
     ///
     /// # Arguments
     ///
@@ -363,11 +364,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
         }
     }
 
-    /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
+    /// Returns an iterator of overlapping matches without suffixes in the given haystack.
     ///
     /// The behavior of the iterator returned by this function is fundamentally similar to
-    /// [`find_overlapping_iter()`], except that upon reaching a given position, it yields only the
-    /// single longest pattern ending at that position.
+    /// [`DoubleArrayAhoCorasick::find_overlapping_iter()`], except that upon reaching a given
+    /// position, it yields only the single longest pattern ending at that position.
     ///
     /// This iterator returns the first match on each report.
     ///
@@ -418,7 +419,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
     ///
-    /// The algorithm used is the same as the [`find_overlapping_no_suffix_iter()`] function.
+    /// The algorithm used is the same as the
+    /// [`DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`] function.
     ///
     /// # Arguments
     ///
@@ -490,8 +492,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::LeftmostFirst`] or [`MatchKind::LeftmostLongest`] in
-    /// the construction, the iterator is not supported and the function will panic.
+    /// If you do not specify [`MatchKind::LeftmostFirst`] or [`MatchKind::LeftmostLongest`] in the
+    /// construction, the iterator is not supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -555,7 +557,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Returns a stepper of non-overlapping matches that consumes bytes one by one.
     ///
-    /// The algorithm used is the same as the [`find_iter()`] function.
+    /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_iter()`] function.
     ///
     /// This function returns a tuple. If the pattern set contains a zero-length string, the second
     /// element will contain a [`Match`] struct indicating a match at the beginning of the haystack.
@@ -646,7 +648,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Returns a stepper of overlapping matches that consumes bytes one by one.
     ///
-    /// The algorithm used is the same as the [`find_overlapping_iter()`] function.
+    /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_overlapping_iter()`]
+    /// function.
     ///
     /// This function returns a tuple. The second element contains an iterator corresponding to the
     /// beginning of the haystack.
