@@ -12,13 +12,13 @@ use crate::build_helper::BuildHelper;
 pub use crate::bytewise::builder::DoubleArrayAhoCorasickBuilder;
 use crate::bytewise::iter::{
     FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, FindOverlappingStepper,
-    FindOverlappingStepperIterator, FindStepper, LeftmostFindIterator, U8SliceIterator,
+    FindStepper, LeftmostFindIterator, U8SliceIterator,
 };
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
 use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
-use crate::{Match, MatchKind, Output};
+use crate::{MatchKind, Output};
 
 // The root index position.
 const ROOT_STATE_IDX: u32 = 0;

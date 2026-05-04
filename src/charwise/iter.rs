@@ -440,6 +440,7 @@ where
     }
 
     /// Returns the match at the current state, if any.
+    #[must_use]
     #[inline(always)]
     pub fn matches(&self) -> Option<Match<V>> {
         self.output_pos.map(|output_pos| unsafe {
@@ -513,6 +514,7 @@ where
     }
 
     /// Returns an iterator that yields matches at the current position.
+    #[must_use]
     #[inline(always)]
     pub fn matches(&self) -> FindOverlappingStepperIterator<'a, V> {
         let output_pos = unsafe {
