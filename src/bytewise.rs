@@ -143,6 +143,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Returns an iterator of non-overlapping matches in the given haystack.
     ///
+    /// The iterator searches from the beginning of the input string, yielding a value immediately
+    /// when a pattern is found. The next search resumes from the end of the previously found
+    /// pattern.
+    ///
+    /// If the set contains an empty string, all other patterns are ignored, and it will only match
+    /// between characters.
+    ///
     /// # Arguments
     ///
     /// * `haystack` - String to search for.
@@ -186,6 +193,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack iterator.
+    ///
+    /// The algorithm used is the same as the [`find_iter()`] function.
     ///
     /// # Arguments
     ///
@@ -232,6 +241,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
     }
 
     /// Returns an iterator of overlapping matches in the given haystack.
+    ///
+    /// The iterator follows the standard behavior of the Aho-Corasick algorithm. It searches from
+    /// the beginning of the input string, and upon reaching a given position, it yields the
+    /// patterns ending at that position in descending order of length.
+    ///
+    /// If the pattern set contains duplicate patterns, they are yielded in the order they were
+    /// registered.
     ///
     /// # Arguments
     ///
@@ -288,6 +304,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
     }
 
     /// Returns an iterator of overlapping matches in the given haystack iterator.
+    ///
+    /// The algorithm used is the same as the [`find_overlapping_iter()`] function.
     ///
     /// # Arguments
     ///
@@ -347,9 +365,9 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
     ///
-    /// The Aho-Corasick algorithm reads through the haystack from left to right and reports
-    /// matches when it reaches the end of each pattern. In the overlapping match, more than one
-    /// pattern can be returned per report.
+    /// The behavior of the iterator returned by this function is fundamentally similar to
+    /// [`find_overlapping_iter()`], except that upon reaching a given position, it yields only the
+    /// single longest pattern ending at that position.
     ///
     /// This iterator returns the first match on each report.
     ///
@@ -400,11 +418,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
     ///
-    /// The Aho-Corasick algorithm reads through the haystack from left to right and reports
-    /// matches when it reaches the end of each pattern. In the overlapping match, more than one
-    /// pattern can be returned per report.
-    ///
-    /// This iterator returns the first match on each report.
+    /// The algorithm used is the same as the [`find_overlapping_no_suffix_iter()`] function.
     ///
     /// # Arguments
     ///
@@ -455,18 +469,20 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Returns an iterator of leftmost matches in the given haystack.
     ///
-    /// The leftmost match greedily searches the longest possible match at each iteration, and
-    /// the match results do not overlap positionally such as
-    /// [`DoubleArrayAhoCorasick::find_iter()`].
+    /// The iterator greedily searches from the beginning of the input string. The next search
+    /// resumes from the end of the previously found pattern.
     ///
     /// According to the [`MatchKind`] option you specified in the construction, the behavior is
     /// changed for multiple possible matches, as follows.
     ///
-    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match
-    ///    corresponding to the longest pattern.
+    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match corresponding to the
+    ///    longest pattern.
     ///
-    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match
-    ///    corresponding to the pattern earlier registered to the automaton.
+    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match corresponding to the
+    ///    pattern earlier registered to the automaton.
+    ///
+    /// If the pattern set contains an empty string, the empty string matches at all positions
+    /// between characters that do not overlap with other patterns.
     ///
     /// # Arguments
     ///
@@ -538,6 +554,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
     }
 
     /// Returns a stepper of non-overlapping matches that consumes bytes one by one.
+    ///
+    /// The algorithm used is the same as the [`find_iter()`] function.
     ///
     /// This function returns a tuple. If the pattern set contains a zero-length string, the second
     /// element will contain a [`Match`] struct indicating a match at the beginning of the haystack.
@@ -627,6 +645,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
     }
 
     /// Returns a stepper of overlapping matches that consumes bytes one by one.
+    ///
+    /// The algorithm used is the same as the [`find_overlapping_iter()`] function.
     ///
     /// This function returns a tuple. The second element contains an iterator corresponding to the
     /// beginning of the haystack.
