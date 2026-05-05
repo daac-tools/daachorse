@@ -75,7 +75,6 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patterns` contains entries of length zero,
     ///   - the conversion from the index `i` to the specified type `V` fails,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
@@ -116,7 +115,6 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patvals` contains patterns of length zero,
     ///   - the scale of `patvals` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -148,6 +146,13 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack.
+    ///
+    /// The iterator searches from the beginning of the input string, yielding a value immediately
+    /// when a pattern is found. The next search resumes from the end of the previously found
+    /// pattern.
+    ///
+    /// If the set contains an empty string (length 0), all other patterns are ignored, and it will
+    /// only match between character positions.
     ///
     /// # Arguments
     ///
@@ -187,10 +192,13 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         FindIterator {
             pma: self,
             haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
+            first_call: true,
         }
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack iterator.
+    ///
+    /// The algorithm used is the same as the [`CharwiseDoubleArrayAhoCorasick::find_iter()`] function.
     ///
     /// # Arguments
     ///
@@ -236,10 +244,18 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         FindIterator {
             pma: self,
             haystack: CharWithEndOffsetIterator::new(haystack),
+            first_call: true,
         }
     }
 
     /// Returns an iterator of overlapping matches in the given haystack.
+    ///
+    /// The iterator follows the standard behavior of the Aho-Corasick algorithm. It searches from
+    /// the beginning of the input string, and upon reaching a given position, it yields the
+    /// patterns ending at that position in descending order of length.
+    ///
+    /// If the pattern set contains duplicate patterns, they are yielded in the order they were
+    /// registered.
     ///
     /// # Arguments
     ///
@@ -287,11 +303,18 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
             state_id: ROOT_STATE_IDX,
             pos: 0,
-            output_pos: None,
+            output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
         }
     }
 
     /// Returns an iterator of overlapping matches in the given haystack iterator.
+    ///
+    /// The algorithm used is the same as the
+    /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`] function.
     ///
     /// # Arguments
     ///
@@ -345,15 +368,19 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             haystack: CharWithEndOffsetIterator::new(haystack),
             state_id: ROOT_STATE_IDX,
             pos: 0,
-            output_pos: None,
+            output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
         }
     }
 
     /// Returns an iterator of overlapping matches without suffixes in the given haystack.
     ///
-    /// The Aho-Corasick algorithm reads through the haystack from left to right and reports
-    /// matches when it reaches the end of each pattern. In the overlapping match, more than one
-    /// pattern can be returned per report.
+    /// The behavior of the iterator returned by this function is similar to
+    /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`], except that upon reaching a
+    /// given position, it yields only the single longest pattern ending at that position.
     ///
     /// This iterator returns the first match on each report.
     ///
@@ -364,7 +391,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// # Panics
     ///
     /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
-    /// supported and the function will call panic!.
+    /// supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -399,16 +426,14 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             pma: self,
             haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
             state_id: ROOT_STATE_IDX,
+            first_call: true,
         }
     }
 
     /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
     ///
-    /// The Aho-Corasick algorithm reads through the haystack from left to right and reports
-    /// matches when it reaches the end of each pattern. In the overlapping match, more than one
-    /// pattern can be returned per report.
-    ///
-    /// This iterator returns the first match on each report.
+    /// The algorithm used is the same as the
+    /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`] function.
     ///
     /// # Arguments
     ///
@@ -458,23 +483,26 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             pma: self,
             haystack: CharWithEndOffsetIterator::new(haystack),
             state_id: ROOT_STATE_IDX,
+            first_call: true,
         }
     }
 
     /// Returns an iterator of leftmost matches in the given haystack.
     ///
-    /// The leftmost match greedily searches the longest possible match at each iteration, and the
-    /// match results do not overlap positionally such as
-    /// [`CharwiseDoubleArrayAhoCorasick::find_iter()`].
+    /// The iterator greedily searches from the beginning of the input string. The next search
+    /// resumes from the end of the previously found pattern.
     ///
     /// According to the [`MatchKind`] option you specified in the construction, the behavior is
     /// changed for multiple possible matches, as follows.
     ///
-    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match
-    ///    corresponding to the longest pattern.
+    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match corresponding to the
+    ///    longest pattern.
     ///
-    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match
-    ///    corresponding to the pattern earlier registered to the automaton.
+    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match corresponding to the
+    ///    pattern earlier registered to the automaton.
+    ///
+    /// If the pattern set contains an empty string (length 0), the empty string matches at all
+    /// positions between characters that do not overlap with other patterns.
     ///
     /// # Arguments
     ///
@@ -483,7 +511,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// # Panics
     ///
     /// If you do not specify [`MatchKind::LeftmostFirst`] or [`MatchKind::LeftmostLongest`] in the
-    /// construction, the iterator is not supported and the function will call panic!.
+    /// construction, the iterator is not supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -536,10 +564,19 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             pma: self,
             haystack,
             pos: 0,
+            init_output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
+            skip_empty: false,
         }
     }
 
     /// Returns a stepper of non-overlapping matches that consumes characters one by one.
+    ///
+    /// The algorithm used is the same as the [`CharwiseDoubleArrayAhoCorasick::find_iter()`]
+    /// function.
     ///
     /// # Panics
     ///
@@ -547,6 +584,8 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// supported and the function will panic.
     ///
     /// # Examples
+    ///
+    /// ## Example 1
     ///
     /// ```
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -556,25 +595,52 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// let mut stepper = pma.find_stepper();
     ///
-    /// let m = stepper.consume('全');
+    /// let m = stepper.matches();
     /// assert_eq!(None, m);
     ///
-    /// let m = stepper.consume('世');
+    /// stepper.consume('全');
+    /// let m = stepper.matches();
     /// assert_eq!(None, m);
     ///
-    /// let m = stepper.consume('界');
-    /// let m = m.unwrap();
+    /// stepper.consume('世');
+    /// let m = stepper.matches();
+    /// assert_eq!(None, m);
+    ///
+    /// stepper.consume('界');
+    /// let m = stepper.matches().unwrap();
     /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value())); // 全世界
     ///
-    /// let m = stepper.consume('中');
+    /// stepper.consume('中');
+    /// let m = stepper.matches();
     /// assert_eq!(None, m);
     ///
-    /// let m = stepper.consume('に');
-    /// let m = m.unwrap();
+    /// stepper.consume('に');
+    /// let m = stepper.matches().unwrap();
     /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value())); // に
     /// ```
+    ///
+    /// ## Example 2
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に", ""];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_stepper();
+    ///
+    /// let m = stepper.matches().unwrap();
+    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value())); // ""
+    ///
+    /// stepper.consume('全');
+    /// let m = stepper.matches().unwrap();
+    /// assert_eq!((3, 3, 3), (m.start(), m.end(), m.value())); // ""
+    /// ```
     #[must_use]
-    pub fn find_stepper(&self) -> FindStepper<'_, V> {
+    pub fn find_stepper(&self) -> FindStepper<'_, V>
+    where
+        V: Copy,
+    {
         assert!(
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
@@ -583,10 +649,18 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             pma: self,
             state_id: ROOT_STATE_IDX,
             pos: 0,
+            output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
         }
     }
 
     /// Returns a stepper of overlapping matches that consumes characters one by one.
+    ///
+    /// The algorithm used is the same as the
+    /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`] function.
     ///
     /// # Panics
     ///
@@ -594,6 +668,8 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// supported and the function will panic.
     ///
     /// # Examples
+    ///
+    /// ## Example 1
     ///
     /// ```
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -603,25 +679,57 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// let mut stepper = pma.find_overlapping_stepper();
     ///
-    /// let mut it = stepper.consume('全');
+    /// let mut it = stepper.matches();
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume('世');
+    /// stepper.consume('全');
+    /// let mut it = stepper.matches();
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume('界');
+    /// stepper.consume('世');
+    /// let mut it = stepper.matches();
+    /// assert_eq!(None, it.next());
+    ///
+    /// stepper.consume('界');
+    /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
     /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value())); // 全世界
     /// let m = it.next().unwrap();
     /// assert_eq!((3, 9, 1), (m.start(), m.end(), m.value())); // 世界
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume('中');
+    /// stepper.consume('中');
+    /// let mut it = stepper.matches();
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume('に');
+    /// stepper.consume('に');
+    /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
     /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value())); // に
+    /// assert_eq!(None, it.next());
+    /// ```
+    ///
+    /// ## Example 2
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に", ""];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_overlapping_stepper();
+    ///
+    /// let mut it = stepper.matches();
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value())); // ""
+    /// assert_eq!(None, it.next());
+    ///
+    /// stepper.consume('に');
+    /// let mut it = stepper.matches();
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.value())); // に
+    /// let m = it.next().unwrap();
+    /// assert_eq!((3, 3, 3), (m.start(), m.end(), m.value())); // ""
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]

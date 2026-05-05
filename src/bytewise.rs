@@ -68,7 +68,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patterns` contains entries of length zero,
     ///   - the conversion from the index `i` to the specified type `V` fails,
     ///   - the scale of `patterns` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
@@ -109,7 +108,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// # Errors
     ///
     /// [`DaachorseError`] is returned when
-    ///   - `patvals` contains patterns of length zero,
     ///   - the scale of `patvals` exceeds the expected one, or
     ///   - the scale of the resulting automaton exceeds the expected one.
     ///
@@ -144,6 +142,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack.
+    ///
+    /// The iterator searches from the beginning of the input string, yielding a value immediately
+    /// when a pattern is found. The next search resumes from the end of the previously found
+    /// pattern.
+    ///
+    /// If the set contains an empty string (length 0), all other patterns are ignored, and it will
+    /// only match between byte positions.
     ///
     /// # Arguments
     ///
@@ -183,10 +188,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
         FindIterator {
             pma: self,
             haystack: U8SliceIterator::new(haystack).enumerate(),
+            first_call: true,
         }
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack iterator.
+    ///
+    /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_iter()`] function.
     ///
     /// # Arguments
     ///
@@ -228,10 +236,18 @@ impl<V> DoubleArrayAhoCorasick<V> {
         FindIterator {
             pma: self,
             haystack: haystack.enumerate(),
+            first_call: true,
         }
     }
 
     /// Returns an iterator of overlapping matches in the given haystack.
+    ///
+    /// The iterator follows the standard behavior of the Aho-Corasick algorithm. It searches from
+    /// the beginning of the input string, and upon reaching a given position, it yields the
+    /// patterns ending at that position in descending order of length.
+    ///
+    /// If the pattern set contains duplicate patterns, they are yielded in the order they were
+    /// registered.
     ///
     /// # Arguments
     ///
@@ -278,12 +294,19 @@ impl<V> DoubleArrayAhoCorasick<V> {
             pma: self,
             haystack: U8SliceIterator::new(haystack).enumerate(),
             state_id: ROOT_STATE_IDX,
-            output_pos: None,
+            output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
             pos: 0,
         }
     }
 
     /// Returns an iterator of overlapping matches in the given haystack iterator.
+    ///
+    /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_overlapping_iter()`]
+    /// function.
     ///
     /// # Arguments
     ///
@@ -332,16 +355,20 @@ impl<V> DoubleArrayAhoCorasick<V> {
             pma: self,
             haystack: haystack.enumerate(),
             state_id: ROOT_STATE_IDX,
-            output_pos: None,
             pos: 0,
+            output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
         }
     }
 
-    /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
+    /// Returns an iterator of overlapping matches without suffixes in the given haystack.
     ///
-    /// The Aho-Corasick algorithm reads through the haystack from left to right and reports
-    /// matches when it reaches the end of each pattern. In the overlapping match, more than one
-    /// pattern can be returned per report.
+    /// The behavior of the iterator returned by this function is similar to
+    /// [`DoubleArrayAhoCorasick::find_overlapping_iter()`], except that upon reaching a given
+    /// position, it yields only the single longest pattern ending at that position.
     ///
     /// This iterator returns the first match on each report.
     ///
@@ -387,16 +414,14 @@ impl<V> DoubleArrayAhoCorasick<V> {
             pma: self,
             haystack: U8SliceIterator::new(haystack).enumerate(),
             state_id: ROOT_STATE_IDX,
+            first_call: true,
         }
     }
 
     /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
     ///
-    /// The Aho-Corasick algorithm reads through the haystack from left to right and reports
-    /// matches when it reaches the end of each pattern. In the overlapping match, more than one
-    /// pattern can be returned per report.
-    ///
-    /// This iterator returns the first match on each report.
+    /// The algorithm used is the same as the
+    /// [`DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`] function.
     ///
     /// # Arguments
     ///
@@ -442,23 +467,26 @@ impl<V> DoubleArrayAhoCorasick<V> {
             pma: self,
             haystack: haystack.enumerate(),
             state_id: ROOT_STATE_IDX,
+            first_call: true,
         }
     }
 
     /// Returns an iterator of leftmost matches in the given haystack.
     ///
-    /// The leftmost match greedily searches the longest possible match at each iteration, and
-    /// the match results do not overlap positionally such as
-    /// [`DoubleArrayAhoCorasick::find_iter()`].
+    /// The iterator greedily searches from the beginning of the input string. The next search
+    /// resumes from the end of the previously found pattern.
     ///
     /// According to the [`MatchKind`] option you specified in the construction, the behavior is
     /// changed for multiple possible matches, as follows.
     ///
-    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match
-    ///    corresponding to the longest pattern.
+    ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match corresponding to the
+    ///    longest pattern.
     ///
-    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match
-    ///    corresponding to the pattern earlier registered to the automaton.
+    ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match corresponding to the
+    ///    pattern earlier registered to the automaton.
+    ///
+    /// If the pattern set contains an empty string (length 0), the empty string matches at all
+    /// positions between bytes that do not overlap with other patterns.
     ///
     /// # Arguments
     ///
@@ -466,8 +494,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::LeftmostFirst`] or [`MatchKind::LeftmostLongest`] in
-    /// the construction, the iterator is not supported and the function will panic.
+    /// If you do not specify [`MatchKind::LeftmostFirst`] or [`MatchKind::LeftmostLongest`] in the
+    /// construction, the iterator is not supported and the function will panic.
     ///
     /// # Examples
     ///
@@ -520,10 +548,18 @@ impl<V> DoubleArrayAhoCorasick<V> {
             pma: self,
             haystack,
             pos: 0,
+            init_output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
+            skip_empty: false,
         }
     }
 
     /// Returns a stepper of non-overlapping matches that consumes bytes one by one.
+    ///
+    /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_iter()`] function.
     ///
     /// # Panics
     ///
@@ -531,6 +567,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// supported and the function will panic.
     ///
     /// # Examples
+    ///
+    /// ## Example 1
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasick;
@@ -540,22 +578,48 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// let mut stepper = pma.find_stepper();
     ///
-    /// let m = stepper.consume(b'a');
-    /// let m = m.unwrap();
+    /// let m = stepper.matches();
+    /// assert_eq!(None, m);
+    ///
+    /// stepper.consume(b'a');
+    /// let m = stepper.matches().unwrap();
     /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value())); // a
     ///
-    /// let m = stepper.consume(b'b');
+    /// stepper.consume(b'b');
+    /// let m = stepper.matches();
     /// assert_eq!(None, m);
     ///
-    /// let m = stepper.consume(b'c');
+    /// stepper.consume(b'c');
+    /// let m = stepper.matches();
     /// assert_eq!(None, m);
     ///
-    /// let m = stepper.consume(b'd');
-    /// let m = m.unwrap();
+    /// stepper.consume(b'd');
+    /// let m = stepper.matches().unwrap();
     /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value())); // bcd
     /// ```
+    ///
+    /// ## Example 2
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a", ""];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_stepper();
+    ///
+    /// let m = stepper.matches().unwrap();
+    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value())); // ""
+    ///
+    /// stepper.consume(b'a');
+    /// let m = stepper.matches().unwrap();
+    /// assert_eq!((1, 1, 3), (m.start(), m.end(), m.value())); // ""
+    /// ```
     #[must_use]
-    pub fn find_stepper(&self) -> FindStepper<'_, V> {
+    pub fn find_stepper(&self) -> FindStepper<'_, V>
+    where
+        V: Copy,
+    {
         assert!(
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
@@ -564,10 +628,18 @@ impl<V> DoubleArrayAhoCorasick<V> {
             pma: self,
             state_id: ROOT_STATE_IDX,
             pos: 0,
+            output_pos: unsafe {
+                self.states
+                    .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
+                    .output_pos()
+            },
         }
     }
 
     /// Returns a stepper of overlapping matches that consumes bytes one by one.
+    ///
+    /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_overlapping_iter()`]
+    /// function.
     ///
     /// # Panics
     ///
@@ -575,6 +647,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// supported and the function will panic.
     ///
     /// # Examples
+    ///
+    /// ## Example 1
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasick;
@@ -584,22 +658,53 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// let mut stepper = pma.find_overlapping_stepper();
     ///
-    /// let mut it = stepper.consume(b'a');
+    /// let mut it = stepper.matches();
+    /// assert_eq!(None, it.next());
+    ///
+    /// stepper.consume(b'a');
+    /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
     /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value())); // a
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume(b'b');
+    /// stepper.consume(b'b');
+    /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
     /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value())); // ab
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume(b'c');
+    /// stepper.consume(b'c');
+    /// let mut it = stepper.matches();
     /// assert_eq!(None, it.next());
     ///
-    /// let mut it = stepper.consume(b'd');
+    /// stepper.consume(b'd');
+    /// let mut it = stepper.matches();
     /// let m = it.next().unwrap();
     /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value())); // bcd
+    /// assert_eq!(None, it.next());
+    /// ```
+    ///
+    /// ## Example 2
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a", ""];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_overlapping_stepper();
+    ///
+    /// let mut it = stepper.matches();
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 0, 3), (m.start(), m.end(), m.value())); // ""
+    /// assert_eq!(None, it.next());
+    ///
+    /// stepper.consume(b'a');
+    /// let mut it = stepper.matches();
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value())); // a
+    /// let m = it.next().unwrap();
+    /// assert_eq!((1, 1, 3), (m.start(), m.end(), m.value())); // ""
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
