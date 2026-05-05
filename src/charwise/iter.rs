@@ -459,7 +459,7 @@ where
     }
 }
 
-/// Iterator created by [`FindOverlappingStepper::consume()`].
+/// Iterator created by [`FindOverlappingStepper::matches()`].
 pub struct FindOverlappingStepperIterator<'a, V> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) pos: usize,

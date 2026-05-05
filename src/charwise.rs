@@ -662,9 +662,6 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// The algorithm used is the same as the
     /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`] function.
     ///
-    /// This function returns a tuple. The second element contains an iterator corresponding to the
-    /// beginning of the haystack.
-    ///
     /// # Panics
     ///
     /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
