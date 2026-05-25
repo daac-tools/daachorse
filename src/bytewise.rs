@@ -148,11 +148,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// pattern.
     ///
     /// If the set contains an empty string (length 0), all other patterns are ignored, and it will
-    /// only match between byte positions.
+    /// only match at every byte position (i.e., between each pair of adjacent bytes).
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -198,7 +198,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - [`u8`] iterator to search for.
+    /// * `haystack` - [`u8`] iterator to search in.
     ///
     /// # Panics
     ///
@@ -251,7 +251,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -310,7 +310,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - [`u8`] iterator to search for.
+    /// * `haystack` - [`u8`] iterator to search in.
     ///
     /// # Panics
     ///
@@ -370,11 +370,9 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// [`DoubleArrayAhoCorasick::find_overlapping_iter()`], except that upon reaching a given
     /// position, it yields only the single longest pattern ending at that position.
     ///
-    /// This iterator returns the first match on each report.
-    ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -425,7 +423,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - [`u8`] to search for.
+    /// * `haystack` - [`u8`] iterator to search in.
     ///
     /// # Panics
     ///
@@ -483,14 +481,14 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///    longest pattern.
     ///
     ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match corresponding to the
-    ///    pattern earlier registered to the automaton.
+    ///    pattern that was registered earlier in the automaton.
     ///
     /// If the pattern set contains an empty string (length 0), the empty string matches at all
     /// positions between bytes that do not overlap with other patterns.
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -900,8 +898,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Deserializes the automaton from the given slice without performing any validation.
     ///
-    /// This function does not perform any validation on the input data. If processing speed is not
-    /// critical, consider using [`DoubleArrayAhoCorasick::deserialize()`].
+    /// Prefer [`DoubleArrayAhoCorasick::deserialize()`] unless maximum performance is critical,
+    /// as this function skips all validation.
     ///
     /// # Arguments
     ///

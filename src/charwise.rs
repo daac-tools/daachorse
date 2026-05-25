@@ -30,9 +30,9 @@ const DEAD_STATE_IDX: u32 = 1;
 /// character-wise double-array data structure.
 ///
 /// The standard version [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick) handles strings
-/// as UTF-8 sequences and defines transition labels using byte integers. On the other hand, the
+/// as UTF-8 sequences and defines transition labels using byte integers. In contrast, the
 /// character-wise version uses Unicode code point values, reducing the number of transitions and
-/// faster matching on multibyte characters.
+/// enabling faster matching on multibyte characters.
 ///
 /// # Features
 ///
@@ -44,7 +44,7 @@ const DEAD_STATE_IDX: u32 = 1;
 ///  - The construction time can be slower.
 ///  - The memory efficiency depends on input patterns.
 ///    - If the scale is large, the memory efficiency can be competitive.
-///    - If the scale is small, the double array can be sparse and memory inefficiency.
+///    - If the scale is small, the double array can be sparse and memory-inefficient.
 ///
 /// # Build instructions
 ///
@@ -152,11 +152,11 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// pattern.
     ///
     /// If the set contains an empty string (length 0), all other patterns are ignored, and it will
-    /// only match between character positions.
+    /// only match at every character position (i.e., between each pair of adjacent characters).
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -202,7 +202,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -259,7 +259,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -318,7 +318,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - [`u8`] iterator to search in.
     ///
     /// # Panics
     ///
@@ -382,11 +382,9 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`], except that upon reaching a
     /// given position, it yields only the single longest pattern ending at that position.
     ///
-    /// This iterator returns the first match on each report.
-    ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -437,7 +435,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - [`u8`] iterator to search in.
     ///
     /// # Panics
     ///
@@ -499,14 +497,14 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///    longest pattern.
     ///
     ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match corresponding to the
-    ///    pattern earlier registered to the automaton.
+    ///    pattern that was registered earlier in the automaton.
     ///
     /// If the pattern set contains an empty string (length 0), the empty string matches at all
     /// positions between characters that do not overlap with other patterns.
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -955,8 +953,8 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
 
     /// Deserializes the automaton from the given slice without performing any validation.
     ///
-    /// This function does not perform any validation on the input data. If processing speed is not
-    /// critical, consider using [`CharwiseDoubleArrayAhoCorasick::deserialize()`].
+    /// Prefer [`CharwiseDoubleArrayAhoCorasick::deserialize()`] unless maximum performance is
+    /// critical, as this function skips all validation.
     ///
     /// # Arguments
     ///

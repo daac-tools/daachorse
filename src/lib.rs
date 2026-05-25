@@ -20,7 +20,7 @@
 //! > *Software: Practice and Experience (SPE)*
 //! > ([arXiv](https://arxiv.org/abs/2207.13870))
 //!
-//! ## Example: Finding overlapped occurrences
+//! ## Example: Finding overlapping occurrences
 //!
 //! To search for all occurrences of registered patterns that allow for positional overlap in the
 //! input text, use [`DoubleArrayAhoCorasick::find_overlapping_iter()`].
@@ -49,13 +49,13 @@
 //! assert_eq!(None, it.next());
 //! ```
 //!
-//! ## Example: Finding non-overlapped occurrences with standard matching
+//! ## Example: Finding non-overlapping occurrences with standard matching
 //!
 //! If you do not want to allow positional overlap, use [`DoubleArrayAhoCorasick::find_iter()`]
 //! instead.
 //!
-//! This function performs the search on the Aho-Corasick automaton and reports patterns first
-//! found in each iteration.
+//! This function performs the search on the Aho-Corasick automaton and reports the first matching
+//! pattern at each search position.
 //!
 //! ```
 //! use daachorse::DoubleArrayAhoCorasick;
@@ -74,7 +74,7 @@
 //! assert_eq!(None, it.next());
 //! ```
 //!
-//! ## Example: Finding non-overlapped occurrences with longest matching
+//! ## Example: Finding non-overlapping occurrences with longest matching
 //!
 //! If you want to search for the longest pattern without positional overlap in each iteration, use
 //! [`DoubleArrayAhoCorasick::leftmost_find_iter()`] with specifying
@@ -97,7 +97,7 @@
 //! assert_eq!(None, it.next());
 //! ```
 //!
-//! ## Example: Finding non-overlapped occurrences with leftmost-first matching
+//! ## Example: Finding non-overlapping occurrences with leftmost-first matching
 //!
 //! If you want to find the earliest registered pattern among ones starting from the search
 //! position, use [`DoubleArrayAhoCorasick::leftmost_find_iter()`] with specifying
@@ -156,7 +156,7 @@
 //!
 //! The standard version [`DoubleArrayAhoCorasick`] handles strings as UTF-8 sequences and defines
 //! transition labels using byte values. On the other hand, [`CharwiseDoubleArrayAhoCorasick`] uses
-//! Unicode code point values, reducing the number of transitions and faster matching.
+//! Unicode code point values, reducing the number of transitions and enabling faster matching.
 //!
 //! ```
 //! use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -323,10 +323,10 @@ where
 #[repr(u8)]
 pub enum MatchKind {
     /// The standard match semantics, which enables
-    /// [`find_iter()`](DoubleArrayAhoCorasick::find_iter()),\
+    /// [`find_iter()`](DoubleArrayAhoCorasick::find_iter()),
     /// [`find_overlapping_iter()`](DoubleArrayAhoCorasick::find_overlapping_iter()), and
     /// [`find_overlapping_no_suffix_iter()`](DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()).
-    /// Patterns are reported in the order that follows the normal behaviour of the Aho-Corasick
+    /// Patterns are reported in the order that follows the normal behavior of the Aho-Corasick
     /// algorithm.
     Standard = 0,
 

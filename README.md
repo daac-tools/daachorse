@@ -42,10 +42,10 @@ Rust 1.77 or higher is required to build this crate.
 ## Example usage
 
 Daachorse contains some search options, ranging from standard matching with the Aho-Corasick
-algorithm to trickier matching. They will run very fast based on the double-array data structure
-and can be easily plugged into your application, as shown below.
+algorithm to more advanced matching. All of them run efficiently, powered by the double-array data
+structure, and can be easily plugged into your application, as shown below.
 
-### Finding overlapped occurrences
+### Finding overlapping occurrences
 
 To search for all occurrences of registered patterns that allow for positional overlap in the input
 text, use `find_overlapping_iter()`. When you use `new()` for construction, the library assigns a
@@ -72,11 +72,10 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with the standard matching
+### Finding non-overlapping occurrences with standard matching
 
-If you do not want to allow positional overlap, use `find_iter()` instead.
-It performs the search on the Aho-Corasick automaton
-and reports patterns first found in each iteration.
+If you do not want to allow positional overlap, use `find_iter()` instead. It performs the search on
+the Aho-Corasick automaton and reports the first matching pattern found at each search position.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;
@@ -95,7 +94,7 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with the longest matching
+### Finding non-overlapping occurrences with longest matching
 
 If you want to search for the longest pattern without positional overlap in each iteration, use
 `leftmost_find_iter()` with specifying `MatchKind::LeftmostLongest` in the construction.
@@ -117,7 +116,7 @@ assert_eq!((0, 4, 2), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with the leftmost-first matching
+### Finding non-overlapping occurrences with leftmost-first matching
 
 If you want to find the earliest registered pattern among ones starting from the search position,
 use `leftmost_find_iter()` with specifying `MatchKind::LeftmostFirst`.
@@ -145,8 +144,8 @@ assert_eq!(None, it.next());
 
 ### Associating arbitrary values with patterns
 
-To build the automaton from pairs of a pattern and user-defined value, instead of assigning identifiers
-automatically, use `with_values()`.
+To build the automaton from pairs of a pattern and user-defined value, instead of assigning
+identifiers automatically, use `with_values()`.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;
@@ -173,8 +172,9 @@ assert_eq!(None, it.next());
 To build a faster automaton on multibyte characters, use `CharwiseDoubleArrayAhoCorasick` instead.
 
 The standard version `DoubleArrayAhoCorasick` handles strings as UTF-8 sequences and defines
-transition labels using byte values. On the other hand, `CharwiseDoubleArrayAhoCorasick` uses
-Unicode code point values, reducing the number of transitions and faster matching.
+transition labels using byte values. In contrast, `CharwiseDoubleArrayAhoCorasick` uses Unicode code
+point values, reducing the number of transitions and enabling faster matching on multibyte
+characters.
 
 ```rust
 use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -229,7 +229,7 @@ unsafe fn
   Not supported. This library uses Aho-Corasick automata built with a
   data structure called *double-array trie*. The algorithm on this data
   structure works with XOR operations on the input haystack. Therefore,
-  the haystack must be a sequence of integers. This library is specially
+  the haystack must be a sequence of integers. This library is specifically
   optimized for `str` and `[u8]` among integer sequences.
 
 * **Does this library support case-insensitive matching?**

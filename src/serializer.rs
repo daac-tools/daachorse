@@ -20,8 +20,8 @@ pub trait Serializable: Sized {
     /// * `dst` - the destination to which the serialized data is written.
     fn serialize_to_vec(&self, dst: &mut Vec<u8>);
 
-    /// A function called during deserialization. This function must return the pair of the struct
-    /// and the rest slice.
+    /// A function called during deserialization. This function must return a tuple of the
+    /// deserialized value and the remaining slice.
     ///
     /// # Arguments
     ///
