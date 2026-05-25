@@ -1367,6 +1367,92 @@ mod tests {
     }
 
     #[test]
+    fn test_multibyte_overlapping_zerolength_pattern() {
+        let patterns = vec!["a", "æ", "あ", ""];
+        let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+        let results = pma
+            .find_overlapping_iter("いあabcÆæう")
+            .map(|m| (m.start(), m.end(), m.value()))
+            .collect::<Vec<_>>();
+        /*
+         *  い 0..3
+         *  あ 3..6
+         *  a  6..7
+         *  b  7..8
+         *  c  8..9
+         *  Æ  9..11
+         *  æ  11..13
+         *  う 13..16
+         */
+        assert_eq!(
+            vec![
+                (0, 0, 3),
+                (3, 3, 3),
+                (3, 6, 2),
+                (6, 6, 3),
+                (6, 7, 0),
+                (7, 7, 3),
+                (8, 8, 3),
+                (9, 9, 3),
+                (11, 11, 3),
+                (11, 13, 1),
+                (13, 13, 3),
+                (16, 16, 3),
+            ],
+            results,
+        )
+    }
+
+    #[test]
+    fn test_multibyte_standard_zerolength_pattern() {
+        let patterns = vec!["a", "æ", "あ", ""];
+        let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+        let results = pma
+            .find_iter("いあabcÆæう")
+            .map(|m| (m.start(), m.end(), m.value()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            vec![
+                (0, 0, 3),
+                (3, 3, 3),
+                (6, 6, 3),
+                (7, 7, 3),
+                (8, 8, 3),
+                (9, 9, 3),
+                (11, 11, 3),
+                (13, 13, 3),
+                (16, 16, 3),
+            ],
+            results,
+        )
+    }
+
+    #[test]
+    fn test_multibyte_leftmost_zerolength_pattern() {
+        let patterns = vec!["a", "æ", "あ", ""];
+        let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostLongest)
+            .build(patterns)
+            .unwrap();
+        let results = pma
+            .leftmost_find_iter("いあabcÆæう")
+            .map(|m| (m.start(), m.end(), m.value()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            vec![
+                (0, 0, 3),
+                (3, 6, 2),
+                (6, 7, 0),
+                (8, 8, 3),
+                (9, 9, 3),
+                (11, 13, 1),
+                (16, 16, 3),
+            ],
+            results,
+        )
+    }
+
+    #[test]
     fn test_serialize_state() {
         let x = State {
             base: NonZeroU32::new(42),
