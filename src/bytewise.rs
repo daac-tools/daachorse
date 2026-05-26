@@ -156,7 +156,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -202,7 +202,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -255,7 +255,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -314,7 +314,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -376,7 +376,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -427,7 +427,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -474,8 +474,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// The iterator greedily searches from the beginning of the input string. The next search
     /// resumes from the end of the previously found pattern.
     ///
-    /// According to the [`MatchKind`] option you specified in the construction, the behavior is
-    /// changed for multiple possible matches, as follows.
+    /// Depending on the [`MatchKind`] option specified during construction, the behavior differs
+    /// for multiple possible matches, as follows.
     ///
     ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match corresponding to the
     ///    longest pattern.
@@ -561,7 +561,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the stepper is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -641,7 +641,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the stepper is not
     /// supported and the function will panic.
     ///
     /// # Examples

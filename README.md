@@ -74,8 +74,8 @@ assert_eq!(None, it.next());
 
 ### Finding non-overlapping occurrences with standard matching
 
-If you do not want to allow positional overlap, use `find_iter()` instead. It performs the search on
-the Aho-Corasick automaton and reports the first matching pattern found at each search position.
+To disallow positional overlap, use `find_iter()` instead. It performs the search on the
+Aho-Corasick automaton and reports the first matching pattern found at each search position.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;
@@ -96,8 +96,8 @@ assert_eq!(None, it.next());
 
 ### Finding non-overlapping occurrences with longest matching
 
-If you want to search for the longest pattern without positional overlap in each iteration, use
-`leftmost_find_iter()` with specifying `MatchKind::LeftmostLongest` in the construction.
+To search for the longest pattern without positional overlap in each iteration, specify
+`MatchKind::LeftmostLongest` during construction and use `leftmost_find_iter()`.
 
 ```rust
 use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
@@ -118,10 +118,10 @@ assert_eq!(None, it.next());
 
 ### Finding non-overlapping occurrences with leftmost-first matching
 
-If you want to find the earliest registered pattern among ones starting from the search position,
-use `leftmost_find_iter()` with specifying `MatchKind::LeftmostFirst`.
+To search for the earliest registered pattern among those starting from the search position,
+specify `MatchKind::LeftmostFirst` during construction and use `leftmost_find_iter()`.
 
-This is the so-called *leftmost first match*, a tricky search option supported in the
+This semantics is the so-called *leftmost first match*, a tricky search option supported in the
 [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate. For example, in the following
 code, `ab` is reported because it is the earliest registered one.
 
@@ -243,8 +243,8 @@ unsafe fn
 * **Does this library provide bindings to programming languages other
   than Rust?**
 
-  We are providing [a Python binding](https://github.com/daac-tools/python-daachorse).
-  Other programming languages are not currently planned to be supported.
+  While we provide [a Python binding](https://github.com/daac-tools/python-daachorse),
+  there are currently no plans to support other languages.
   If you are interested in writing bindings, you are welcome to do so.
   *daachorse* is free software.
 
@@ -266,8 +266,7 @@ Licensed under either of
 
 at your option.
 
-If you use this library in academic settings,
-please cite the following paper.
+If you use this library in academic papers, please cite the following paper.
 
 ```
 @article{10.1002/spe.3190,

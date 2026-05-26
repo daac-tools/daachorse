@@ -51,8 +51,7 @@
 //!
 //! ## Example: Finding non-overlapping occurrences with standard matching
 //!
-//! If you do not want to allow positional overlap, use [`DoubleArrayAhoCorasick::find_iter()`]
-//! instead.
+//! To disallow positional overlap, use [`DoubleArrayAhoCorasick::find_iter()`] instead.
 //!
 //! This function performs the search on the Aho-Corasick automaton and reports the first matching
 //! pattern at each search position.
@@ -76,9 +75,9 @@
 //!
 //! ## Example: Finding non-overlapping occurrences with longest matching
 //!
-//! If you want to search for the longest pattern without positional overlap in each iteration, use
-//! [`DoubleArrayAhoCorasick::leftmost_find_iter()`] with specifying
-//! [`MatchKind::LeftmostLongest`] in the construction.
+//! To search for the longest pattern without positional overlap in each iteration, specify
+//! [`MatchKind::LeftmostLongest`] during construction and use
+//! [`DoubleArrayAhoCorasick::leftmost_find_iter()`].
 //!
 //! ```
 //! use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
@@ -99,11 +98,11 @@
 //!
 //! ## Example: Finding non-overlapping occurrences with leftmost-first matching
 //!
-//! If you want to find the earliest registered pattern among ones starting from the search
-//! position, use [`DoubleArrayAhoCorasick::leftmost_find_iter()`] with specifying
-//! [`MatchKind::LeftmostFirst`].
+//! To search for the earliest registered pattern among those starting from the search position,
+//! specify [`MatchKind::LeftmostFirst`] during construction and use
+//! [`DoubleArrayAhoCorasick::leftmost_find_iter()`].
 //!
-//! This semantic is the so-called *leftmost first match*, a tricky search option supported in the
+//! This semantics is the so-called *leftmost first match*, a tricky search option supported in the
 //! [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate. For example, in the
 //! following code, `ab` is reported because it is the earliest registered one.
 //!
@@ -155,7 +154,7 @@
 //! instead.
 //!
 //! The standard version [`DoubleArrayAhoCorasick`] handles strings as UTF-8 sequences and defines
-//! transition labels using byte values. On the other hand, [`CharwiseDoubleArrayAhoCorasick`] uses
+//! transition labels using byte values. In contrast, [`CharwiseDoubleArrayAhoCorasick`] uses
 //! Unicode code point values, reducing the number of transitions and enabling faster matching.
 //!
 //! ```
@@ -332,16 +331,15 @@ pub enum MatchKind {
 
     /// The leftmost-longest match semantics, which enables
     /// [`leftmost_find_iter()`](DoubleArrayAhoCorasick::leftmost_find_iter()).
-    /// When multiple patterns are started from the same positions, the longest pattern will be
-    /// reported. For example, when matching patterns `ab|a|abcd` over `abcd`, `abcd` will be
-    /// reported.
+    /// When multiple patterns start at the same position, the longest pattern will be reported.
+    /// For example, when matching patterns `ab|a|abcd` over `abcd`, `abcd` will be reported.
     LeftmostLongest = 1,
 
     /// The leftmost-first match semantics, which enables
     /// [`leftmost_find_iter()`](DoubleArrayAhoCorasick::leftmost_find_iter()).
-    /// When multiple patterns are started from the same positions, the pattern that is registered
-    /// earlier will be reported. For example, when matching patterns `ab|a|abcd` over `abcd`,
-    /// `ab` will be reported.
+    /// When multiple patterns start at the same position, the pattern that is registered earlier
+    /// will be reported. For example, when matching patterns `ab|a|abcd` over `abcd`, `ab` will be
+    /// reported.
     LeftmostFirst = 2,
 }
 
@@ -401,7 +399,7 @@ impl Serializable for MatchKind {
 
 /// Empty value type.
 ///
-/// This is a unit struct with no field. This type can be used to reduce memory consumption when
+/// This is a unit struct with no fields. This type can be used to reduce memory consumption when
 /// the value corresponding to each pattern is not used.
 ///
 /// # Example

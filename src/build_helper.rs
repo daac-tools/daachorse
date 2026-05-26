@@ -11,7 +11,7 @@ use crate::utils::FromU32;
 ///
 /// This struct manages array elements in fixed-size blocks and supports extending the array
 /// block by block. Given a constant parameter N, this struct maintains information for only
-/// the last N blocks and drops the others as the array is extended. Such last blocks are
+/// the last N blocks and drops the others as the array is extended. Such trailing blocks are
 /// called *active blocks*.
 pub struct BuildHelper {
     items: Vec<ListItem>,

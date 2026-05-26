@@ -30,7 +30,7 @@ const DEAD_STATE_IDX: u32 = 1;
 /// character-wise double-array data structure.
 ///
 /// The standard version [`DoubleArrayAhoCorasick`](super::DoubleArrayAhoCorasick) handles strings
-/// as UTF-8 sequences and defines transition labels using byte integers. In contrast, the
+/// as UTF-8 sequences and defines transition labels using byte values. In contrast, the
 /// character-wise version uses Unicode code point values, reducing the number of transitions and
 /// enabling faster matching on multibyte characters.
 ///
@@ -40,9 +40,9 @@ const DEAD_STATE_IDX: u32 = 1;
 /// [`CharwiseDoubleArrayAhoCorasick`] has the following features
 /// if it is built from multibyte strings such as CJK characters:
 ///
-///  - Faster matching can be expected.
-///  - The construction time can be slower.
-///  - The memory efficiency depends on input patterns.
+///  - Matching speed is generally faster.
+///  - Construction time may be slower.
+///  - Memory usage depends on the pattern set.
 ///    - If the scale is large, the memory efficiency can be competitive.
 ///    - If the scale is small, the double array can be sparse and memory-inefficient.
 ///
@@ -160,7 +160,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -202,11 +202,11 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search in.
+    /// * `haystack` - [`u8`] iterator to search in.
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Safety
@@ -263,7 +263,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -322,7 +322,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Safety
@@ -388,7 +388,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -439,7 +439,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Safety
@@ -490,8 +490,8 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// The iterator greedily searches from the beginning of the input string. The next search
     /// resumes from the end of the previously found pattern.
     ///
-    /// According to the [`MatchKind`] option you specified in the construction, the behavior is
-    /// changed for multiple possible matches, as follows.
+    /// Depending on the [`MatchKind`] option specified during construction, the behavior differs
+    /// for multiple possible matches, as follows.
     ///
     ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match corresponding to the
     ///    longest pattern.
@@ -578,7 +578,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the stepper is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -662,7 +662,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the stepper is not
     /// supported and the function will panic.
     ///
     /// # Examples

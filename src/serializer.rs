@@ -13,19 +13,22 @@ use crate::Empty;
 /// If the type of output value of the automaton implements this trait, the automaton can be
 /// serialized.
 pub trait Serializable: Sized {
-    /// A function called during serialization.
+    /// Serializes this value into the destination buffer.
+    ///
+    /// This function is called during serialization.
     ///
     /// # Arguments
     ///
-    /// * `dst` - the destination to which the serialized data is written.
+    /// * `dst` - The destination to which the serialized data is written.
     fn serialize_to_vec(&self, dst: &mut Vec<u8>);
 
-    /// A function called during deserialization. This function must return a tuple of the
-    /// deserialized value and the remaining slice.
+    /// Deserializes a value from the given slice, returning the value and remaining bytes.
+    ///
+    /// This function is called during deserialization.
     ///
     /// # Arguments
     ///
-    /// * `src` - the source slice containing the serialized data.
+    /// * `src` - The source slice containing the serialized data.
     fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])>;
 
     /// Returns the size of serialized data.
