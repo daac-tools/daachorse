@@ -99,7 +99,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
         DoubleArrayAhoCorasickBuilder::new().build(patterns)
     }
 
-    /// Creates a new [`DoubleArrayAhoCorasick`] from input pattern-value pairs.
+    /// Creates a new [`DoubleArrayAhoCorasick`] from pattern-value pairs.
     ///
     /// # Arguments
     ///

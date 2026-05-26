@@ -106,7 +106,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         CharwiseDoubleArrayAhoCorasickBuilder::new().build(patterns)
     }
 
-    /// Creates a new [`CharwiseDoubleArrayAhoCorasick`] from input pattern-value pairs.
+    /// Creates a new [`CharwiseDoubleArrayAhoCorasick`] from pattern-value pairs.
     ///
     /// # Arguments
     ///
@@ -202,7 +202,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - [`u8`] iterator to search in.
+    /// * `haystack` - [`u8`] iterator representing a valid UTF-8 string to search in.
     ///
     /// # Panics
     ///
@@ -318,7 +318,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - [`u8`] iterator to search in.
+    /// * `haystack` - [`u8`] iterator representing a valid UTF-8 string to search in.
     ///
     /// # Panics
     ///
@@ -435,7 +435,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - [`u8`] iterator to search in.
+    /// * `haystack` - [`u8`] iterator representing a valid UTF-8 string to search in.
     ///
     /// # Panics
     ///

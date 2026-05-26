@@ -144,8 +144,8 @@ assert_eq!(None, it.next());
 
 ### Associating arbitrary values with patterns
 
-To build the automaton from pairs of a pattern and user-defined value, instead of assigning
-identifiers automatically, use `with_values()`.
+To build the automaton from pattern-value pairs, instead of assigning identifiers automatically, use
+`with_values()`.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;

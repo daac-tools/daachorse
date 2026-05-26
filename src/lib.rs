@@ -125,8 +125,8 @@
 //!
 //! ## Example: Associating arbitrary values with patterns
 //!
-//! To build the automaton from pairs of a pattern and user-defined value, instead of assigning
-//! identifiers automatically, use [`DoubleArrayAhoCorasick::with_values()`].
+//! To build the automaton from pattern-value pairs, instead of assigning identifiers automatically,
+//! use [`DoubleArrayAhoCorasick::with_values()`].
 //!
 //! ```
 //! use daachorse::DoubleArrayAhoCorasick;
