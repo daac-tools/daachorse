@@ -87,7 +87,7 @@ where
         let mut state_id = ROOT_STATE_ID;
         for &c in pattern {
             if self.match_kind.is_leftmost_first() {
-                // If state_id has an output, the descendants will never searched.
+                // If state_id has an output, the descendants will never be searched.
                 let output = &self.states[usize::from_u32(state_id)].borrow().output;
                 if !output.is_empty() {
                     return Ok(());

@@ -966,7 +966,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Safety
     ///
-    /// The given data must be a correct automaton exported by
+    /// The given data must be a valid automaton exported by
     /// [`CharwiseDoubleArrayAhoCorasick::serialize()`] function.
     ///
     /// # Examples

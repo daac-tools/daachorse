@@ -10,8 +10,8 @@
 //! over the length of the input text. This crate uses the
 //! [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004) for
 //! implementing the pattern match automaton for time and memory efficiency. The data structure not
-//! only supports constant-time state-to-state traversal but also represents each state in the
-//! space of only 12 bytes.
+//! only supports constant-time state-to-state traversal but also represents each state using only
+//! 12 bytes of memory.
 //!
 //! The main technical ideas behind this library appear in the following paper:
 //!
@@ -155,7 +155,8 @@
 //!
 //! The standard version [`DoubleArrayAhoCorasick`] handles strings as UTF-8 sequences and defines
 //! transition labels using byte values. In contrast, [`CharwiseDoubleArrayAhoCorasick`] uses
-//! Unicode code point values, reducing the number of transitions and enabling faster matching.
+//! Unicode code point values, reducing the number of transitions and enabling faster matching on
+//! multibyte characters.
 //!
 //! ```
 //! use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -325,8 +326,7 @@ pub enum MatchKind {
     /// [`find_iter()`](DoubleArrayAhoCorasick::find_iter()),
     /// [`find_overlapping_iter()`](DoubleArrayAhoCorasick::find_overlapping_iter()), and
     /// [`find_overlapping_no_suffix_iter()`](DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()).
-    /// Patterns are reported in the order that follows the normal behavior of the Aho-Corasick
-    /// algorithm.
+    /// Patterns are reported following the standard Aho-Corasick algorithm behavior.
     Standard = 0,
 
     /// The leftmost-longest match semantics, which enables
