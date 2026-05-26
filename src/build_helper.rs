@@ -26,7 +26,7 @@ impl BuildHelper {
     ///
     /// # Panics
     ///
-    /// `block_len` and `num_free_blocks` must not be 0.
+    /// Panics if block_len == 0 || num_free_blocks == 0.
     pub fn new(block_len: u32, num_free_blocks: u32) -> Result<Self> {
         let capacity = block_len.checked_mul(num_free_blocks).ok_or_else(|| {
             DaachorseError::automaton_scale("block_len * num_free_blocks", u32::MAX)
