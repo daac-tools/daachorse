@@ -148,7 +148,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// pattern.
     ///
     /// If the set contains an empty string (length 0), all other patterns are ignored, and it will
-    /// only match at every byte position (i.e., between each pair of adjacent bytes).
+    /// only match at every byte boundary, including the start and end of the haystack.
     ///
     /// # Arguments
     ///
