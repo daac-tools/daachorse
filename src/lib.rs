@@ -17,7 +17,8 @@
 //!
 //! > Shunsuke Kanda, Koichi Akabe, and Yusuke Oda.
 //! > [Engineering faster double-array Aho-Corasick automata](https://doi.org/10.1002/spe.3190).
-//! > *Software: Practice and Experience (SPE)*
+//! > *Software: Practice and Experience (SPE)*,
+//! > 53(6): 1332–1361, 2023
 //! > ([arXiv](https://arxiv.org/abs/2207.13870))
 //!
 //! ## Example: Finding overlapping occurrences
