@@ -4,8 +4,8 @@
 .fill { fill: rgb(0%, 0%, 0%); }
 .stroke { stroke: rgb(0%, 0%, 0%); }
 @media (prefers-color-scheme: dark) {
-.fill { fill: rgb(0%, 0%, 0%); }
-.stroke { stroke: rgb(0%, 0%, 0%); }
+.fill { fill: rgb(100%, 100%, 100%); }
+.stroke { stroke: rgb(100%, 100%, 100%); }
 }
 </style>
 <defs>
