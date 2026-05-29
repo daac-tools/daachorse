@@ -33,7 +33,7 @@ const DEAD_STATE_IDX: u32 = 1;
 /// pattern matching. The internal data structure employs the
 /// [compact double-array structure](https://doi.org/10.1016/j.ipm.2006.04.004), the fastest
 /// trie representation technique. It supports constant-time state-to-state traversal, allowing for
-/// very fast pattern matching. Moreover, each state is represented in the space of only 12 bytes.
+/// very fast pattern matching. Moreover, each state uses only 12 bytes of memory.
 ///
 /// # Build instructions
 ///
@@ -99,7 +99,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
         DoubleArrayAhoCorasickBuilder::new().build(patterns)
     }
 
-    /// Creates a new [`DoubleArrayAhoCorasick`] from input pattern-value pairs.
+    /// Creates a new [`DoubleArrayAhoCorasick`] from pattern-value pairs.
     ///
     /// # Arguments
     ///
@@ -148,15 +148,15 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// pattern.
     ///
     /// If the set contains an empty string (length 0), all other patterns are ignored, and it will
-    /// only match between byte positions.
+    /// only match at every byte boundary, including the start and end of the haystack.
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -198,11 +198,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - [`u8`] iterator to search for.
+    /// * `haystack` - [`u8`] iterator to search in.
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -251,11 +251,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -310,11 +310,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - [`u8`] iterator to search for.
+    /// * `haystack` - [`u8`] iterator to search in.
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -370,15 +370,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// [`DoubleArrayAhoCorasick::find_overlapping_iter()`], except that upon reaching a given
     /// position, it yields only the single longest pattern ending at that position.
     ///
-    /// This iterator returns the first match on each report.
-    ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -425,11 +423,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Arguments
     ///
-    /// * `haystack` - [`u8`] to search for.
+    /// * `haystack` - [`u8`] iterator to search in.
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the iterator is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the iterator is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -476,21 +474,21 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// The iterator greedily searches from the beginning of the input string. The next search
     /// resumes from the end of the previously found pattern.
     ///
-    /// According to the [`MatchKind`] option you specified in the construction, the behavior is
-    /// changed for multiple possible matches, as follows.
+    /// Depending on the [`MatchKind`] option specified during construction, the behavior differs
+    /// for multiple possible matches, as follows.
     ///
     ///  - If you set [`MatchKind::LeftmostLongest`], it reports the match corresponding to the
     ///    longest pattern.
     ///
     ///  - If you set [`MatchKind::LeftmostFirst`], it reports the match corresponding to the
-    ///    pattern earlier registered to the automaton.
+    ///    pattern that was registered earlier in the automaton.
     ///
     /// If the pattern set contains an empty string (length 0), the empty string matches at all
     /// positions between bytes that do not overlap with other patterns.
     ///
     /// # Arguments
     ///
-    /// * `haystack` - String to search for.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -563,7 +561,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the stepper is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -643,7 +641,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Panics
     ///
-    /// If you do not specify [`MatchKind::Standard`] in the construction, the stepper is not
+    /// If you do not specify [`MatchKind::Standard`] during construction, the stepper is not
     /// supported and the function will panic.
     ///
     /// # Examples
@@ -900,8 +898,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// Deserializes the automaton from the given slice without performing any validation.
     ///
-    /// This function does not perform any validation on the input data. If processing speed is not
-    /// critical, consider using [`DoubleArrayAhoCorasick::deserialize()`].
+    /// Prefer [`DoubleArrayAhoCorasick::deserialize()`] unless maximum performance is critical,
+    /// as this function skips all validation.
     ///
     /// # Arguments
     ///
@@ -913,7 +911,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Safety
     ///
-    /// The given data must be a correct automaton exported by
+    /// The given data must be a valid automaton exported by
     /// [`DoubleArrayAhoCorasick::serialize()`] function.
     ///
     /// # Examples
