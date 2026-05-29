@@ -53,7 +53,7 @@ where
     ///
     /// # Safety
     ///
-    /// `inner` must represent a correct UTF-8 string.
+    /// `inner` must represent a valid UTF-8 string.
     pub unsafe fn new(inner: I) -> Self {
         Self {
             inner: inner.enumerate(),

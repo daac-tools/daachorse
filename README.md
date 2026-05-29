@@ -25,8 +25,7 @@ Daachorse (pronounced "dark horse") is a crate for fast multiple pattern matchin
 the length of the input text. This crate uses the
 [compact double-array data structure](https://doi.org/10.1016/j.ipm.2006.04.004) for implementing
 the pattern match automaton for time and memory efficiency. The data structure not only supports
-constant-time state-to-state traversal but also represents each state in the space of only 12
-bytes.
+constant-time state-to-state traversal but also represents each state using only 12 bytes of memory.
 
 ## Performance comparison
 
@@ -42,10 +41,10 @@ Rust 1.77 or higher is required to build this crate.
 ## Example usage
 
 Daachorse contains some search options, ranging from standard matching with the Aho-Corasick
-algorithm to trickier matching. They will run very fast based on the double-array data structure
-and can be easily plugged into your application, as shown below.
+algorithm to more advanced matching. All of them run efficiently, powered by the double-array data
+structure, and can be easily plugged into your application, as shown below.
 
-### Finding overlapped occurrences
+### Finding overlapping occurrences
 
 To search for all occurrences of registered patterns that allow for positional overlap in the input
 text, use `find_overlapping_iter()`. When you use `new()` for construction, the library assigns a
@@ -72,11 +71,10 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with the standard matching
+### Finding non-overlapping occurrences with standard matching
 
-If you do not want to allow positional overlap, use `find_iter()` instead.
-It performs the search on the Aho-Corasick automaton
-and reports patterns first found in each iteration.
+To disallow positional overlap, use `find_iter()` instead. It performs the search on the
+Aho-Corasick automaton and reports the first matching pattern found at each search position.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;
@@ -95,10 +93,10 @@ assert_eq!((1, 4, 0), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with the longest matching
+### Finding non-overlapping occurrences with longest matching
 
-If you want to search for the longest pattern without positional overlap in each iteration, use
-`leftmost_find_iter()` with specifying `MatchKind::LeftmostLongest` in the construction.
+To search for the longest pattern without positional overlap in each iteration, specify
+`MatchKind::LeftmostLongest` during construction and use `leftmost_find_iter()`.
 
 ```rust
 use daachorse::{DoubleArrayAhoCorasickBuilder, MatchKind};
@@ -117,12 +115,12 @@ assert_eq!((0, 4, 2), (m.start(), m.end(), m.value()));
 assert_eq!(None, it.next());
 ```
 
-### Finding non-overlapped occurrences with the leftmost-first matching
+### Finding non-overlapping occurrences with leftmost-first matching
 
-If you want to find the earliest registered pattern among ones starting from the search position,
-use `leftmost_find_iter()` with specifying `MatchKind::LeftmostFirst`.
+To search for the earliest registered pattern among those starting from the search position,
+specify `MatchKind::LeftmostFirst` during construction and use `leftmost_find_iter()`.
 
-This is the so-called *leftmost first match*, a tricky search option supported in the
+This semantics is the so-called *leftmost first match*, a tricky search option supported in the
 [aho-corasick](https://github.com/BurntSushi/aho-corasick) crate. For example, in the following
 code, `ab` is reported because it is the earliest registered one.
 
@@ -145,8 +143,8 @@ assert_eq!(None, it.next());
 
 ### Associating arbitrary values with patterns
 
-To build the automaton from pairs of a pattern and user-defined value, instead of assigning identifiers
-automatically, use `with_values()`.
+To build the automaton from pattern-value pairs, instead of assigning identifiers automatically, use
+`with_values()`.
 
 ```rust
 use daachorse::DoubleArrayAhoCorasick;
@@ -173,8 +171,9 @@ assert_eq!(None, it.next());
 To build a faster automaton on multibyte characters, use `CharwiseDoubleArrayAhoCorasick` instead.
 
 The standard version `DoubleArrayAhoCorasick` handles strings as UTF-8 sequences and defines
-transition labels using byte values. On the other hand, `CharwiseDoubleArrayAhoCorasick` uses
-Unicode code point values, reducing the number of transitions and faster matching.
+transition labels using byte values. In contrast, `CharwiseDoubleArrayAhoCorasick` uses Unicode code
+point values, reducing the number of transitions and enabling faster matching on multibyte
+characters.
 
 ```rust
 use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -197,30 +196,6 @@ assert_eq!(None, it.next());
 
 Daachorse has no dependency on `std` (but requires a global allocator with the `alloc` crate).
 
-## CLI
-
-This repository contains a command-line interface named `daacfind` for searching patterns in text
-files.
-
-```
-% cat ./pat.txt
-fn
-const fn
-pub fn
-unsafe fn
-% find . -name "*.rs" | xargs cargo run --release -p daacfind -- --color=auto -nf ./pat.txt
-...
-...
-./src/errors.rs:67:    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-./src/errors.rs:81:    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-./src/lib.rs:115:    fn default() -> Self {
-./src/lib.rs:126:    pub fn base(&self) -> Option<u32> {
-./src/lib.rs:131:    pub const fn check(&self) -> u8 {
-./src/lib.rs:136:    pub const fn fail(&self) -> u32 {
-...
-...
-```
-
 ## FAQ
 
 * **Does this library support data types other than `str` and `[u8]`?
@@ -229,7 +204,7 @@ unsafe fn
   Not supported. This library uses Aho-Corasick automata built with a
   data structure called *double-array trie*. The algorithm on this data
   structure works with XOR operations on the input haystack. Therefore,
-  the haystack must be a sequence of integers. This library is specially
+  the haystack must be a sequence of integers. This library is specifically
   optimized for `str` and `[u8]` among integer sequences.
 
 * **Does this library support case-insensitive matching?**
@@ -243,8 +218,8 @@ unsafe fn
 * **Does this library provide bindings to programming languages other
   than Rust?**
 
-  We are providing [a Python binding](https://github.com/daac-tools/python-daachorse).
-  Other programming languages are not currently planned to be supported.
+  While we provide [a Python binding](https://github.com/daac-tools/python-daachorse),
+  there are currently no plans to support other languages.
   If you are interested in writing bindings, you are welcome to do so.
   *daachorse* is free software.
 
@@ -266,8 +241,7 @@ Licensed under either of
 
 at your option.
 
-If you use this library in academic settings,
-please cite the following paper.
+If you use this library in academic papers, please cite the following paper.
 
 ```
 @article{10.1002/spe.3190,
