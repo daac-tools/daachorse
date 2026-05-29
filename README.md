@@ -196,30 +196,6 @@ assert_eq!(None, it.next());
 
 Daachorse has no dependency on `std` (but requires a global allocator with the `alloc` crate).
 
-## CLI
-
-This repository contains a command-line interface named `daacfind` for searching patterns in text
-files.
-
-```
-% cat ./pat.txt
-fn
-const fn
-pub fn
-unsafe fn
-% find . -name "*.rs" | xargs cargo run --release -p daacfind -- --color=auto -nf ./pat.txt
-...
-...
-./src/errors.rs:67:    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-./src/errors.rs:81:    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-./src/lib.rs:115:    fn default() -> Self {
-./src/lib.rs:126:    pub fn base(&self) -> Option<u32> {
-./src/lib.rs:131:    pub const fn check(&self) -> u8 {
-./src/lib.rs:136:    pub const fn fail(&self) -> u32 {
-...
-...
-```
-
 ## FAQ
 
 * **Does this library support data types other than `str` and `[u8]`?
