@@ -73,7 +73,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         self
     }
 
-    /// Specifies the number of last blocks to search bases.
+    /// Specifies the number of trailing blocks to use when searching for base values.
     ///
     /// The smaller the number is, the faster the construction time will be; however, the memory
     /// efficiency can be degraded.

@@ -6,12 +6,12 @@ use alloc::vec::Vec;
 use crate::errors::{DaachorseError, Result};
 use crate::utils::FromU32;
 
-/// Helper class in double-array construction to maintain indices of vacant elements and
+/// Helper struct in double-array construction to maintain indices of vacant elements and
 /// unused BASE values.
 ///
-/// This class manages array elements in fixed-size blocks and supports to extend the array
-/// block by block. Given a constant parameter N, this class maintains information for only
-/// the last N blocks and drops the others according to array extension. Such last blocks are
+/// This struct manages array elements in fixed-size blocks and supports extending the array
+/// block by block. Given a constant parameter N, this struct maintains information for only
+/// the last N blocks and drops the others as the array is extended. Such trailing blocks are
 /// called *active blocks*.
 pub struct BuildHelper {
     items: Vec<ListItem>,
@@ -22,11 +22,11 @@ pub struct BuildHelper {
 }
 
 impl BuildHelper {
-    /// Creates a helper class that handles the last `block_len * num_free_blocks` elements.
+    /// Creates a helper struct that handles the last `block_len * num_free_blocks` elements.
     ///
     /// # Panics
     ///
-    /// Panics will arise if block_len == 0 || num_free_blocks == 0.
+    /// Panics if block_len == 0 || num_free_blocks == 0.
     pub fn new(block_len: u32, num_free_blocks: u32) -> Result<Self> {
         let capacity = block_len.checked_mul(num_free_blocks).ok_or_else(|| {
             DaachorseError::automaton_scale("block_len * num_free_blocks", u32::MAX)
@@ -81,9 +81,9 @@ impl BuildHelper {
 
     /// Checks if the BASE value is used.
     ///
-    /// # Panic
+    /// # Panics
     ///
-    /// Panic will arise if active_index_range().contains(&base) == false.
+    /// Panics if active_index_range().contains(&base) == false.
     #[inline(always)]
     pub fn is_used_base(&self, base: u32) -> bool {
         self.get_ref(base).is_used_base()
@@ -91,9 +91,9 @@ impl BuildHelper {
 
     /// Checks if the index is used.
     ///
-    /// # Panic
+    /// # Panics
     ///
-    /// Panic will arise if active_index_range().contains(&idx) == false.
+    /// Panics if active_index_range().contains(&idx) == false.
     #[inline(always)]
     pub fn is_used_index(&self, idx: u32) -> bool {
         self.get_ref(idx).is_used_index()
@@ -101,9 +101,9 @@ impl BuildHelper {
 
     /// Uses the BASE value.
     ///
-    /// # Panic
+    /// # Panics
     ///
-    /// Panic will arise if active_index_range().contains(&base) == false.
+    /// Panics if active_index_range().contains(&base) == false.
     #[inline(always)]
     pub fn use_base(&mut self, base: NonZeroU32) {
         self.get_mut(base.get()).use_base();
@@ -111,9 +111,9 @@ impl BuildHelper {
 
     /// Uses the index.
     ///
-    /// # Panic
+    /// # Panics
     ///
-    /// Panic will arise if active_index_range().contains(&idx) == false.
+    /// Panics if active_index_range().contains(&idx) == false.
     #[inline(always)]
     pub fn use_index(&mut self, idx: u32) {
         debug_assert!(!self.get_ref(idx).is_used_index());
@@ -172,7 +172,7 @@ impl BuildHelper {
         Ok(())
     }
 
-    /// Retruns the index of an active block that will be dropped in the next `push_block`.
+    /// Returns the index of an active block that will be dropped in the next `push_block`.
     #[inline(always)]
     pub fn dropped_block(&self) -> Option<u32> {
         (self.capacity() <= self.num_elements()).then(|| self.active_block_range().start)
