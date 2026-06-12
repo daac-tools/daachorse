@@ -958,39 +958,34 @@ impl<V> DoubleArrayAhoCorasick<V> {
         )
     }
 
-    /// # Safety
-    ///
-    /// `state_id` must be smaller than the length of states.
-    #[inline(always)]
-    unsafe fn child_index_unchecked(&self, state_id: u32, c: u8) -> Option<u32> {
-        // child_idx is always smaller than states.len() because
-        //  - states.len() is 256 * k for some integer k, and
-        //  - base() returns smaller than states.len() when it is Some.
-        self.states
-            .get_unchecked(usize::from_u32(state_id))
-            .base()
-            .and_then(|base| {
-                let child_idx = base.get() ^ u32::from(c);
-                Some(child_idx)
-                    .filter(|&x| self.states.get_unchecked(usize::from_u32(x)).check() == c)
-            })
-    }
 
     /// # Safety
     ///
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
     unsafe fn next_state_id_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
-        // In the loop, state_id is always set to values smaller than states.len(),
-        // because child_index_unchecked() and fail() return such values.
         loop {
-            if let Some(state_id) = self.child_index_unchecked(state_id, c) {
-                return state_id;
+            // Get the current state.
+            let state = self.states.get_unchecked(usize::from_u32(state_id));
+
+            // If the state has transitions (indicated by a non-None base value):
+            if let Some(base) = state.base() {
+                // Calculate the child index in the double-array using base ^ c.
+                let child_idx = base.get() ^ u32::from(c);
+                let child = self.states.get_unchecked(usize::from_u32(child_idx));
+                // Verify if the transition exists by checking if the child's check value matches c.
+                if child.check() == c {
+                    return child_idx;
+                }
             }
+
+            // If no transition is found and we are already at the root state, stay/reset at the root state.
             if state_id == ROOT_STATE_IDX {
                 return ROOT_STATE_IDX;
             }
-            state_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
+
+            // Follow the failure transition to the next candidate state.
+            state_id = state.fail();
         }
     }
 
@@ -999,19 +994,33 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
     unsafe fn next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
-        // In the loop, state_id is always set to values smaller than states.len(),
-        // because child_index_unchecked() and fail() return such values.
         loop {
-            if let Some(state_id) = self.child_index_unchecked(state_id, c) {
-                return state_id;
+            // Get the current state.
+            let state = self.states.get_unchecked(usize::from_u32(state_id));
+
+            // If the state has transitions (indicated by a non-None base value):
+            if let Some(base) = state.base() {
+                // Calculate the child index in the double-array using base ^ c.
+                let child_idx = base.get() ^ u32::from(c);
+                let child = self.states.get_unchecked(usize::from_u32(child_idx));
+                // Verify if the transition exists by checking if the child's check value matches c.
+                if child.check() == c {
+                    return child_idx;
+                }
             }
+
+            // If no transition is found and we are already at the root state, stay/reset at the root state.
             if state_id == ROOT_STATE_IDX {
                 return ROOT_STATE_IDX;
             }
-            let fail_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
+
+            // In leftmost matching, we stop searching if the failure path hits the dead state.
+            let fail_id = state.fail();
             if fail_id == DEAD_STATE_IDX {
                 return ROOT_STATE_IDX;
             }
+
+            // Follow the failure transition to the next candidate state.
             state_id = fail_id;
         }
     }
