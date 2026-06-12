@@ -958,7 +958,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
         )
     }
 
-
     /// # Safety
     ///
     /// `state_id` must be smaller than the length of states.
