@@ -1018,44 +1018,32 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// # Safety
     ///
     /// `state_id` must be smaller than the length of states.
-    #[allow(clippy::cast_possible_wrap)]
-    #[inline(always)]
-    unsafe fn child_index_unchecked(&self, state_id: u32, mapped_c: u32) -> Option<u32> {
-        let base = self
-            .states
-            .get_unchecked(usize::from_u32(state_id))
-            .base()?;
-        // child_idx is always smaller than states.len() because
-        //  - states.len() is a multiple of (1 << k),
-        //    where k is the number of bits needed to represent mapped_c.
-        //  - base() is always smaller than states.len() when it is Some.
-        let child_idx = base.get() ^ mapped_c;
-        if self
-            .states
-            .get_unchecked(usize::from_u32(child_idx))
-            .check()
-            == state_id
-        {
-            Some(child_idx)
-        } else {
-            None
-        }
-    }
-
-    /// # Safety
-    ///
-    /// `state_id` must be smaller than the length of states.
     #[inline(always)]
     unsafe fn next_state_id_unchecked(&self, mut state_id: u32, c: char) -> u32 {
+        // Map the character to its integer label, if it exists in the mapper.
         if let Some(mapped_c) = self.mapper.get(c) {
             loop {
-                if let Some(state_id) = self.child_index_unchecked(state_id, mapped_c) {
-                    return state_id;
+                // Get the current state.
+                let state = self.states.get_unchecked(usize::from_u32(state_id));
+
+                // If the state has transitions (indicated by a non-None base value):
+                if let Some(base) = state.base() {
+                    // Calculate the child index in the double-array using base ^ mapped_c.
+                    let child_idx = base.get() ^ mapped_c;
+                    let child = self.states.get_unchecked(usize::from_u32(child_idx));
+                    // Verify if the transition exists by checking if the child's check value matches state_id.
+                    if child.check() == state_id {
+                        return child_idx;
+                    }
                 }
+
+                // If no transition is found and we are already at the root state, stay/reset at the root state.
                 if state_id == ROOT_STATE_IDX {
                     return ROOT_STATE_IDX;
                 }
-                state_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
+
+                // Follow the failure transition to the next candidate state.
+                state_id = state.fail();
             }
         } else {
             ROOT_STATE_IDX
@@ -1067,18 +1055,35 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// `state_id` must be smaller than the length of states.
     #[inline(always)]
     unsafe fn next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: char) -> u32 {
+        // Map the character to its integer label, if it exists in the mapper.
         if let Some(mapped_c) = self.mapper.get(c) {
             loop {
-                if let Some(state_id) = self.child_index_unchecked(state_id, mapped_c) {
-                    return state_id;
+                // Get the current state.
+                let state = self.states.get_unchecked(usize::from_u32(state_id));
+
+                // If the state has transitions (indicated by a non-None base value):
+                if let Some(base) = state.base() {
+                    // Calculate the child index in the double-array using base ^ mapped_c.
+                    let child_idx = base.get() ^ mapped_c;
+                    let child = self.states.get_unchecked(usize::from_u32(child_idx));
+                    // Verify if the transition exists by checking if the child's check value matches state_id.
+                    if child.check() == state_id {
+                        return child_idx;
+                    }
                 }
+
+                // If no transition is found and we are already at the root state, stay/reset at the root state.
                 if state_id == ROOT_STATE_IDX {
                     return ROOT_STATE_IDX;
                 }
-                let fail_id = self.states.get_unchecked(usize::from_u32(state_id)).fail();
+
+                // In leftmost matching, we stop searching if the failure path hits the dead state.
+                let fail_id = state.fail();
                 if fail_id == DEAD_STATE_IDX {
                     return ROOT_STATE_IDX;
                 }
+
+                // Follow the failure transition to the next candidate state.
                 state_id = fail_id;
             }
         } else {
