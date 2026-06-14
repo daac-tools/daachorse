@@ -196,6 +196,11 @@ assert_eq!(None, it.next());
 
 Daachorse has no dependency on `std` (but requires a global allocator with the `alloc` crate).
 
+## Semantic versioning
+
+This library adheres to [Semantic Versioning](https://semver.org/). This means you can safely
+continue using the same API as long as the major version is not bumped.
+
 ## FAQ
 
 * **Does this library support data types other than `str` and `[u8]`?
