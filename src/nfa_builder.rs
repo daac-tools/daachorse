@@ -1,4 +1,4 @@
-use core::cell::RefCell;
+use core::cell::Cell;
 use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
@@ -35,25 +35,25 @@ type EdgeMap<L> = alloc::collections::BTreeMap<L, u32>;
 #[derive(Clone)]
 pub struct NfaBuilderState<L, V> {
     pub(crate) edges: EdgeMap<L>,
-    pub(crate) fail: u32,
+    pub(crate) fail: Cell<u32>,
     pub(crate) output: Vec<(V, u32)>,
-    pub(crate) output_pos: Option<NonZeroU32>,
+    pub(crate) output_pos: Cell<Option<NonZeroU32>>,
 }
 
 impl<L, V> Default for NfaBuilderState<L, V> {
     fn default() -> Self {
         Self {
             edges: EdgeMap::<L>::default(),
-            fail: ROOT_STATE_ID,
+            fail: Cell::new(ROOT_STATE_ID),
             output: vec![],
-            output_pos: None,
+            output_pos: Cell::new(None),
         }
     }
 }
 
 /// Builder of an Aho-Corasick automaton.
 pub struct NfaBuilder<L, V> {
-    pub(crate) states: Vec<RefCell<NfaBuilderState<L, V>>>,
+    pub(crate) states: Vec<NfaBuilderState<L, V>>,
     pub(crate) outputs: Vec<Output<V>>, // in which common parts are merged.
     pub(crate) len: usize,
     pub(crate) match_kind: MatchKind,
@@ -67,8 +67,8 @@ where
     pub(crate) fn new(match_kind: MatchKind) -> Self {
         Self {
             states: vec![
-                RefCell::new(NfaBuilderState::<L, V>::default()), // root
-                RefCell::new(NfaBuilderState::<L, V>::default()), // dead
+                NfaBuilderState::<L, V>::default(), // root
+                NfaBuilderState::<L, V>::default(), // dead
             ],
             outputs: vec![],
             len: 0,
@@ -88,8 +88,7 @@ where
         for &c in pattern {
             if self.match_kind.is_leftmost_first() {
                 // If state_id has an output, the descendants will never be searched.
-                let output = &self.states[usize::from_u32(state_id)].borrow().output;
-                if !output.is_empty() {
+                if !self.states[usize::from_u32(state_id)].output.is_empty() {
                     return Ok(());
                 }
             }
@@ -98,11 +97,9 @@ where
                 state_id = next_state_id;
             } else if let Ok(next_state_id) = u32::try_from(self.states.len()) {
                 self.states[usize::from_u32(state_id)]
-                    .borrow_mut()
                     .edges
                     .insert(c, next_state_id);
-                self.states
-                    .push(RefCell::new(NfaBuilderState::<L, V>::default()));
+                self.states.push(NfaBuilderState::<L, V>::default());
                 state_id = next_state_id;
             } else {
                 return Err(DaachorseError::automaton_scale("state_id", u32::MAX));
@@ -110,7 +107,6 @@ where
         }
 
         self.states[usize::from_u32(state_id)]
-            .borrow_mut()
             .output
             .push((value, pattern_len));
 
@@ -120,11 +116,7 @@ where
 
     pub(crate) fn build_fails(&self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
-        for &child_id in self.states[usize::from_u32(ROOT_STATE_ID)]
-            .borrow()
-            .edges
-            .values()
-        {
+        for &child_id in self.states[usize::from_u32(ROOT_STATE_ID)].edges.values() {
             q.push(child_id);
         }
 
@@ -133,20 +125,20 @@ where
             let state_id = usize::from_u32(q[qi]);
             qi += 1;
 
-            let s = &self.states[state_id].borrow();
+            let s = &self.states[state_id];
             for (&c, &child_id) in &s.edges {
-                let mut fail_id = s.fail;
+                let mut fail_id = s.fail.get();
                 let new_fail_id = loop {
                     if let Some(child_fail_id) = self.child_id(fail_id, c) {
                         break child_fail_id;
                     }
-                    let next_fail_id = self.states[usize::from_u32(fail_id)].borrow().fail;
+                    let next_fail_id = self.states[usize::from_u32(fail_id)].fail.get();
                     if fail_id == ROOT_STATE_ID && next_fail_id == ROOT_STATE_ID {
                         break ROOT_STATE_ID;
                     }
                     fail_id = next_fail_id;
                 };
-                self.states[usize::from_u32(child_id)].borrow_mut().fail = new_fail_id;
+                self.states[usize::from_u32(child_id)].fail.set(new_fail_id);
                 q.push(child_id);
             }
         }
@@ -155,24 +147,17 @@ where
 
     pub(crate) fn build_fails_leftmost(&self) -> Vec<u32> {
         let mut q = Vec::with_capacity(self.states.len());
-        for &child_id in self.states[usize::from_u32(ROOT_STATE_ID)]
-            .borrow()
-            .edges
-            .values()
-        {
+        for &child_id in self.states[usize::from_u32(ROOT_STATE_ID)].edges.values() {
             q.push(child_id);
         }
         if !self.states[usize::from_u32(ROOT_STATE_ID)]
-            .borrow()
             .output
             .is_empty()
         {
-            for &child_id in self.states[usize::from_u32(ROOT_STATE_ID)]
-                .borrow()
-                .edges
-                .values()
-            {
-                self.states[usize::from_u32(child_id)].borrow_mut().fail = DEAD_STATE_ID;
+            for &child_id in self.states[usize::from_u32(ROOT_STATE_ID)].edges.values() {
+                self.states[usize::from_u32(child_id)]
+                    .fail
+                    .set(DEAD_STATE_ID);
             }
         }
 
@@ -181,15 +166,15 @@ where
             let state_id = usize::from_u32(q[qi]);
             qi += 1;
 
-            let s = &mut self.states[state_id].borrow_mut();
+            let s = &self.states[state_id];
 
             // Sets the output state to the dead fail.
             if !s.output.is_empty() {
-                s.fail = DEAD_STATE_ID;
+                s.fail.set(DEAD_STATE_ID);
             }
 
             for (&c, &child_id) in &s.edges {
-                let mut fail_id = s.fail;
+                let mut fail_id = s.fail.get();
 
                 // If the parent has the dead fail, the child also has the dead fail.
                 let new_fail_id = if fail_id == DEAD_STATE_ID {
@@ -199,7 +184,7 @@ where
                         if let Some(child_fail_id) = self.child_id(fail_id, c) {
                             break child_fail_id;
                         }
-                        let next_fail_id = self.states[usize::from_u32(fail_id)].borrow().fail;
+                        let next_fail_id = self.states[usize::from_u32(fail_id)].fail.get();
                         if next_fail_id == DEAD_STATE_ID {
                             break DEAD_STATE_ID;
                         }
@@ -210,7 +195,7 @@ where
                     }
                 };
 
-                self.states[usize::from_u32(child_id)].borrow_mut().fail = new_fail_id;
+                self.states[usize::from_u32(child_id)].fail.set(new_fail_id);
                 q.push(child_id);
             }
         }
@@ -219,29 +204,28 @@ where
 
     pub(crate) fn build_outputs(&mut self, q: &[u32]) {
         {
-            let s = &mut self.states[usize::from_u32(ROOT_STATE_ID)].borrow_mut();
+            let s = &self.states[usize::from_u32(ROOT_STATE_ID)];
             let mut last_pos = None;
             for output in s.output.iter().rev() {
                 self.outputs.push(Output::new(output.0, output.1, last_pos));
                 last_pos = NonZeroU32::new(u32::try_from(self.outputs.len()).unwrap());
             }
-            s.output_pos = last_pos;
+            s.output_pos.set(last_pos);
         }
         for &state_id in q {
-            let s = &mut self.states[usize::from_u32(state_id)].borrow_mut();
-            let mut last_pos = self.states[usize::from_u32(s.fail)].borrow().output_pos;
+            let s = &self.states[usize::from_u32(state_id)];
+            let mut last_pos = self.states[usize::from_u32(s.fail.get())].output_pos.get();
             for output in s.output.iter().rev() {
                 self.outputs.push(Output::new(output.0, output.1, last_pos));
                 last_pos = NonZeroU32::new(u32::try_from(self.outputs.len()).unwrap());
             }
-            s.output_pos = last_pos;
+            s.output_pos.set(last_pos);
         }
     }
 
     #[inline(always)]
     fn child_id(&self, state_id: u32, c: L) -> Option<u32> {
         self.states[usize::from_u32(state_id)]
-            .borrow()
             .edges
             .get(&c)
             .copied()

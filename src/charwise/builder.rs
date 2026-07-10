@@ -250,12 +250,11 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
 
         while let Some(state_id) = stack.pop() {
             debug_assert_ne!(state_id, DEAD_STATE_ID);
-            let state = &nfa.states[usize::from_u32(state_id)];
+            let s = &nfa.states[usize::from_u32(state_id)];
 
             let state_idx = state_id_map[usize::from_u32(state_id)];
             debug_assert_ne!(state_idx, DEAD_STATE_IDX);
 
-            let s = &state.borrow();
             if s.edges.is_empty() {
                 continue;
             }
@@ -282,7 +281,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         }
 
         // Sets fail & output_pos values
-        for (i, state) in nfa.states.iter().enumerate() {
+        for (i, s) in nfa.states.iter().enumerate() {
             if i == usize::from_u32(DEAD_STATE_ID) {
                 continue;
             }
@@ -290,10 +289,9 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             let idx = usize::from_u32(state_id_map[i]);
             debug_assert_ne!(idx, usize::from_u32(DEAD_STATE_IDX));
 
-            let s = &state.borrow();
-            self.states[idx].set_output_pos(s.output_pos);
+            self.states[idx].set_output_pos(s.output_pos.get());
 
-            let fail_id = s.fail;
+            let fail_id = s.fail.get();
             if fail_id == DEAD_STATE_ID {
                 self.states[idx].set_fail(DEAD_STATE_IDX);
             } else {
