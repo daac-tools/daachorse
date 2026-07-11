@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 
 #[derive(Clone, Default)]
-pub(crate) enum EdgeMap<L> {
+pub enum EdgeMap<L> {
     #[default]
     Empty,
     One((L, u32)),
@@ -12,7 +12,7 @@ impl<L> EdgeMap<L>
 where
     L: Ord + Copy,
 {
-    pub(crate) fn insert(&mut self, key: L, value: u32) {
+    pub fn insert(&mut self, key: L, value: u32) {
         match self {
             Self::Empty => {
                 *self = Self::One((key, value));
@@ -43,7 +43,7 @@ where
         }
     }
 
-    pub(crate) fn get(&self, key: &L) -> Option<&u32> {
+    pub fn get(&self, key: &L) -> Option<&u32> {
         match self {
             Self::Empty => None,
             Self::One((k, v)) => (*key == *k).then_some(v),
@@ -54,19 +54,19 @@ where
         }
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         matches!(self, Self::Empty)
     }
 
-    pub(crate) fn keys(&self) -> impl Iterator<Item = &L> {
+    pub fn keys(&self) -> impl Iterator<Item = &L> {
         self.iter().map(|(k, _)| k)
     }
 
-    pub(crate) fn values(&self) -> impl Iterator<Item = &u32> {
+    pub fn values(&self) -> impl Iterator<Item = &u32> {
         self.iter().map(|(_, v)| v)
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = &(L, u32)> {
+    pub fn iter(&self) -> impl Iterator<Item = &(L, u32)> {
         match self {
             Self::Empty => [].iter(),
             Self::One(entry) => core::slice::from_ref(entry).iter(),
