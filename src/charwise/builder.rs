@@ -260,7 +260,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             }
 
             mapped.clear();
-            for (&label, &child_id) in &s.edges {
+            for &(label, child_id) in s.edges.iter() {
                 mapped.push((self.mapper.get(label).unwrap(), child_id));
             }
             mapped.sort_unstable_by_key(|x| x.0);
