@@ -192,6 +192,7 @@ extern crate alloc;
 mod build_helper;
 pub mod bytewise;
 pub mod charwise;
+mod edge_map;
 pub mod errors;
 mod intpack;
 mod nfa_builder;

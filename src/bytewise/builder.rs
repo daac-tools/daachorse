@@ -271,7 +271,7 @@ impl DoubleArrayAhoCorasickBuilder {
                 self.extend_array(&mut helper)?;
             }
 
-            for (&c, &child_id) in &s.edges {
+            for &(c, child_id) in s.edges.iter() {
                 let child_idx = base.get() ^ u32::from(c);
                 helper.use_index(child_idx);
                 self.states[usize::from_u32(child_idx)].set_check(c);

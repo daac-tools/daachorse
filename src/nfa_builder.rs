@@ -3,6 +3,7 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
+use crate::edge_map::EdgeMap;
 use crate::errors::{DaachorseError, Result};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output};
@@ -27,9 +28,6 @@ impl EdgeLabel for char {
         self.len_utf8()
     }
 }
-
-/// Mapping edge labels to child ids using `BTreeMap`.
-type EdgeMap<L> = alloc::collections::BTreeMap<L, u32>;
 
 /// State of [`NfaBuilder`].
 #[derive(Clone)]
@@ -126,7 +124,7 @@ where
             qi += 1;
 
             let s = &self.states[state_id];
-            for (&c, &child_id) in &s.edges {
+            for &(c, child_id) in s.edges.iter() {
                 let mut fail_id = s.fail.get();
                 let new_fail_id = loop {
                     if let Some(child_fail_id) = self.child_id(fail_id, c) {
@@ -173,7 +171,7 @@ where
                 s.fail.set(DEAD_STATE_ID);
             }
 
-            for (&c, &child_id) in &s.edges {
+            for &(c, child_id) in s.edges.iter() {
                 let mut fail_id = s.fail.get();
 
                 // If the parent has the dead fail, the child also has the dead fail.
