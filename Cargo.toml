@@ -3,7 +3,7 @@ name = "daachorse"
 
 # This library adheres to Semantic Versioning.
 # See: https://semver.org/
-version = "3.0.2"
+version = "3.0.3"
 
 # Bumping the MSRV breaks backward compatibility. If you bump it, please increment the major version
 # of the library as well.
