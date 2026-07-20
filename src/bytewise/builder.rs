@@ -213,11 +213,13 @@ impl DoubleArrayAhoCorasickBuilder {
         let num_states = u32::try_from(nfa.states.len() - 1)
             .map_err(|_| DaachorseError::automaton_scale("num_states", u32::MAX))?;
 
+        let root_table = DoubleArrayAhoCorasick::<V>::build_root_table(&self.states);
         Ok(DoubleArrayAhoCorasick {
             states: self.states,
             outputs: nfa.outputs,
             match_kind: self.match_kind,
             num_states,
+            root_table,
         })
     }
 

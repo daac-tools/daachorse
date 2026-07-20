@@ -6,6 +6,7 @@ pub mod iter;
 use core::mem;
 use core::num::NonZeroU32;
 
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::build_helper::BuildHelper;
@@ -55,6 +56,7 @@ pub struct DoubleArrayAhoCorasick<V> {
     outputs: Vec<Output<V>>,
     match_kind: MatchKind,
     num_states: u32,
+    root_table: Box<[u32; 256]>,
 }
 
 impl<V> DoubleArrayAhoCorasick<V> {
@@ -748,12 +750,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// let patterns = vec!["bcd", "ab", "a"];
     /// let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
     ///
-    /// assert_eq!(3108, pma.heap_bytes());
+    /// assert_eq!(4132, pma.heap_bytes());
     /// ```
     #[must_use]
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * mem::size_of::<State>()
             + self.outputs.len() * mem::size_of::<Output<V>>()
+            + mem::size_of::<[u32; 256]>()
     }
 
     /// Returns the total number of states this automaton has.
@@ -856,11 +859,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source)?;
         let (match_kind, source) = MatchKind::deserialize_from_slice(source)?;
         let (num_states, source) = u32::deserialize_from_slice(source)?;
+        let root_table = Self::build_root_table(&states);
         let pma = Self {
             states,
             outputs,
             match_kind,
             num_states,
+            root_table,
         };
         let block_len = 256;
         if pma.states.is_empty() {
@@ -947,15 +952,36 @@ impl<V> DoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source).unwrap_unchecked();
         let (match_kind, source) = MatchKind::deserialize_from_slice(source).unwrap_unchecked();
         let (num_states, source) = u32::deserialize_from_slice(source).unwrap_unchecked();
+        let root_table = Self::build_root_table(&states);
         (
             Self {
                 states,
                 outputs,
                 match_kind,
                 num_states,
+                root_table,
             },
             source,
         )
+    }
+
+    /// Builds a dense transition table for the root state.
+    fn build_root_table(states: &[State]) -> Box<[u32; 256]> {
+        let mut table = Box::new([ROOT_STATE_IDX; 256]);
+        if let Some(base) = states
+            .get(usize::from_u32(ROOT_STATE_IDX))
+            .and_then(State::base)
+        {
+            for c in 0..=255u8 {
+                let child_idx = base.get() ^ u32::from(c);
+                if let Some(child) = states.get(usize::from_u32(child_idx)) {
+                    if child.check() == c {
+                        table[usize::from(c)] = child_idx;
+                    }
+                }
+            }
+        }
+        table
     }
 
     /// # Safety
@@ -964,6 +990,12 @@ impl<V> DoubleArrayAhoCorasick<V> {
     #[inline(always)]
     unsafe fn next_state_id_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
         loop {
+            // The root state is by far the most frequent one, so its transitions are precomputed in
+            // a dense table.
+            if state_id == ROOT_STATE_IDX {
+                return self.root_table[usize::from(c)];
+            }
+
             // Get the current state.
             let state = self.states.get_unchecked(usize::from_u32(state_id));
 
@@ -976,11 +1008,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
                 if child.check() == c {
                     return child_idx;
                 }
-            }
-
-            // If no transition is found and we are already at the root state, stay/reset at the root state.
-            if state_id == ROOT_STATE_IDX {
-                return ROOT_STATE_IDX;
             }
 
             // Follow the failure transition to the next candidate state.
