@@ -761,12 +761,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// ```
     #[must_use]
     pub fn heap_bytes(&self) -> usize {
-        self.states.len() * mem::size_of::<State<u32>>()
-            + self.leftmost_states.len() * mem::size_of::<State<u32>>()
-            + self.fails.len() * mem::size_of::<State<u32>>()
-            + self.outputs.len() * mem::size_of::<Output<V>>()
-            + mem::size_of::<[u32; 256]>()
-    }
+self.states.len() * mem::size_of::<State<u32>>()
+    + self.leftmost_states.len() * mem::size_of::<State<Empty>>()
+    + self.fails.len() * mem::size_of::<u32>()
+    + self.outputs.len() * mem::size_of::<Output<V>>()
+    + mem::size_of::<[u32; 256]>()
 
     /// Returns the total number of states this automaton has.
     ///
@@ -1448,10 +1447,12 @@ mod tests {
         let bytes = pma.serialize();
         let (other, rest) = DoubleArrayAhoCorasick::deserialize(&bytes).unwrap();
         assert!(rest.is_empty());
-        assert_eq!(pma.states, other.states);
-        assert_eq!(pma.outputs, other.outputs);
-        assert_eq!(pma.match_kind, other.match_kind);
-        assert_eq!(pma.num_states, other.num_states);
+assert_eq!(pma.states, other.states);
+assert_eq!(pma.leftmost_states, other.leftmost_states);
+assert_eq!(pma.fails, other.fails);
+assert_eq!(pma.outputs, other.outputs);
+assert_eq!(pma.match_kind, other.match_kind);
+assert_eq!(pma.num_states, other.num_states);
     }
 
     #[test]
