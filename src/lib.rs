@@ -417,7 +417,7 @@ impl Serializable for MatchKind {
 /// let m = it.next().unwrap();
 /// assert_eq!((0, 1), (m.start(), m.end()));
 /// ```
-#[derive(Clone, Copy, Default, Debug)]
+#[derive(Clone, Copy, Default, Debug, Eq, Hash, PartialEq)]
 pub struct Empty;
 
 impl From<usize> for Empty {
