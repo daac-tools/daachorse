@@ -1216,7 +1216,7 @@ where
     #[inline(always)]
     fn serialized_bytes() -> usize {
         Option::<NonZeroU32>::serialized_bytes()
-            + u32::serialized_bytes()
+            + F::serialized_bytes()
             + U24nU8::serialized_bytes()
     }
 }
