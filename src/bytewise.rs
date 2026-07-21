@@ -3,7 +3,6 @@
 mod builder;
 pub mod iter;
 
-use core::fmt::Debug;
 use core::mem;
 use core::num::NonZeroU32;
 
@@ -19,7 +18,7 @@ use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
 use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
-use crate::{Empty, MatchKind, Output};
+use crate::{MatchKind, Output};
 
 // The root index position.
 const ROOT_STATE_IDX: u32 = 0;
@@ -52,15 +51,12 @@ const DEAD_STATE_IDX: u32 = 1;
 /// [`DaachorseError`] will be reported.
 #[derive(Clone, Eq, Hash, PartialEq)]
 pub struct DoubleArrayAhoCorasick<V> {
-    // for standard matching
-    states: Vec<State<u32>>,
+    states: Vec<State>,
+    // Fail edges of `states`, stored in a separate array for better cache density of `states`.
+    fails: Vec<u32>,
     // A dense transition table for the root state, which has 256 elements for standard matching
     // and is empty for leftmost matching.
     root_table: Vec<u32>,
-
-    // for leftmost matching
-    leftmost_states: Vec<State<Empty>>,
-    fails: Vec<u32>,
 
     outputs: Vec<Output<V>>,
     match_kind: MatchKind,
@@ -557,7 +553,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
             haystack,
             pos: 0,
             init_output_pos: unsafe {
-                self.leftmost_states
+                self.states
                     .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
                     .output_pos()
             },
@@ -762,10 +758,9 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// ```
     #[must_use]
     pub fn heap_bytes(&self) -> usize {
-        self.states.len() * mem::size_of::<State<u32>>()
-            + self.root_table.len() * mem::size_of::<u32>()
-            + self.leftmost_states.len() * mem::size_of::<State<Empty>>()
+        self.states.len() * mem::size_of::<State>()
             + self.fails.len() * mem::size_of::<u32>()
+            + self.root_table.len() * mem::size_of::<u32>()
             + self.outputs.len() * mem::size_of::<Output<V>>()
     }
 
@@ -804,14 +799,12 @@ impl<V> DoubleArrayAhoCorasick<V> {
     {
         let mut result = Vec::with_capacity(
             self.states.serialized_bytes()
-                + self.leftmost_states.serialized_bytes()
                 + self.fails.serialized_bytes()
                 + self.outputs.serialized_bytes()
                 + MatchKind::serialized_bytes()
                 + u32::serialized_bytes(),
         );
         self.states.serialize_to_vec(&mut result);
-        self.leftmost_states.serialize_to_vec(&mut result);
         self.fails.serialize_to_vec(&mut result);
         self.outputs.serialize_to_vec(&mut result);
         self.match_kind.serialize_to_vec(&mut result);
@@ -869,8 +862,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     where
         V: Serializable,
     {
-        let (states, source) = Vec::<State<u32>>::deserialize_from_slice(source)?;
-        let (leftmost_states, source) = Vec::<State<Empty>>::deserialize_from_slice(source)?;
+        let (states, source) = Vec::<State>::deserialize_from_slice(source)?;
         let (fails, source) = Vec::<u32>::deserialize_from_slice(source)?;
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source)?;
         let (match_kind, source) = MatchKind::deserialize_from_slice(source)?;
@@ -882,7 +874,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
         };
         let pma = Self {
             states,
-            leftmost_states,
             fails,
             outputs,
             match_kind,
@@ -891,66 +882,37 @@ impl<V> DoubleArrayAhoCorasick<V> {
         };
         let block_len = 256;
         let outputs_len = pma.outputs.len();
-        if pma.match_kind.is_leftmost() {
-            if !pma.states.is_empty() {
-                return Err(DaachorseError::invalid_automaton());
-            }
-            if pma.leftmost_states.is_empty() {
-                return Err(DaachorseError::invalid_automaton());
-            }
-            if pma.leftmost_states.len() % block_len != 0 {
-                return Err(DaachorseError::invalid_automaton());
-            }
-            if pma.fails.len() != pma.leftmost_states.len() {
-                return Err(DaachorseError::invalid_automaton());
-            }
-            let states_len = pma.leftmost_states.len();
-            for state in &pma.leftmost_states {
-                if let Some(base) = state.base() {
-                    if usize::from_u32(base.get()) >= states_len {
-                        return Err(DaachorseError::invalid_automaton());
-                    }
-                };
-                if let Some(output_pos) = state.output_pos() {
-                    if usize::from_u32(output_pos.get() - 1) >= outputs_len {
-                        return Err(DaachorseError::invalid_automaton());
-                    }
-                };
-            }
-            for fail in &pma.fails {
-                if usize::from_u32(*fail) >= states_len {
-                    return Err(DaachorseError::invalid_automaton());
-                }
-            }
-        } else {
-            if !pma.leftmost_states.is_empty() || !pma.fails.is_empty() {
-                return Err(DaachorseError::invalid_automaton());
-            }
-            if pma.states.is_empty() {
-                return Err(DaachorseError::invalid_automaton());
-            }
-            if pma.states.len() % block_len != 0 {
-                return Err(DaachorseError::invalid_automaton());
-            }
+        if pma.states.is_empty() {
+            return Err(DaachorseError::invalid_automaton());
+        }
+        if pma.states.len() % block_len != 0 {
+            return Err(DaachorseError::invalid_automaton());
+        }
+        if pma.fails.len() != pma.states.len() {
+            return Err(DaachorseError::invalid_automaton());
+        }
+        if !pma.match_kind.is_leftmost() {
             // `next_state_id_unchecked()` relies on this invariant.
             if pma.root_table.len() != block_len {
                 return Err(DaachorseError::invalid_automaton());
             }
-            let states_len = pma.states.len();
-            for state in &pma.states {
-                if let Some(base) = state.base() {
-                    if usize::from_u32(base.get()) >= states_len {
-                        return Err(DaachorseError::invalid_automaton());
-                    }
-                };
-                if usize::from_u32(state.fail()) >= states_len {
+        }
+        let states_len = pma.states.len();
+        for state in &pma.states {
+            if let Some(base) = state.base() {
+                if usize::from_u32(base.get()) >= states_len {
                     return Err(DaachorseError::invalid_automaton());
                 }
-                if let Some(output_pos) = state.output_pos() {
-                    if usize::from_u32(output_pos.get() - 1) >= outputs_len {
-                        return Err(DaachorseError::invalid_automaton());
-                    }
-                };
+            };
+            if let Some(output_pos) = state.output_pos() {
+                if usize::from_u32(output_pos.get() - 1) >= outputs_len {
+                    return Err(DaachorseError::invalid_automaton());
+                }
+            };
+        }
+        for fail in &pma.fails {
+            if usize::from_u32(*fail) >= states_len {
+                return Err(DaachorseError::invalid_automaton());
             }
         }
         for (i, output) in pma.outputs.iter().enumerate() {
@@ -1010,9 +972,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     where
         V: Serializable,
     {
-        let (states, source) = Vec::<State<u32>>::deserialize_from_slice(source).unwrap_unchecked();
-        let (leftmost_states, source) =
-            Vec::<State<Empty>>::deserialize_from_slice(source).unwrap_unchecked();
+        let (states, source) = Vec::<State>::deserialize_from_slice(source).unwrap_unchecked();
         let (fails, source) = Vec::<u32>::deserialize_from_slice(source).unwrap_unchecked();
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source).unwrap_unchecked();
         let (match_kind, source) = MatchKind::deserialize_from_slice(source).unwrap_unchecked();
@@ -1025,7 +985,6 @@ impl<V> DoubleArrayAhoCorasick<V> {
         (
             Self {
                 states,
-                leftmost_states,
                 fails,
                 outputs,
                 match_kind,
@@ -1037,7 +996,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     }
 
     /// Builds a dense transition table for the root state.
-    fn build_root_table(states: &[State<u32>]) -> Vec<u32> {
+    fn build_root_table(states: &[State]) -> Vec<u32> {
         let mut table = vec![ROOT_STATE_IDX; 256];
         if let Some(base) = states
             .get(usize::from_u32(ROOT_STATE_IDX))
@@ -1057,8 +1016,9 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// # Safety
     ///
-    /// `state_id` must be smaller than the length of states, and `root_table` must have 256
-    /// elements. These are guaranteed for standard matching automata.
+    /// `state_id` must be smaller than the length of states, `fails` must have the same length as
+    /// states, and `root_table` must have 256 elements. These are guaranteed for standard matching
+    /// automata.
     #[inline(always)]
     unsafe fn next_state_id_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
         loop {
@@ -1083,28 +1043,25 @@ impl<V> DoubleArrayAhoCorasick<V> {
             }
 
             // Follow the failure transition to the next candidate state.
-            state_id = state.fail();
+            state_id = *self.fails.get_unchecked(usize::from_u32(state_id));
         }
     }
 
     /// # Safety
     ///
-    /// `state_id` must be smaller than the length of states.
+    /// `state_id` must be smaller than the length of states, and `fails` must have the same length
+    /// as states.
     #[inline(always)]
     unsafe fn next_state_id_leftmost_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
         loop {
             // Get the current state.
-            let state = self
-                .leftmost_states
-                .get_unchecked(usize::from_u32(state_id));
+            let state = self.states.get_unchecked(usize::from_u32(state_id));
 
             // If the state has transitions (indicated by a non-None base value):
             if let Some(base) = state.base() {
                 // Calculate the child index in the double-array using base ^ c.
                 let child_idx = base.get() ^ u32::from(c);
-                let child = self
-                    .leftmost_states
-                    .get_unchecked(usize::from_u32(child_idx));
+                let child = self.states.get_unchecked(usize::from_u32(child_idx));
                 // Verify if the transition exists by checking if the child's check value matches c.
                 if child.check() == c {
                     return child_idx;
@@ -1129,17 +1086,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
 }
 
 #[derive(Clone, Copy, Default, Eq, Hash, PartialEq)]
-struct State<F> {
+struct State {
     base: Option<NonZeroU32>,
-    fail: F,
     // 3 bytes for output_pos and 1 byte for check.
     opos_ch: U24nU8,
 }
 
-impl<F> State<F>
-where
-    F: Copy,
-{
+impl State {
     #[inline(always)]
     pub const fn base(&self) -> Option<NonZeroU32> {
         self.base
@@ -1148,11 +1101,6 @@ where
     #[inline(always)]
     pub fn check(&self) -> u8 {
         self.opos_ch.b()
-    }
-
-    #[inline(always)]
-    pub const fn fail(&self) -> F {
-        self.fail
     }
 
     #[inline(always)]
@@ -1171,11 +1119,6 @@ where
     }
 
     #[inline(always)]
-    pub fn set_fail(&mut self, x: F) {
-        self.fail = x;
-    }
-
-    #[inline(always)]
     pub fn set_output_pos(&mut self, x: Option<NonZeroU32>) -> Result<()> {
         let x = x.map_or(0, NonZeroU32::get);
         if let Ok(x) = U24::try_from(x) {
@@ -1187,49 +1130,31 @@ where
     }
 }
 
-impl<F> Serializable for State<F>
-where
-    F: Serializable,
-{
+impl Serializable for State {
     #[inline(always)]
     fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
         self.base.serialize_to_vec(dst);
-        self.fail.serialize_to_vec(dst);
         self.opos_ch.serialize_to_vec(dst);
     }
 
     #[inline(always)]
     fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
         let (base, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
-        let (fail, src) = F::deserialize_from_slice(src)?;
         let (opos_ch, src) = U24nU8::deserialize_from_slice(src)?;
-        Ok((
-            Self {
-                base,
-                fail,
-                opos_ch,
-            },
-            src,
-        ))
+        Ok((Self { base, opos_ch }, src))
     }
 
     #[inline(always)]
     fn serialized_bytes() -> usize {
-        Option::<NonZeroU32>::serialized_bytes()
-            + u32::serialized_bytes()
-            + U24nU8::serialized_bytes()
+        Option::<NonZeroU32>::serialized_bytes() + U24nU8::serialized_bytes()
     }
 }
 
-impl<F> core::fmt::Debug for State<F>
-where
-    F: Copy + Debug,
-{
+impl core::fmt::Debug for State {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("State")
             .field("base", &self.base())
             .field("check", &self.check())
-            .field("fail", &self.fail())
             .field("output_pos", &self.output_pos())
             .finish()
     }
@@ -1302,7 +1227,7 @@ mod tests {
             .iter()
             .map(|state| state.check())
             .collect();
-        let pma_fail: Vec<_> = pma.states[0..11].iter().map(|state| state.fail()).collect();
+        let pma_fail: Vec<_> = pma.fails[0..11].to_vec();
 
         assert_eq!(base_expected, pma_base);
         assert_eq!(check_expected, pma_check);
@@ -1333,6 +1258,7 @@ mod tests {
         let pma_unsorted = DoubleArrayAhoCorasick::with_values(patvals_unsorted).unwrap();
 
         assert_eq!(pma_sorted.states, pma_unsorted.states);
+        assert_eq!(pma_sorted.fails, pma_unsorted.fails);
         assert_eq!(pma_sorted.outputs, pma_unsorted.outputs);
     }
 
@@ -1437,12 +1363,11 @@ mod tests {
         opos_ch.set_b(77);
         let x = State {
             base: NonZeroU32::new(42),
-            fail: 13,
             opos_ch,
         };
         let mut data = vec![];
         x.serialize_to_vec(&mut data);
-        assert_eq!(data.len(), State::<u32>::serialized_bytes());
+        assert_eq!(data.len(), State::serialized_bytes());
         let (y, rest) = State::deserialize_from_slice(&data).unwrap();
         assert!(rest.is_empty());
         assert_eq!(x, y);
@@ -1456,6 +1381,7 @@ mod tests {
         let (other, rest) = DoubleArrayAhoCorasick::deserialize(&bytes).unwrap();
         assert!(rest.is_empty());
         assert_eq!(pma.states, other.states);
+        assert_eq!(pma.fails, other.fails);
         assert_eq!(pma.outputs, other.outputs);
         assert_eq!(pma.match_kind, other.match_kind);
         assert_eq!(pma.num_states, other.num_states);
@@ -1472,7 +1398,6 @@ mod tests {
         let (other, rest) = DoubleArrayAhoCorasick::deserialize(&bytes).unwrap();
         assert!(rest.is_empty());
         assert_eq!(pma.states, other.states);
-        assert_eq!(pma.leftmost_states, other.leftmost_states);
         assert_eq!(pma.fails, other.fails);
         assert_eq!(pma.outputs, other.outputs);
         assert_eq!(pma.match_kind, other.match_kind);
@@ -1496,6 +1421,7 @@ mod tests {
     fn test_deserialize_invalid_pma() {
         let bytes = [
             0, 0, 0, 0, // states
+            0, 0, 0, 0, // fails
             0, 0, 0, 0, // outputs
             0, // match_kind
             0, 0, 0, 0, // num_states

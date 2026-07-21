@@ -276,7 +276,7 @@ where
         let haystack = self.haystack.as_ref();
         'a: loop {
             for (pos, &c) in haystack.iter().enumerate().skip(self.pos) {
-                // state_id is always smaller than self.pma.leftmost_states.len() because
+                // state_id is always smaller than self.pma.states.len() because
                 // self.pma.next_state_id_leftmost_unchecked() ensures to return such a value.
                 state_id = unsafe { self.pma.next_state_id_leftmost_unchecked(state_id, c) };
                 if state_id == ROOT_STATE_IDX {
@@ -306,7 +306,7 @@ where
                     }
                 } else if let Some(output_pos) = unsafe {
                     self.pma
-                        .leftmost_states
+                        .states
                         .get_unchecked(usize::from_u32(state_id))
                         .output_pos()
                 } {

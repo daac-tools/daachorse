@@ -9,7 +9,6 @@ use crate::errors::{DaachorseError, Result};
 use crate::intpack::U24;
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID};
 use crate::utils::FromU32;
-use crate::Empty;
 
 // The length of each double-array block.
 const BLOCK_LEN: u32 = 256;
@@ -19,7 +18,8 @@ type BytewiseNfaBuilder<V> = NfaBuilder<u8, V>;
 
 /// Builder of [`DoubleArrayAhoCorasick`].
 pub struct DoubleArrayAhoCorasickBuilder {
-    states: Vec<State<u32>>,
+    states: Vec<State>,
+    fails: Vec<u32>,
     match_kind: MatchKind,
     num_free_blocks: u32,
 }
@@ -57,6 +57,7 @@ impl DoubleArrayAhoCorasickBuilder {
     pub const fn new() -> Self {
         Self {
             states: vec![],
+            fails: vec![],
             match_kind: MatchKind::Standard,
             num_free_blocks: 16,
         }
@@ -214,26 +215,14 @@ impl DoubleArrayAhoCorasickBuilder {
         let num_states = u32::try_from(nfa.states.len() - 1)
             .map_err(|_| DaachorseError::automaton_scale("num_states", u32::MAX))?;
 
-        let mut root_table = vec![];
-        let mut leftmost_states = vec![];
-        let mut fails = vec![];
-        if self.match_kind.is_leftmost() {
-            for s in &self.states {
-                leftmost_states.push(State {
-                    base: s.base(),
-                    fail: Empty,
-                    opos_ch: s.opos_ch,
-                });
-                fails.push(s.fail);
-            }
-            self.states = vec![];
+        let root_table = if self.match_kind.is_leftmost() {
+            vec![]
         } else {
-            root_table = DoubleArrayAhoCorasick::<V>::build_root_table(&self.states);
-        }
+            DoubleArrayAhoCorasick::<V>::build_root_table(&self.states)
+        };
         Ok(DoubleArrayAhoCorasick {
             states: self.states,
-            leftmost_states,
-            fails,
+            fails: self.fails,
             outputs: nfa.outputs,
             match_kind: self.match_kind,
             num_states,
@@ -315,11 +304,11 @@ impl DoubleArrayAhoCorasickBuilder {
 
             let fail_id = s.fail.get();
             if fail_id == DEAD_STATE_ID {
-                self.states[idx].set_fail(DEAD_STATE_IDX);
+                self.fails[idx] = DEAD_STATE_IDX;
             } else {
                 let fail_idx = state_id_map[usize::from_u32(fail_id)];
                 debug_assert_ne!(fail_idx, DEAD_STATE_IDX);
-                self.states[idx].set_fail(fail_idx);
+                self.fails[idx] = fail_idx;
             }
         }
 
@@ -327,6 +316,7 @@ impl DoubleArrayAhoCorasickBuilder {
             self.remove_invalid_checks(closed_block_idx, &helper);
         }
         self.states.shrink_to_fit();
+        self.fails.shrink_to_fit();
 
         Ok(())
     }
@@ -334,6 +324,8 @@ impl DoubleArrayAhoCorasickBuilder {
     fn init_array(&mut self) -> Result<BuildHelper> {
         self.states
             .resize(usize::from_u32(BLOCK_LEN), State::default());
+        self.fails
+            .resize(usize::from_u32(BLOCK_LEN), ROOT_STATE_IDX);
         let mut helper = BuildHelper::new(BLOCK_LEN, self.num_free_blocks)?;
         helper.push_block().unwrap();
         helper.use_index(ROOT_STATE_IDX);
@@ -381,6 +373,7 @@ impl DoubleArrayAhoCorasickBuilder {
             self.states.len() + usize::from_u32(BLOCK_LEN),
             State::default(),
         );
+        self.fails.resize(self.states.len(), ROOT_STATE_IDX);
 
         Ok(())
     }
