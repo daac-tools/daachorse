@@ -7,7 +7,6 @@ use core::fmt::Debug;
 use core::mem;
 use core::num::NonZeroU32;
 
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::build_helper::BuildHelper;
@@ -55,7 +54,9 @@ const DEAD_STATE_IDX: u32 = 1;
 pub struct DoubleArrayAhoCorasick<V> {
     // for standard matching
     states: Vec<State<u32>>,
-    root_table: Box<[u32; 256]>,
+    // A dense transition table for the root state, which has 256 elements for standard matching
+    // and is empty for leftmost matching.
+    root_table: Vec<u32>,
 
     // for leftmost matching
     leftmost_states: Vec<State<Empty>>,
@@ -762,10 +763,10 @@ impl<V> DoubleArrayAhoCorasick<V> {
     #[must_use]
     pub fn heap_bytes(&self) -> usize {
         self.states.len() * mem::size_of::<State<u32>>()
+            + self.root_table.len() * mem::size_of::<u32>()
             + self.leftmost_states.len() * mem::size_of::<State<Empty>>()
             + self.fails.len() * mem::size_of::<u32>()
             + self.outputs.len() * mem::size_of::<Output<V>>()
-            + mem::size_of::<[u32; 256]>()
     }
 
     /// Returns the total number of states this automaton has.
@@ -874,7 +875,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source)?;
         let (match_kind, source) = MatchKind::deserialize_from_slice(source)?;
         let (num_states, source) = u32::deserialize_from_slice(source)?;
-        let root_table = Self::build_root_table(&states);
+        let root_table = if match_kind.is_leftmost() {
+            vec![]
+        } else {
+            Self::build_root_table(&states)
+        };
         let pma = Self {
             states,
             leftmost_states,
@@ -887,6 +892,9 @@ impl<V> DoubleArrayAhoCorasick<V> {
         let block_len = 256;
         let outputs_len = pma.outputs.len();
         if pma.match_kind.is_leftmost() {
+            if !pma.states.is_empty() {
+                return Err(DaachorseError::invalid_automaton());
+            }
             if pma.leftmost_states.is_empty() {
                 return Err(DaachorseError::invalid_automaton());
             }
@@ -915,10 +923,17 @@ impl<V> DoubleArrayAhoCorasick<V> {
                 }
             }
         } else {
+            if !pma.leftmost_states.is_empty() || !pma.fails.is_empty() {
+                return Err(DaachorseError::invalid_automaton());
+            }
             if pma.states.is_empty() {
                 return Err(DaachorseError::invalid_automaton());
             }
             if pma.states.len() % block_len != 0 {
+                return Err(DaachorseError::invalid_automaton());
+            }
+            // `next_state_id_unchecked()` relies on this invariant.
+            if pma.root_table.len() != block_len {
                 return Err(DaachorseError::invalid_automaton());
             }
             let states_len = pma.states.len();
@@ -1002,7 +1017,11 @@ impl<V> DoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source).unwrap_unchecked();
         let (match_kind, source) = MatchKind::deserialize_from_slice(source).unwrap_unchecked();
         let (num_states, source) = u32::deserialize_from_slice(source).unwrap_unchecked();
-        let root_table = Self::build_root_table(&states);
+        let root_table = if match_kind.is_leftmost() {
+            vec![]
+        } else {
+            Self::build_root_table(&states)
+        };
         (
             Self {
                 states,
@@ -1018,8 +1037,8 @@ impl<V> DoubleArrayAhoCorasick<V> {
     }
 
     /// Builds a dense transition table for the root state.
-    fn build_root_table(states: &[State<u32>]) -> Box<[u32; 256]> {
-        let mut table = Box::new([ROOT_STATE_IDX; 256]);
+    fn build_root_table(states: &[State<u32>]) -> Vec<u32> {
+        let mut table = vec![ROOT_STATE_IDX; 256];
         if let Some(base) = states
             .get(usize::from_u32(ROOT_STATE_IDX))
             .and_then(State::base)
@@ -1038,14 +1057,15 @@ impl<V> DoubleArrayAhoCorasick<V> {
 
     /// # Safety
     ///
-    /// `state_id` must be smaller than the length of states.
+    /// `state_id` must be smaller than the length of states, and `root_table` must have 256
+    /// elements. These are guaranteed for standard matching automata.
     #[inline(always)]
     unsafe fn next_state_id_unchecked(&self, mut state_id: u32, c: u8) -> u32 {
         loop {
             // The root state is by far the most frequent one, so its transitions are precomputed in
             // a dense table.
             if state_id == ROOT_STATE_IDX {
-                return self.root_table[usize::from(c)];
+                return *self.root_table.get_unchecked(usize::from(c));
             }
 
             // Get the current state.

@@ -214,7 +214,7 @@ impl DoubleArrayAhoCorasickBuilder {
         let num_states = u32::try_from(nfa.states.len() - 1)
             .map_err(|_| DaachorseError::automaton_scale("num_states", u32::MAX))?;
 
-        let root_table = DoubleArrayAhoCorasick::<V>::build_root_table(&self.states);
+        let mut root_table = vec![];
         let mut leftmost_states = vec![];
         let mut fails = vec![];
         if self.match_kind.is_leftmost() {
@@ -227,6 +227,8 @@ impl DoubleArrayAhoCorasickBuilder {
                 fails.push(s.fail);
             }
             self.states = vec![];
+        } else {
+            root_table = DoubleArrayAhoCorasick::<V>::build_root_table(&self.states);
         }
         Ok(DoubleArrayAhoCorasick {
             states: self.states,
