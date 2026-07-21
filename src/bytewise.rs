@@ -1496,6 +1496,8 @@ mod tests {
     fn test_deserialize_invalid_pma() {
         let bytes = [
             0, 0, 0, 0, // states
+            0, 0, 0, 0, // leftmost_states
+            0, 0, 0, 0, // fails
             0, 0, 0, 0, // outputs
             0, // match_kind
             0, 0, 0, 0, // num_states

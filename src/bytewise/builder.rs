@@ -221,6 +221,7 @@ impl DoubleArrayAhoCorasickBuilder {
             leftmost_states.reserve_exact(self.states.len());
             fails.reserve_exact(self.states.len());
             for s in &self.states {
+                leftmost_states.push(State {
                     base: s.base(),
                     fail: Empty,
                     opos_ch: s.opos_ch,
