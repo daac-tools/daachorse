@@ -218,8 +218,9 @@ impl DoubleArrayAhoCorasickBuilder {
         let mut leftmost_states = vec![];
         let mut fails = vec![];
         if self.match_kind.is_leftmost() {
+            leftmost_states.reserve_exact(self.states.len());
+            fails.reserve_exact(self.states.len());
             for s in &self.states {
-                leftmost_states.push(State {
                     base: s.base(),
                     fail: Empty,
                     opos_ch: s.opos_ch,
