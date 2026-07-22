@@ -9,6 +9,7 @@ use crate::errors::{DaachorseError, Result};
 use crate::intpack::U24;
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID};
 use crate::utils::FromU32;
+use crate::Empty;
 
 // The length of each double-array block.
 const BLOCK_LEN: u32 = 256;
@@ -18,7 +19,7 @@ type BytewiseNfaBuilder<V> = NfaBuilder<u8, V>;
 
 /// Builder of [`DoubleArrayAhoCorasick`].
 pub struct DoubleArrayAhoCorasickBuilder {
-    states: Vec<State>,
+    states: Vec<State<u32>>,
     match_kind: MatchKind,
     num_free_blocks: u32,
 }
@@ -213,9 +214,28 @@ impl DoubleArrayAhoCorasickBuilder {
         let num_states = u32::try_from(nfa.states.len() - 1)
             .map_err(|_| DaachorseError::automaton_scale("num_states", u32::MAX))?;
 
-        let root_table = DoubleArrayAhoCorasick::<V>::build_root_table(&self.states);
+        let mut root_table = vec![];
+        let mut leftmost_states = vec![];
+        let mut fails = vec![];
+        if self.match_kind.is_leftmost() {
+            leftmost_states.reserve_exact(self.states.len());
+            fails.reserve_exact(self.states.len());
+            for s in &self.states {
+                leftmost_states.push(State {
+                    base: s.base(),
+                    fail: Empty,
+                    opos_ch: s.opos_ch,
+                });
+                fails.push(s.fail);
+            }
+            self.states = vec![];
+        } else {
+            root_table = DoubleArrayAhoCorasick::<V>::build_root_table(&self.states);
+        }
         Ok(DoubleArrayAhoCorasick {
             states: self.states,
+            leftmost_states,
+            fails,
             outputs: nfa.outputs,
             match_kind: self.match_kind,
             num_states,
