@@ -10,6 +10,7 @@
 //!
 //! Adapted from ClamAV's `filtering.c` / `matcher-ac.c`.
 
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 /// Shift-OR bloom prefilter (ClamAV-style).
@@ -20,8 +21,8 @@ use alloc::vec::Vec;
 /// (no lowering) — use [`ClamavMultilevelPrefilter`] for nocase support or
 /// large pattern sets.
 pub struct ClamavPrefilter {
-    b: [u8; 65536],
-    end: [u8; 65536],
+    b: Box<[u8; 65536]>,
+    end: Box<[u8; 65536]>,
 }
 
 impl core::fmt::Debug for ClamavPrefilter {
@@ -34,15 +35,15 @@ impl ClamavPrefilter {
     /// Empty prefilter that never rejects data.
     #[must_use]
     pub fn empty() -> Self {
-        Self { b: [0u8; 65536], end: [0u8; 65536] }
+        Self { b: Box::new([0u8; 65536]), end: Box::new([0u8; 65536]) }
     }
 
     /// Build from exact-case patterns.  Patterns shorter than 3 bytes are
     /// skipped (they can't form a 2-byte q-gram).
     #[must_use]
     pub fn from_patterns(patterns: &[Vec<u8>]) -> Self {
-        let mut b = [0xFFu8; 65536];
-        let mut end = [0xFFu8; 65536];
+        let mut b = Box::new([0xFFu8; 65536]);
+        let mut end = Box::new([0xFFu8; 65536]);
         for pat in patterns {
             let n = pat.len().min(9);
             if n < 3 { continue; }
