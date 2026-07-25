@@ -8,8 +8,8 @@ use crate::{DEAD_STATE_IDX, ROOT_STATE_IDX};
 
 /// Access counts of automaton states collected by scanning documents.
 pub struct Profile {
-    pub visits: Vec<u64>,
-    pub probes: Vec<u64>,
+    pub visits: Vec<usize>,
+    pub probes: Vec<usize>,
 }
 
 impl Profile {
@@ -25,7 +25,7 @@ impl Profile {
 pub struct SiblingGroup {
     pub parent: u32,
     pub children: Vec<(u32, u32)>,
-    pub weight: u64,
+    pub weight: usize,
 }
 
 /// Helper struct in double-array construction to maintain indices of vacant elements and
