@@ -20,6 +20,7 @@ use alloc::vec::Vec;
 /// (i.e. the pattern ends at byte P+2).  Only exact-case q-grams are tracked
 /// (no lowering) — use [`ClamavMultilevelPrefilter`] for nocase support or
 /// large pattern sets.
+#[derive(Clone)]
 pub struct ClamavPrefilter {
     b: Box<[u8; 65536]>,
     end: Box<[u8; 65536]>,
@@ -37,6 +38,20 @@ impl ClamavPrefilter {
     pub fn empty() -> Self {
         Self { b: Box::new([0u8; 65536]), end: Box::new([0u8; 65536]) }
     }
+
+    /// Build from raw bit-vectors (for deserialisation).
+    #[must_use]
+    pub fn from_raw(b: [u8; 65536], end: [u8; 65536]) -> Self {
+        Self { b: Box::new(b), end: Box::new(end) }
+    }
+
+    /// Expose the `b` table for serialisation.
+    #[must_use]
+    pub fn raw_b(&self) -> &[u8; 65536] { &self.b }
+
+    /// Expose the `end` table for serialisation.
+    #[must_use]
+    pub fn raw_end(&self) -> &[u8; 65536] { &self.end }
 
     /// Build from exact-case patterns.  Patterns shorter than 3 bytes are
     /// skipped (they can't form a 2-byte q-gram).
@@ -91,11 +106,22 @@ impl ClamavPrefilter {
 /// effective.  All q-grams are case-exact (no lowering) — nocase atoms
 /// fall through to the dense automaton (the prefilter is a best-effort
 /// speed-up, not a correctness gate).
+#[derive(Clone)]
 pub struct ClamavMultilevelPrefilter {
     filters: alloc::boxed::Box<[ClamavPrefilter; 6]>,
 }
 
 impl ClamavMultilevelPrefilter {
+    /// Expose the per-length filters (for serialisation).
+    #[must_use]
+    pub fn filters(&self) -> &[ClamavPrefilter; 6] { &self.filters }
+
+    /// Build from raw filters (for deserialisation).
+    #[must_use]
+    pub fn from_filters(filters: [ClamavPrefilter; 6]) -> Self {
+        Self { filters: Box::new(filters) }
+    }
+
     /// Build per-length prefilters.  Buckets: [3,4], [5,6], [7,9], [10,15],
     /// [16,25], [26,∞).
     #[must_use]
