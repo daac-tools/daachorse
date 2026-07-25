@@ -58,10 +58,6 @@ where
         matches!(self, Self::Empty)
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = &L> {
-        self.iter().map(|(k, _)| k)
-    }
-
     pub fn values(&self) -> impl Iterator<Item = &u32> {
         self.iter().map(|(_, v)| v)
     }

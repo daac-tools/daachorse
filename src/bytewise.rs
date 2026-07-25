@@ -9,7 +9,6 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
-use crate::build_helper::BuildHelper;
 pub use crate::bytewise::builder::DoubleArrayAhoCorasickBuilder;
 use crate::bytewise::iter::{
     FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, FindOverlappingStepper,
@@ -19,12 +18,10 @@ use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
 use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
-use crate::{Empty, MatchKind, Output};
+use crate::{Empty, MatchKind, Output, DEAD_STATE_IDX, ROOT_STATE_IDX};
 
-// The root index position.
-const ROOT_STATE_IDX: u32 = 0;
-// The dead index position.
-const DEAD_STATE_IDX: u32 = 1;
+// The length of each double-array block.
+pub(crate) const BLOCK_LEN: u32 = 256;
 
 /// A fast multiple pattern match automaton implemented with the Aho-Corasick algorithm and compact
 /// double-array data structure.
@@ -889,7 +886,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
             num_states,
             root_table,
         };
-        let block_len = 256;
+        let block_len = usize::from_u32(BLOCK_LEN);
         let outputs_len = pma.outputs.len();
         if pma.match_kind.is_leftmost() {
             if !pma.states.is_empty() {

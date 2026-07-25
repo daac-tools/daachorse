@@ -1,14 +1,13 @@
-use core::num::NonZeroU32;
-
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
+use crate::build_helper::{BuildHelper, Profile};
+use crate::charwise::DEAD_STATE_IDX;
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State};
-use crate::charwise::{DEAD_STATE_IDX, ROOT_STATE_IDX};
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
 use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID};
 use crate::utils::FromU32;
-use crate::BuildHelper;
 
 // Specialized [`NfaBuilder`] handling labels of `char`.
 type CharwiseNfaBuilder<V> = NfaBuilder<char, V>;
@@ -18,7 +17,7 @@ pub struct CharwiseDoubleArrayAhoCorasickBuilder {
     states: Vec<State>,
     mapper: CodeMapper,
     match_kind: MatchKind,
-    block_len: u32,
+    corpus: Vec<String>,
     num_free_blocks: u32,
 }
 
@@ -57,7 +56,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             states: vec![],
             mapper: CodeMapper::default(),
             match_kind: MatchKind::Standard,
-            block_len: 0,
+            corpus: vec![],
             num_free_blocks: 16,
         }
     }
@@ -89,6 +88,46 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     pub const fn num_free_blocks(mut self, n: u32) -> Self {
         assert!(n >= 1);
         self.num_free_blocks = n;
+        self
+    }
+
+    /// Specifies a corpus of sample documents for the profile-guided layout optimization.
+    ///
+    /// # Arguments
+    ///
+    /// * `haystacks` - Sample documents to be scanned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasickBuilder;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///     .corpus(["全世界中に"])
+    ///     .build(patterns)
+    ///     .unwrap();
+    ///
+    /// let mut it = pma.find_iter("全世界中に");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    #[must_use]
+    pub fn corpus<I, P>(mut self, haystacks: I) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: AsRef<str>,
+    {
+        self.corpus = haystacks
+            .into_iter()
+            .map(|h| h.as_ref().to_string())
+            .collect();
         self
     }
 
@@ -186,7 +225,12 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     {
         let nfa = self.build_original_nfa_and_mapper(patvals)?;
 
-        self.build_double_array(&nfa)?;
+        let profile = if self.corpus.is_empty() {
+            Profile::new(nfa.states.len())
+        } else {
+            self.profile_corpus(&nfa)
+        };
+        self.build_double_array(&nfa, &profile)?;
 
         // -1 is for dead state
         let num_states = u32::try_from(nfa.states.len() - 1)
@@ -238,49 +282,61 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         Ok(nfa)
     }
 
-    fn build_double_array<V>(&mut self, nfa: &CharwiseNfaBuilder<V>) -> Result<()> {
-        let mut helper = self.init_array()?;
-
-        let mut state_id_map = vec![DEAD_STATE_IDX; nfa.states.len()];
-        state_id_map[usize::from_u32(ROOT_STATE_ID)] = ROOT_STATE_IDX;
-
-        // Arranges base & check values
-        let mut stack = vec![ROOT_STATE_ID];
-        let mut mapped = vec![];
-
-        while let Some(state_id) = stack.pop() {
-            debug_assert_ne!(state_id, DEAD_STATE_ID);
-            let s = &nfa.states[usize::from_u32(state_id)];
-
-            let state_idx = state_id_map[usize::from_u32(state_id)];
-            debug_assert_ne!(state_idx, DEAD_STATE_IDX);
-
-            if s.edges.is_empty() {
-                continue;
+    fn profile_corpus<V>(&self, nfa: &CharwiseNfaBuilder<V>) -> Profile
+    where
+        V: Copy,
+    {
+        let mut profile = Profile::new(nfa.states.len());
+        for haystack in &self.corpus {
+            let mut state_id = ROOT_STATE_ID;
+            for c in haystack.chars() {
+                if self.mapper.get(c).is_none() {
+                    state_id = ROOT_STATE_ID;
+                    continue;
+                }
+                state_id = nfa.profile_step(state_id, c, &mut profile, false);
             }
+        }
+        profile
+    }
 
-            mapped.clear();
-            for &(label, child_id) in s.edges.iter() {
-                mapped.push((self.mapper.get(label).unwrap(), child_id));
-            }
-            mapped.sort_unstable_by_key(|x| x.0);
+    fn build_double_array<V>(
+        &mut self,
+        nfa: &CharwiseNfaBuilder<V>,
+        profile: &Profile,
+    ) -> Result<()>
+    where
+        V: Copy,
+    {
+        let block_len = self.mapper.block_len();
+        let groups = nfa.sibling_groups(profile, |c| self.mapper.get(c).unwrap());
+        let helper = BuildHelper::new(
+            &groups,
+            nfa.states.len(),
+            block_len,
+            self.num_free_blocks,
+            false,
+        )?;
 
-            let base = self.find_base(&mapped, &helper);
-            if self.states.len() <= usize::from_u32(base.get()) {
-                self.extend_array(&mut helper)?;
+        self.states
+            .resize(usize::from_u32(helper.num_elements()), State::default());
+        for group in &groups {
+            let parent_idx = helper.idx_map[usize::from_u32(group.parent)];
+            for &(_, child_id) in &group.children {
+                self.states[usize::from_u32(helper.idx_map[usize::from_u32(child_id)])]
+                    .set_check(parent_idx);
             }
-
-            for &(c, child_id) in &mapped {
-                let child_idx = base.get() ^ c;
-                helper.use_index(child_idx);
-                self.states[usize::from_u32(child_idx)].set_check(state_idx);
-                state_id_map[usize::from_u32(child_id)] = child_idx;
-                stack.push(child_id);
-            }
-            self.states[usize::from_u32(state_idx)].set_base(base);
+            // BuildHelper::new() assigns a BASE value to every group.
+            self.states[usize::from_u32(parent_idx)]
+                .set_base(helper.bases[usize::from_u32(group.parent)].unwrap());
         }
 
-        // Sets fail & output_pos values
+        self.set_fails_and_outputs(nfa, &helper.idx_map);
+
+        Ok(())
+    }
+
+    fn set_fails_and_outputs<V>(&mut self, nfa: &CharwiseNfaBuilder<V>, state_id_map: &[u32]) {
         for (i, s) in nfa.states.iter().enumerate() {
             if i == usize::from_u32(DEAD_STATE_ID) {
                 continue;
@@ -300,61 +356,5 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
                 self.states[idx].set_fail(fail_idx);
             }
         }
-
-        self.states.shrink_to_fit();
-        Ok(())
-    }
-
-    fn init_array(&mut self) -> Result<BuildHelper> {
-        self.block_len = self.mapper.alphabet_size().next_power_of_two().max(2);
-        self.states
-            .resize(usize::from_u32(self.block_len), State::default());
-        let mut helper = BuildHelper::new(self.block_len, self.num_free_blocks)?;
-        helper.push_block().unwrap();
-        helper.use_index(ROOT_STATE_IDX);
-        helper.use_index(DEAD_STATE_IDX);
-        Ok(helper)
-    }
-
-    #[inline(always)]
-    fn find_base(&self, edges: &[(u32, u32)], helper: &BuildHelper) -> NonZeroU32 {
-        debug_assert!(!edges.is_empty());
-
-        for idx in helper.vacant_iter() {
-            let base = idx ^ edges[0].0;
-            if let Some(base) = Self::verify_base(base, edges, helper) {
-                return base;
-            }
-        }
-        // len() is not 0 since states has at least block_len items.
-        // The following value is always larger than or equal to len() since block_len is
-        // alphabet_size().next_power_of_two().
-        NonZeroU32::new(u32::try_from(self.states.len()).unwrap() ^ edges[0].0).unwrap()
-    }
-
-    #[inline(always)]
-    fn verify_base(base: u32, edges: &[(u32, u32)], helper: &BuildHelper) -> Option<NonZeroU32> {
-        for &(c, _) in edges {
-            let idx = base ^ c;
-            if helper.is_used_index(idx) {
-                return None;
-            }
-        }
-        NonZeroU32::new(base)
-    }
-
-    #[inline(always)]
-    fn extend_array(&mut self, helper: &mut BuildHelper) -> Result<()> {
-        if self.states.len() > usize::from_u32(u32::MAX - self.block_len) {
-            return Err(DaachorseError::automaton_scale("states.len()", u32::MAX));
-        }
-
-        helper.push_block()?;
-        self.states.resize(
-            self.states.len() + usize::from_u32(self.block_len),
-            State::default(),
-        );
-
-        Ok(())
     }
 }

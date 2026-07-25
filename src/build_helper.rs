@@ -1,65 +1,118 @@
 use core::num::NonZeroU32;
-use core::ops::Range;
 
 use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
 use crate::utils::FromU32;
+use crate::{DEAD_STATE_IDX, ROOT_STATE_IDX};
+
+/// Access counts of automaton states collected by scanning documents.
+pub struct Profile {
+    pub visits: Vec<u64>,
+    pub probes: Vec<u64>,
+}
+
+impl Profile {
+    pub fn new(len: usize) -> Self {
+        Self {
+            visits: vec![0; len],
+            probes: vec![0; len],
+        }
+    }
+}
+
+/// A group of sibling states sharing a single BASE value.
+pub struct SiblingGroup {
+    pub parent: u32,
+    pub children: Vec<(u32, u32)>,
+    pub weight: u64,
+}
 
 /// Helper struct in double-array construction to maintain indices of vacant elements and
 /// unused BASE values.
 ///
 /// This struct manages array elements in fixed-size blocks and supports extending the array
-/// block by block. Given a constant parameter N, this struct maintains information for only
-/// the last N blocks and drops the others as the array is extended. Such trailing blocks are
-/// called *active blocks*.
+/// block by block. The helper starts in the exhaustive mode, where the whole array is scanned
+/// so that groups are packed at the smallest vacant indices. Once [`Self::enable_window()`] is
+/// called, only the vacant indices in the last `num_free_blocks` blocks are scanned; vacant
+/// indices dropped from the window are left unused, which slightly increases the memory usage
+/// but bounds the construction time.
 pub struct BuildHelper {
     items: Vec<ListItem>,
     block_len: u32,
     num_free_blocks: u32,
     num_blocks: u32,
     head_idx: Option<u32>,
+    windowed: bool,
+    pub idx_map: Vec<u32>,
+    pub bases: Vec<Option<NonZeroU32>>,
 }
 
 impl BuildHelper {
-    /// Creates a helper struct that handles the last `block_len * num_free_blocks` elements.
+    /// Creates a helper holding the vacancy information of a double array and places the sibling
+    /// groups in the given order, packing each group at the smallest vacant position.
+    ///
+    /// All edge labels must be smaller than `block_len`, which must be a power of two, so that
+    /// all children of a group stay within a single aligned block. When `track_bases` is true,
+    /// BASE values are additionally kept unique among groups; the byte-wise version requires
+    /// this because its CHECK values are edge labels, whereas the character-wise version stores
+    /// parent indices in CHECK and can safely share a BASE value among multiple states.
     ///
     /// # Panics
     ///
     /// Panics if block_len == 0 || num_free_blocks == 0.
-    pub fn new(block_len: u32, num_free_blocks: u32) -> Result<Self> {
+    pub fn new(
+        groups: &[SiblingGroup],
+        num_nfa_states: usize,
+        block_len: u32,
+        num_free_blocks: u32,
+        track_bases: bool,
+    ) -> Result<Self> {
         let capacity = block_len.checked_mul(num_free_blocks).ok_or_else(|| {
             DaachorseError::automaton_scale("block_len * num_free_blocks", u32::MAX)
         })?;
-        let capacity = usize::from_u32(capacity);
         assert_ne!(capacity, 0);
 
-        Ok(Self {
-            items: vec![ListItem::default(); capacity],
+        let mut helper = Self {
+            items: Vec::with_capacity(usize::from_u32(capacity)),
             block_len,
             num_free_blocks,
             num_blocks: 0,
             head_idx: None,
-        })
+            windowed: false,
+            idx_map: vec![DEAD_STATE_IDX; num_nfa_states],
+            bases: vec![None; num_nfa_states],
+        };
+        helper.push_block()?;
+        helper.use_index(ROOT_STATE_IDX);
+        helper.use_index(DEAD_STATE_IDX);
+        helper.idx_map[usize::from_u32(ROOT_STATE_IDX)] = ROOT_STATE_IDX;
+        helper.idx_map[usize::from_u32(DEAD_STATE_IDX)] = DEAD_STATE_IDX;
+        let mut labels = vec![];
+        for group in groups {
+            if group.weight == 0 && !helper.windowed {
+                helper.enable_window();
+            }
+            labels.clear();
+            labels.extend(group.children.iter().map(|&(c, _)| c));
+            let base = helper.find_base(&labels)?;
+            if track_bases {
+                helper.use_base(base);
+            }
+            for &(c, child_id) in &group.children {
+                let child_idx = base.get() ^ c;
+                helper.use_index(child_idx);
+                helper.idx_map[usize::from_u32(child_id)] = child_idx;
+            }
+            helper.bases[usize::from_u32(group.parent)] = Some(base);
+        }
+        Ok(helper)
     }
 
     /// Gets the number of current double-array elements.
     #[inline(always)]
     pub const fn num_elements(&self) -> u32 {
         self.num_blocks * self.block_len
-    }
-
-    /// Gets the index range of elements in the active blocks.
-    #[inline(always)]
-    pub const fn active_index_range(&self) -> Range<u32> {
-        let r = self.active_block_range();
-        r.start * self.block_len..r.end * self.block_len
-    }
-
-    /// Gets the block index range in the active blocks.
-    #[inline(always)]
-    pub const fn active_block_range(&self) -> Range<u32> {
-        self.num_blocks.saturating_sub(self.num_free_blocks)..self.num_blocks
     }
 
     /// Creates an iterator to visit vacant indices in the active blocks.
@@ -80,69 +133,47 @@ impl BuildHelper {
     }
 
     /// Checks if the BASE value is used.
-    ///
-    /// # Panics
-    ///
-    /// Panics if active_index_range().contains(&base) == false.
     #[inline(always)]
     pub fn is_used_base(&self, base: u32) -> bool {
         self.get_ref(base).is_used_base()
     }
 
     /// Checks if the index is used.
-    ///
-    /// # Panics
-    ///
-    /// Panics if active_index_range().contains(&idx) == false.
     #[inline(always)]
     pub fn is_used_index(&self, idx: u32) -> bool {
         self.get_ref(idx).is_used_index()
     }
 
     /// Uses the BASE value.
-    ///
-    /// # Panics
-    ///
-    /// Panics if active_index_range().contains(&base) == false.
     #[inline(always)]
-    pub fn use_base(&mut self, base: NonZeroU32) {
+    fn use_base(&mut self, base: NonZeroU32) {
         self.get_mut(base.get()).use_base();
     }
 
     /// Uses the index.
-    ///
-    /// # Panics
-    ///
-    /// Panics if active_index_range().contains(&idx) == false.
     #[inline(always)]
-    pub fn use_index(&mut self, idx: u32) {
+    fn use_index(&mut self, idx: u32) {
         debug_assert!(!self.get_ref(idx).is_used_index());
         self.get_mut(idx).use_index();
+        self.unlink(idx);
+    }
 
-        let next = self.get_mut(idx).next();
-        let prev = self.get_mut(idx).prev();
+    /// Removes the index from the vacant list without marking it used, so that it is no longer
+    /// scanned but is still treated as vacant by `is_used_index()`.
+    fn unlink(&mut self, idx: u32) {
+        let next = self.get_ref(idx).next();
+        let prev = self.get_ref(idx).prev();
         *self.get_mut(prev).next_mut() = next;
         *self.get_mut(next).prev_mut() = prev;
-
         if self.head_idx.unwrap() == idx {
             self.head_idx = Some(next).filter(|&x| x != idx);
         }
     }
 
     /// Extends the array by pushing a block back.
-    pub fn push_block(&mut self) -> Result<()> {
+    fn push_block(&mut self) -> Result<()> {
         if self.num_elements() > u32::MAX - self.block_len {
             return Err(DaachorseError::automaton_scale("num_elements", u32::MAX));
-        }
-
-        if let Some(closed_block) = self.dropped_block() {
-            let end_idx = (closed_block + 1) * self.block_len;
-            while let Some(head_idx) = self.head_idx {
-                if end_idx <= head_idx {
-                    break;
-                }
-                self.use_index(head_idx);
-            }
         }
 
         let old_len = self.num_elements();
@@ -150,9 +181,10 @@ impl BuildHelper {
 
         // Update the active index range.
         self.num_blocks += 1;
+        self.items
+            .resize(usize::from_u32(new_len), ListItem::default());
 
         for idx in old_len..new_len {
-            self.reset(idx);
             *self.get_mut(idx).next_mut() = idx + 1;
             *self.get_mut(idx).prev_mut() = idx.wrapping_sub(1);
         }
@@ -169,41 +201,58 @@ impl BuildHelper {
             self.head_idx = Some(old_len);
         }
 
+        if self.windowed {
+            self.prune();
+        }
         Ok(())
     }
 
-    /// Returns the index of an active block that will be dropped in the next `push_block`.
-    #[inline(always)]
-    pub fn dropped_block(&self) -> Option<u32> {
-        (self.capacity() <= self.num_elements()).then(|| self.active_block_range().start)
+    /// Switches to the windowed mode, where only the vacant indices in the last
+    /// `num_free_blocks` blocks are scanned.
+    fn enable_window(&mut self) {
+        self.windowed = true;
+        self.prune();
     }
 
-    #[inline(always)]
-    fn capacity(&self) -> u32 {
-        u32::try_from(self.items.len()).unwrap()
+    /// Drops the vacant indices that have fallen out of the window from the list. Since the
+    /// list is kept in ascending order of indices, it suffices to unlink from the head.
+    fn prune(&mut self) {
+        let boundary = self.num_blocks.saturating_sub(self.num_free_blocks) * self.block_len;
+        while let Some(head_idx) = self.head_idx {
+            if head_idx >= boundary {
+                break;
+            }
+            self.unlink(head_idx);
+        }
     }
 
-    #[inline(always)]
-    fn reset(&mut self, idx: u32) {
-        let offset = self.offset(idx);
-        self.items[offset] = ListItem::default();
+    /// Finds the smallest vacant placement for the given labels, extending the array if needed.
+    ///
+    /// The scan visits the vacant indices in ascending order, so the placement is the densest
+    /// first-fit over the exhaustive or windowed scan range.
+    fn find_base(&mut self, labels: &[u32]) -> Result<NonZeroU32> {
+        loop {
+            for idx in self.vacant_iter() {
+                let base = idx ^ labels[0];
+                if base != 0
+                    && !self.is_used_base(base)
+                    && labels.iter().all(|&c| !self.is_used_index(base ^ c))
+                {
+                    return Ok(NonZeroU32::new(base).unwrap());
+                }
+            }
+            self.push_block()?;
+        }
     }
 
     #[inline(always)]
     fn get_ref(&self, idx: u32) -> &ListItem {
-        &self.items[self.offset(idx)]
+        &self.items[usize::from_u32(idx)]
     }
 
     #[inline(always)]
     fn get_mut(&mut self, idx: u32) -> &mut ListItem {
-        let offset = self.offset(idx);
-        &mut self.items[offset]
-    }
-
-    #[inline(always)]
-    fn offset(&self, idx: u32) -> usize {
-        assert!(self.active_index_range().contains(&idx));
-        usize::from_u32(idx % self.capacity())
+        &mut self.items[usize::from_u32(idx)]
     }
 }
 

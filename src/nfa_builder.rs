@@ -1,8 +1,10 @@
 use core::cell::Cell;
+use core::cmp::Reverse;
 use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
+use crate::build_helper::{Profile, SiblingGroup};
 use crate::edge_map::EdgeMap;
 use crate::errors::{DaachorseError, Result};
 use crate::utils::FromU32;
@@ -227,5 +229,68 @@ where
             .edges
             .get(&c)
             .copied()
+    }
+
+    pub(crate) fn profile_step(
+        &self,
+        mut state_id: u32,
+        c: L,
+        profile: &mut Profile,
+        dense_root: bool,
+    ) -> u32 {
+        loop {
+            if dense_root && state_id == ROOT_STATE_ID {
+                state_id = self.child_id(ROOT_STATE_ID, c).unwrap_or(ROOT_STATE_ID);
+                break;
+            }
+            let s = &self.states[usize::from_u32(state_id)];
+            profile.visits[usize::from_u32(state_id)] += 1;
+            if !s.edges.is_empty() {
+                if let Some(child_id) = s.edges.get(&c) {
+                    state_id = *child_id;
+                    break;
+                }
+                profile.probes[usize::from_u32(state_id)] += 1;
+            }
+            if state_id == ROOT_STATE_ID {
+                break;
+            }
+            let fail_id = s.fail.get();
+            if fail_id == DEAD_STATE_ID {
+                state_id = ROOT_STATE_ID;
+                break;
+            }
+            state_id = fail_id;
+        }
+        profile.visits[usize::from_u32(state_id)] += 1;
+        state_id
+    }
+
+    pub(crate) fn sibling_groups<M>(&self, profile: &Profile, mut map_label: M) -> Vec<SiblingGroup>
+    where
+        M: FnMut(L) -> u32,
+    {
+        let mut groups = vec![];
+        let mut stack = vec![ROOT_STATE_ID];
+        while let Some(state_id) = stack.pop() {
+            let s = &self.states[usize::from_u32(state_id)];
+            if s.edges.is_empty() {
+                continue;
+            }
+            let mut children = Vec::with_capacity(1);
+            let mut weight = profile.probes[usize::from_u32(state_id)];
+            for &(c, child_id) in s.edges.iter() {
+                weight += profile.visits[usize::from_u32(child_id)];
+                children.push((map_label(c), child_id));
+                stack.push(child_id);
+            }
+            groups.push(SiblingGroup {
+                parent: state_id,
+                children,
+                weight,
+            });
+        }
+        groups.sort_by_key(|g| Reverse(g.weight));
+        groups
     }
 }
