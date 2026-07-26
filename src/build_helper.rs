@@ -74,7 +74,7 @@ impl BuildHelper {
         assert_ne!(capacity, 0);
 
         let mut helper = Self {
-            items: Vec::with_capacity(usize::from_u32(capacity)),
+            items: vec![],
             block_len,
             num_free_blocks,
             num_blocks: 0,

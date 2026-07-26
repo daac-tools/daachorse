@@ -6,7 +6,7 @@ use crate::bytewise::{
 };
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::U24;
-use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID, ROOT_STATE_ID};
+use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID};
 use crate::utils::FromU32;
 use crate::Empty;
 
@@ -56,7 +56,7 @@ impl DoubleArrayAhoCorasickBuilder {
             states: vec![],
             match_kind: MatchKind::Standard,
             corpus: vec![],
-            num_free_blocks: 16,
+            num_free_blocks: 64,
         }
     }
 
@@ -95,9 +95,9 @@ impl DoubleArrayAhoCorasickBuilder {
     /// The smaller the number is, the faster the construction time will be;
     /// however, the memory efficiency can be degraded.
     ///
-    /// A fixed length of memory is allocated in proportion to this value in construction. If an
-    /// allocation error occurs during building the automaton even though the pattern set is small,
-    /// try setting a smaller value.
+    /// When a corpus is specified with [`Self::corpus()`], states accessed in scanning the
+    /// corpus are placed by scanning all the blocks regardless of this value, and only the
+    /// remaining states are placed using the trailing blocks.
     ///
     /// # Arguments
     ///
@@ -114,6 +114,14 @@ impl DoubleArrayAhoCorasickBuilder {
     }
 
     /// Specifies a corpus of sample documents for the profile-guided layout optimization.
+    ///
+    /// States frequently accessed in scanning the corpus are packed densely at small indices
+    /// so that matching on documents similar to the corpus becomes more cache-efficient.
+    /// The corpus never changes match results, only the memory layout of the automaton.
+    ///
+    /// Since the states accessed in scanning the corpus are placed by scanning all the blocks
+    /// (see [`Self::num_free_blocks()`]), the construction time can increase, especially when
+    /// the corpus covers most states of a large pattern set.
     ///
     /// # Arguments
     ///
@@ -312,10 +320,7 @@ impl DoubleArrayAhoCorasickBuilder {
         // The standard matching handles the root transitions with a dense table.
         let dense_root = !self.match_kind.is_leftmost();
         for haystack in &self.corpus {
-            let mut state_id = ROOT_STATE_ID;
-            for &c in haystack {
-                state_id = nfa.profile_step(state_id, c, &mut profile, dense_root);
-            }
+            nfa.profile_haystack(haystack, &mut profile, dense_root, |_| true);
         }
         profile
     }

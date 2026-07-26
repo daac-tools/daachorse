@@ -231,7 +231,7 @@ where
             .copied()
     }
 
-    pub(crate) fn profile_step(
+    fn profile_step(
         &self,
         mut state_id: u32,
         c: L,
@@ -239,31 +239,73 @@ where
         dense_root: bool,
     ) -> u32 {
         loop {
+            // The runtime handles such root transitions with a dense table without accessing
+            // the double array, so no access is counted.
             if dense_root && state_id == ROOT_STATE_ID {
-                state_id = self.child_id(ROOT_STATE_ID, c).unwrap_or(ROOT_STATE_ID);
-                break;
+                return self.child_id(ROOT_STATE_ID, c).unwrap_or(ROOT_STATE_ID);
             }
             let s = &self.states[usize::from_u32(state_id)];
+            // The runtime reads the double-array element of the current state.
             profile.visits[usize::from_u32(state_id)] += 1;
             if !s.edges.is_empty() {
-                if let Some(child_id) = s.edges.get(&c) {
-                    state_id = *child_id;
-                    break;
+                if let Some(&child_id) = s.edges.get(&c) {
+                    // A successful probe reads the element of the child.
+                    profile.visits[usize::from_u32(child_id)] += 1;
+                    return child_id;
                 }
+                // A failed probe reads an element in the block where the children of this
+                // state are placed.
                 profile.probes[usize::from_u32(state_id)] += 1;
             }
             if state_id == ROOT_STATE_ID {
-                break;
+                return ROOT_STATE_ID;
             }
             let fail_id = s.fail.get();
             if fail_id == DEAD_STATE_ID {
-                state_id = ROOT_STATE_ID;
-                break;
+                return ROOT_STATE_ID;
             }
             state_id = fail_id;
         }
-        profile.visits[usize::from_u32(state_id)] += 1;
-        state_id
+    }
+
+    pub(crate) fn profile_haystack<F>(
+        &self,
+        haystack: &[L],
+        profile: &mut Profile,
+        dense_root: bool,
+        mut has_label: F,
+    ) where
+        F: FnMut(L) -> bool,
+    {
+        let leftmost = self.match_kind.is_leftmost();
+        let mut state_id = ROOT_STATE_ID;
+        let mut match_end = None;
+        let mut pos = 0;
+        while pos < haystack.len() {
+            let c = haystack[pos];
+            state_id = if has_label(c) {
+                self.profile_step(state_id, c, profile, dense_root)
+            } else {
+                ROOT_STATE_ID
+            };
+            if leftmost {
+                if state_id == ROOT_STATE_ID {
+                    // The leftmost iterators yield the pending match here and restart
+                    // scanning at its end position in the next call.
+                    if let Some(end) = match_end.take() {
+                        pos = end;
+                        continue;
+                    }
+                } else if self.states[usize::from_u32(state_id)]
+                    .output_pos
+                    .get()
+                    .is_some()
+                {
+                    match_end = Some(pos + 1);
+                }
+            }
+            pos += 1;
+        }
     }
 
     pub(crate) fn sibling_groups<M>(&self, profile: &Profile, mut map_label: M) -> Vec<SiblingGroup>
@@ -290,6 +332,9 @@ where
                 weight,
             });
         }
+        // The sort must be stable so that groups with equal weights (in particular, all the
+        // groups when no corpus is given) keep the depth-first order and are placed in the
+        // same order as the classic depth-first construction.
         groups.sort_by_key(|g| Reverse(g.weight));
         groups
     }

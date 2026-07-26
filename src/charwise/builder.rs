@@ -6,7 +6,7 @@ use crate::charwise::DEAD_STATE_IDX;
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State};
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
-use crate::nfa_builder::{DEAD_STATE_ID, ROOT_STATE_ID};
+use crate::nfa_builder::DEAD_STATE_ID;
 use crate::utils::FromU32;
 
 // Specialized [`NfaBuilder`] handling labels of `char`.
@@ -57,7 +57,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             mapper: CodeMapper::default(),
             match_kind: MatchKind::Standard,
             corpus: vec![],
-            num_free_blocks: 16,
+            num_free_blocks: 64,
         }
     }
 
@@ -77,6 +77,10 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     /// The smaller the number is, the faster the construction time will be; however, the memory
     /// efficiency can be degraded.
     ///
+    /// When a corpus is specified with [`Self::corpus()`], states accessed in scanning the
+    /// corpus are placed by scanning all the blocks regardless of this value, and only the
+    /// remaining states are placed using the trailing blocks.
+    ///
     /// # Arguments
     ///
     /// * `n` - The number of last blocks.
@@ -92,6 +96,14 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     }
 
     /// Specifies a corpus of sample documents for the profile-guided layout optimization.
+    ///
+    /// States frequently accessed in scanning the corpus are packed densely at small indices
+    /// so that matching on documents similar to the corpus becomes more cache-efficient.
+    /// The corpus never changes match results, only the memory layout of the automaton.
+    ///
+    /// Since the states accessed in scanning the corpus are placed by scanning all the blocks
+    /// (see [`Self::num_free_blocks()`]), the construction time can increase, especially when
+    /// the corpus covers most states of a large pattern set.
     ///
     /// # Arguments
     ///
@@ -287,15 +299,15 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         V: Copy,
     {
         let mut profile = Profile::new(nfa.states.len());
+        let mut chars = vec![];
         for haystack in &self.corpus {
-            let mut state_id = ROOT_STATE_ID;
-            for c in haystack.chars() {
-                if self.mapper.get(c).is_none() {
-                    state_id = ROOT_STATE_ID;
-                    continue;
-                }
-                state_id = nfa.profile_step(state_id, c, &mut profile, false);
-            }
+            chars.clear();
+            chars.extend(haystack.chars());
+            // The character-wise version has no dense root table, and characters not in the
+            // mapper reset the state to the root without accessing the double array.
+            nfa.profile_haystack(&chars, &mut profile, false, |c| {
+                self.mapper.get(c).is_some()
+            });
         }
         profile
     }
