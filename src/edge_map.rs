@@ -69,4 +69,12 @@ where
             Self::Many(entries) => entries.iter(),
         }
     }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Empty => 0,
+            Self::One(_) => 1,
+            Self::Many(entries) => entries.len(),
+        }
+    }
 }

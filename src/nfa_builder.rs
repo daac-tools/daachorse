@@ -319,7 +319,7 @@ where
             if s.edges.is_empty() {
                 continue;
             }
-            let mut children = Vec::with_capacity(1);
+            let mut children = Vec::with_capacity(s.edges.len());
             let mut weight = profile.probes[usize::from_u32(state_id)];
             for &(c, child_id) in s.edges.iter() {
                 weight += profile.visits[usize::from_u32(child_id)];
