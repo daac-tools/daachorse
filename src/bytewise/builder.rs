@@ -16,7 +16,6 @@ pub struct DoubleArrayAhoCorasickBuilder {
     states: Vec<State<u32>>,
     match_kind: MatchKind,
     corpus: Vec<Vec<u8>>,
-    num_free_blocks: u32,
 }
 
 impl Default for DoubleArrayAhoCorasickBuilder {
@@ -54,7 +53,6 @@ impl DoubleArrayAhoCorasickBuilder {
             states: vec![],
             match_kind: MatchKind::Standard,
             corpus: vec![],
-            num_free_blocks: 64,
         }
     }
 
@@ -88,29 +86,6 @@ impl DoubleArrayAhoCorasickBuilder {
         self
     }
 
-    /// Specifies the number of trailing blocks to use when searching for base values.
-    ///
-    /// The smaller the number is, the faster the construction time will be;
-    /// however, the memory efficiency can be degraded.
-    ///
-    /// When a corpus is specified with [`Self::corpus()`], states accessed in scanning the
-    /// corpus are placed by scanning all the blocks regardless of this value, and only the
-    /// remaining states are placed using the trailing blocks.
-    ///
-    /// # Arguments
-    ///
-    /// * `n` - The number of last blocks.
-    ///
-    /// # Panics
-    ///
-    /// `n` must be greater than or equal to 1.
-    #[must_use]
-    pub fn num_free_blocks(mut self, n: u32) -> Self {
-        assert!(n >= 1);
-        self.num_free_blocks = n;
-        self
-    }
-
     /// Specifies a corpus of sample documents for the profile-guided layout optimization.
     ///
     /// States frequently accessed in scanning the corpus are packed densely at small indices
@@ -118,8 +93,8 @@ impl DoubleArrayAhoCorasickBuilder {
     /// The corpus never changes match results, only the memory layout of the automaton.
     ///
     /// Since the states accessed in scanning the corpus are placed by scanning all the blocks
-    /// (see [`Self::num_free_blocks()`]), the construction time can increase, especially when
-    /// the corpus covers most states of a large pattern set.
+    /// of the double array, the construction time can increase, especially when the corpus
+    /// covers most states of a large pattern set.
     ///
     /// # Arguments
     ///
@@ -332,13 +307,7 @@ impl DoubleArrayAhoCorasickBuilder {
         V: Copy,
     {
         let groups = nfa.sibling_groups(profile, u32::from);
-        let helper = BuildHelper::new(
-            &groups,
-            nfa.states.len(),
-            BLOCK_LEN,
-            self.num_free_blocks,
-            true,
-        )?;
+        let helper = BuildHelper::new(&groups, nfa.states.len(), BLOCK_LEN, true)?;
 
         self.states
             .resize(usize::from_u32(helper.num_elements()), State::default());

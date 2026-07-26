@@ -28,19 +28,22 @@ pub struct SiblingGroup {
     pub weight: usize,
 }
 
+// The number of trailing blocks scanned in the windowed mode. The packing density saturates
+// with a small window, whereas a larger window only slows down the construction.
+const NUM_FREE_BLOCKS: u32 = 16;
+
 /// Helper struct in double-array construction to maintain indices of vacant elements and
 /// unused BASE values.
 ///
 /// This struct manages array elements in fixed-size blocks and supports extending the array
 /// block by block. The helper starts in the exhaustive mode, where the whole array is scanned
 /// so that groups are packed at the smallest vacant indices. Once [`Self::enable_window()`] is
-/// called, only the vacant indices in the last `num_free_blocks` blocks are scanned; vacant
+/// called, only the vacant indices in the last [`NUM_FREE_BLOCKS`] blocks are scanned; vacant
 /// indices dropped from the window are left unused, which slightly increases the memory usage
 /// but bounds the construction time.
 pub struct BuildHelper {
     items: Vec<ListItem>,
     block_len: u32,
-    num_free_blocks: u32,
     num_blocks: u32,
     head_idx: Option<u32>,
     windowed: bool,
@@ -60,23 +63,18 @@ impl BuildHelper {
     ///
     /// # Panics
     ///
-    /// Panics if block_len == 0 || num_free_blocks == 0.
+    /// Panics if block_len == 0.
     pub fn new(
         groups: &[SiblingGroup],
         num_nfa_states: usize,
         block_len: u32,
-        num_free_blocks: u32,
         track_bases: bool,
     ) -> Result<Self> {
-        let capacity = block_len.checked_mul(num_free_blocks).ok_or_else(|| {
-            DaachorseError::automaton_scale("block_len * num_free_blocks", u32::MAX)
-        })?;
-        assert_ne!(capacity, 0);
+        assert_ne!(block_len, 0);
 
         let mut helper = Self {
             items: vec![],
             block_len,
-            num_free_blocks,
             num_blocks: 0,
             head_idx: None,
             windowed: false,
@@ -208,7 +206,7 @@ impl BuildHelper {
     }
 
     /// Switches to the windowed mode, where only the vacant indices in the last
-    /// `num_free_blocks` blocks are scanned.
+    /// [`NUM_FREE_BLOCKS`] blocks are scanned.
     fn enable_window(&mut self) {
         self.windowed = true;
         self.prune();
@@ -217,7 +215,7 @@ impl BuildHelper {
     /// Drops the vacant indices that have fallen out of the window from the list. Since the
     /// list is kept in ascending order of indices, it suffices to unlink from the head.
     fn prune(&mut self) {
-        let boundary = self.num_blocks.saturating_sub(self.num_free_blocks) * self.block_len;
+        let boundary = self.num_blocks.saturating_sub(NUM_FREE_BLOCKS) * self.block_len;
         while let Some(head_idx) = self.head_idx {
             if head_idx >= boundary {
                 break;
