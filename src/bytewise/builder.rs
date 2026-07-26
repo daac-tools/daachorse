@@ -1,14 +1,12 @@
 use alloc::vec::Vec;
 
 use crate::build_helper::{BuildHelper, Profile};
-use crate::bytewise::{
-    DoubleArrayAhoCorasick, MatchKind, State, BLOCK_LEN, DEAD_STATE_IDX, ROOT_STATE_IDX,
-};
+use crate::bytewise::{DoubleArrayAhoCorasick, MatchKind, State, BLOCK_LEN};
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::U24;
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID};
 use crate::utils::FromU32;
-use crate::Empty;
+use crate::{Empty, DEAD_STATE_IDX, ROOT_STATE_IDX};
 
 // Specialized [`NfaBuilder`] handling labels of `u8`.
 type BytewiseNfaBuilder<V> = NfaBuilder<u8, V>;

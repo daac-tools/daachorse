@@ -2,12 +2,12 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::build_helper::{BuildHelper, Profile};
-use crate::charwise::DEAD_STATE_IDX;
 use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State};
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
 use crate::nfa_builder::DEAD_STATE_ID;
 use crate::utils::FromU32;
+use crate::DEAD_STATE_IDX;
 
 // Specialized [`NfaBuilder`] handling labels of `char`.
 type CharwiseNfaBuilder<V> = NfaBuilder<char, V>;

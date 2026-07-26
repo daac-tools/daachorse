@@ -4,9 +4,8 @@ use core::iter::Enumerate;
 use core::num::NonZeroU32;
 
 use crate::charwise::CharwiseDoubleArrayAhoCorasick;
-use crate::charwise::ROOT_STATE_IDX;
 use crate::utils::FromU32;
-use crate::Match;
+use crate::{Match, ROOT_STATE_IDX};
 
 /// Iterator for some struct that implements [`AsRef<str>`].
 #[doc(hidden)]
