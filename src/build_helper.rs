@@ -11,6 +11,7 @@ use crate::{DEAD_STATE_IDX, ROOT_STATE_IDX};
 /// Each array is indexed by an NFA state id, and the counts represent how many times the
 /// matching loop reads the double-array element where the state is placed. `states[i]` below
 /// denotes the double-array element of the state `i`.
+#[derive(Default)]
 pub struct Profile {
     /// The number of reads of `states[i]` itself:
     ///
@@ -28,11 +29,15 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub fn new(len: usize) -> Self {
-        Self {
-            visits: vec![0; len],
-            probes: vec![0; len],
-        }
+    /// Checks if no corpus has been scanned.
+    pub fn is_empty(&self) -> bool {
+        self.visits.is_empty()
+    }
+
+    /// Allocates the counters for `len` states, initialized to zero.
+    pub fn resize(&mut self, len: usize) {
+        self.visits.resize(len, 0);
+        self.probes.resize(len, 0);
     }
 }
 

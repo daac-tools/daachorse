@@ -314,15 +314,22 @@ where
     {
         let mut groups = vec![];
         let mut stack = vec![ROOT_STATE_ID];
+        let profiled = !profile.is_empty();
         while let Some(state_id) = stack.pop() {
             let s = &self.states[usize::from_u32(state_id)];
             if s.edges.is_empty() {
                 continue;
             }
             let mut children = Vec::with_capacity(s.edges.len());
-            let mut weight = profile.probes[usize::from_u32(state_id)];
+            let mut weight = if profiled {
+                profile.probes[usize::from_u32(state_id)]
+            } else {
+                0
+            };
             for &(c, child_id) in s.edges.iter() {
-                weight += profile.visits[usize::from_u32(child_id)];
+                if profiled {
+                    weight += profile.visits[usize::from_u32(child_id)];
+                }
                 children.push((map_label(c), child_id));
                 stack.push(child_id);
             }
@@ -332,10 +339,12 @@ where
                 weight,
             });
         }
-        // The sort must be stable so that groups with equal weights (in particular, all the
-        // groups when no corpus is given) keep the depth-first order and are placed in the
-        // same order as the classic depth-first construction.
-        groups.sort_by_key(|g| Reverse(g.weight));
+        // With no profile, the sort is skipped and the groups keep the depth-first order, in
+        // which they are placed in the same order as the classic depth-first construction.
+        // The sort must be stable so that groups with equal weights also keep that order.
+        if profiled {
+            groups.sort_by_key(|g| Reverse(g.weight));
+        }
         groups
     }
 }

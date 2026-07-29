@@ -225,7 +225,7 @@ impl DoubleArrayAhoCorasickBuilder {
     {
         let nfa = self.build_sparse_nfa(patvals)?;
         let profile = if self.corpus.is_empty() {
-            Profile::new(nfa.states.len())
+            Profile::default()
         } else {
             self.profile_corpus(&nfa)
         };
@@ -289,7 +289,8 @@ impl DoubleArrayAhoCorasickBuilder {
     where
         V: Copy,
     {
-        let mut profile = Profile::new(nfa.states.len());
+        let mut profile = Profile::default();
+        profile.resize(nfa.states.len());
         // The standard matching handles the root transitions with a dense table.
         let dense_root = !self.match_kind.is_leftmost();
         for haystack in &self.corpus {

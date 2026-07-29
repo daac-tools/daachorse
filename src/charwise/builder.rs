@@ -213,7 +213,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         let nfa = self.build_original_nfa_and_mapper(patvals)?;
 
         let profile = if self.corpus.is_empty() {
-            Profile::new(nfa.states.len())
+            Profile::default()
         } else {
             self.profile_corpus(&nfa)
         };
@@ -273,7 +273,8 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     where
         V: Copy,
     {
-        let mut profile = Profile::new(nfa.states.len());
+        let mut profile = Profile::default();
+        profile.resize(nfa.states.len());
         let mut chars = vec![];
         for haystack in &self.corpus {
             chars.clear();
