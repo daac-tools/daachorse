@@ -41,9 +41,9 @@ impl Profile {
     }
 }
 
-/// A group of sibling states sharing a single BASE value, which is the unit of placement in
-/// double-array construction: [`BuildHelper::new()`] assigns a BASE value to each group and
-/// places all of its children at `base ^ label` within a single aligned block.
+/// A group of sibling states, which is the unit of placement in double-array construction.
+/// [`BuildHelper::new()`] assigns a BASE value to each group and places all of its children at
+/// `base ^ label` within a single aligned block.
 ///
 /// Groups are enumerated by `NfaBuilder::sibling_groups()` and sorted in descending order of
 /// weights so that frequently accessed groups are packed at smaller indices.
@@ -92,8 +92,10 @@ impl BuildHelper {
     /// All edge labels must be smaller than `block_len`, which must be a power of two, so that
     /// all children of a group stay within a single aligned block. When `track_bases` is true,
     /// BASE values are additionally kept unique among groups; the byte-wise version requires
-    /// this because its CHECK values are edge labels, whereas the character-wise version stores
-    /// parent indices in CHECK and can safely share a BASE value among multiple states.
+    /// this because its CHECK values are edge labels, so a probe could falsely accept a child
+    /// of another parent placed at the same BASE value. The character-wise version stores
+    /// parent indices in CHECK and stays correct even if different parent states are assigned
+    /// an equal BASE value.
     ///
     /// # Panics
     ///
