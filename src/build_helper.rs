@@ -7,8 +7,23 @@ use crate::utils::FromU32;
 use crate::{DEAD_STATE_IDX, ROOT_STATE_IDX};
 
 /// Access counts of automaton states collected by scanning documents.
+///
+/// Each array is indexed by an NFA state id, and the counts represent how many times the
+/// matching loop reads the double-array element where the state is placed. `states[i]` below
+/// denotes the double-array element of the state `i`.
 pub struct Profile {
+    /// The number of reads of `states[i]` itself:
+    ///
+    /// - `states[i].base` and `states[i].fail` where `i` is the parent state
+    /// - `states[i].check` and `states[i].output_pos` where `i` is the child state
+    ///
+    /// Since the position of `states[i]` is decided by the placement of the sibling group
+    /// containing `i` as a child, this count is added to the weight of that group.
     pub visits: Vec<usize>,
+    /// The number of reads of `states[base(i) ^ c]` where the label `c` has no edge from the
+    /// state `i`, i.e., probes rejected by CHECK values. Such elements always fall within the
+    /// aligned block where the children of `i` are placed, so this count is added to the
+    /// weight of the sibling group of those children.
     pub probes: Vec<usize>,
 }
 
@@ -21,10 +36,24 @@ impl Profile {
     }
 }
 
-/// A group of sibling states sharing a single BASE value.
+/// A group of sibling states sharing a single BASE value, which is the unit of placement in
+/// double-array construction: [`BuildHelper::new()`] assigns a BASE value to each group and
+/// places all of its children at `base ^ label` within a single aligned block.
+///
+/// Groups are enumerated by `NfaBuilder::sibling_groups()` and sorted in descending order of
+/// weights so that frequently accessed groups are packed at smaller indices.
 pub struct SiblingGroup {
+    /// The NFA state id of the parent state whose outgoing edges form this group. After the
+    /// placement, the BASE value assigned to this group is recorded in
+    /// [`BuildHelper::bases`]`[parent]`.
     pub parent: u32,
+    /// Pairs `(label, child)` for each outgoing edge of the parent, where `label` is the value
+    /// used for addressing in the double array (a byte value in the byte-wise version or a
+    /// mapped code value in the character-wise version) and `child` is the NFA state id of the
+    /// child state, which is placed at the index `base ^ label`.
     pub children: Vec<(u32, u32)>,
+    /// The total number of reads of the elements in the block where this group is placed:
+    /// `probes[parent] + Σ visits[child]` (see [`Profile`]).
     pub weight: usize,
 }
 
