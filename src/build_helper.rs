@@ -149,7 +149,9 @@ impl BuildHelper {
         self.num_blocks * self.block_len
     }
 
-    /// Creates an iterator to visit vacant indices in the active blocks.
+    /// Creates an iterator to visit vacant indices in the scan range in ascending order: the
+    /// whole array in the exhaustive mode, or the last [`NUM_FREE_BLOCKS`] blocks in the
+    /// windowed mode.
     #[inline(always)]
     pub const fn vacant_iter(&self) -> VacantIter<'_> {
         VacantIter {
@@ -194,9 +196,16 @@ impl BuildHelper {
 
     /// Removes the index from the vacant list without marking it used, so that it is no longer
     /// scanned but is still treated as vacant by `is_used_index()`.
+    ///
+    /// The index must be linked in the list; unlinking a pruned index would corrupt the list
+    /// through its stale neighbor pointers. `find_base()` never chooses such an index because
+    /// the window boundary is block-aligned and all children of a group stay within the aligned
+    /// block of the returned BASE value.
     fn unlink(&mut self, idx: u32) {
         let next = self.get_ref(idx).next();
         let prev = self.get_ref(idx).prev();
+        debug_assert_eq!(self.get_ref(prev).next(), idx);
+        debug_assert_eq!(self.get_ref(next).prev(), idx);
         *self.get_mut(prev).next_mut() = next;
         *self.get_mut(next).prev_mut() = prev;
         if self.head_idx.unwrap() == idx {
@@ -213,7 +222,6 @@ impl BuildHelper {
         let old_len = self.num_elements();
         let new_len = old_len + self.block_len;
 
-        // Update the active index range.
         self.num_blocks += 1;
         self.items
             .resize(usize::from_u32(new_len), ListItem::default());
