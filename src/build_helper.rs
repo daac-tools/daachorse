@@ -49,8 +49,8 @@ impl Profile {
 /// weights so that frequently accessed groups are packed at smaller indices.
 pub struct SiblingGroup {
     /// The NFA state id of the parent state whose outgoing edges form this group. After the
-    /// placement, the BASE value assigned to this group is recorded in
-    /// [`BuildHelper::bases`]`[parent]`.
+    /// placement, the BASE value assigned to this group is recorded in the `parent`-th element
+    /// of [`BuildHelper::bases`].
     pub parent: u32,
     /// Pairs `(label, child)` for each outgoing edge of the parent, where `label` is the value
     /// used for addressing in the double array (a byte value in the byte-wise version or a
