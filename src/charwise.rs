@@ -19,12 +19,7 @@ use crate::charwise::mapper::CodeMapper;
 use crate::errors::{DaachorseError, Result};
 use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
-use crate::{MatchKind, Output};
-
-// The root index position.
-const ROOT_STATE_IDX: u32 = 0;
-// The dead index position.
-const DEAD_STATE_IDX: u32 = 1;
+use crate::{MatchKind, Output, DEAD_STATE_IDX, ROOT_STATE_IDX};
 
 /// A fast multiple pattern match automaton implemented with the Aho-Corasick algorithm and
 /// character-wise double-array data structure.
@@ -917,7 +912,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                 return Err(DaachorseError::invalid_automaton());
             }
         }
-        let block_len = usize::from_u32(pma.mapper.alphabet_size().next_power_of_two().max(2));
+        let block_len = usize::from_u32(pma.mapper.block_len());
         if pma.states.is_empty() {
             return Err(DaachorseError::invalid_automaton());
         }

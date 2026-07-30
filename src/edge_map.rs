@@ -58,10 +58,6 @@ where
         matches!(self, Self::Empty)
     }
 
-    pub fn keys(&self) -> impl Iterator<Item = &L> {
-        self.iter().map(|(k, _)| k)
-    }
-
     pub fn values(&self) -> impl Iterator<Item = &u32> {
         self.iter().map(|(_, v)| v)
     }
@@ -71,6 +67,14 @@ where
             Self::Empty => [].iter(),
             Self::One(entry) => core::slice::from_ref(entry).iter(),
             Self::Many(entries) => entries.iter(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Empty => 0,
+            Self::One(_) => 1,
+            Self::Many(entries) => entries.len(),
         }
     }
 }

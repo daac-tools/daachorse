@@ -1,8 +1,10 @@
 use core::cell::Cell;
+use core::cmp::Reverse;
 use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
+use crate::build_helper::{Profile, SiblingGroup};
 use crate::edge_map::EdgeMap;
 use crate::errors::{DaachorseError, Result};
 use crate::utils::FromU32;
@@ -227,5 +229,122 @@ where
             .edges
             .get(&c)
             .copied()
+    }
+
+    fn profile_step(
+        &self,
+        mut state_id: u32,
+        c: L,
+        profile: &mut Profile,
+        dense_root: bool,
+    ) -> u32 {
+        loop {
+            // The runtime handles such root transitions with a dense table without accessing
+            // the double array, so no access is counted.
+            if dense_root && state_id == ROOT_STATE_ID {
+                return self.child_id(ROOT_STATE_ID, c).unwrap_or(ROOT_STATE_ID);
+            }
+            let s = &self.states[usize::from_u32(state_id)];
+            // The runtime reads the double-array element of the current state.
+            profile.visits[usize::from_u32(state_id)] += 1;
+            if !s.edges.is_empty() {
+                if let Some(&child_id) = s.edges.get(&c) {
+                    // A successful probe reads the element of the child.
+                    profile.visits[usize::from_u32(child_id)] += 1;
+                    return child_id;
+                }
+                // A failed probe reads an element in the block where the children of this
+                // state are placed.
+                profile.probes[usize::from_u32(state_id)] += 1;
+            }
+            if state_id == ROOT_STATE_ID {
+                return ROOT_STATE_ID;
+            }
+            let fail_id = s.fail.get();
+            if fail_id == DEAD_STATE_ID {
+                return ROOT_STATE_ID;
+            }
+            state_id = fail_id;
+        }
+    }
+
+    pub(crate) fn profile_haystack<F>(
+        &self,
+        haystack: &[L],
+        profile: &mut Profile,
+        dense_root: bool,
+        mut has_label: F,
+    ) where
+        F: FnMut(L) -> bool,
+    {
+        let leftmost = self.match_kind.is_leftmost();
+        let mut state_id = ROOT_STATE_ID;
+        let mut match_end = None;
+        let mut pos = 0;
+        while pos < haystack.len() {
+            let c = haystack[pos];
+            state_id = if has_label(c) {
+                self.profile_step(state_id, c, profile, dense_root)
+            } else {
+                ROOT_STATE_ID
+            };
+            if leftmost {
+                if state_id == ROOT_STATE_ID {
+                    // The leftmost iterators yield the pending match here and restart
+                    // scanning at its end position in the next call.
+                    if let Some(end) = match_end.take() {
+                        pos = end;
+                        continue;
+                    }
+                } else if self.states[usize::from_u32(state_id)]
+                    .output_pos
+                    .get()
+                    .is_some()
+                {
+                    match_end = Some(pos + 1);
+                }
+            }
+            pos += 1;
+        }
+    }
+
+    pub(crate) fn sibling_groups<M>(&self, profile: &Profile, mut map_label: M) -> Vec<SiblingGroup>
+    where
+        M: FnMut(L) -> u32,
+    {
+        let mut groups = vec![];
+        let mut stack = vec![ROOT_STATE_ID];
+        let profiled = !profile.is_empty();
+        while let Some(state_id) = stack.pop() {
+            let s = &self.states[usize::from_u32(state_id)];
+            if s.edges.is_empty() {
+                continue;
+            }
+            let mut children = Vec::with_capacity(s.edges.len());
+            let mut weight = if profiled {
+                profile.probes[usize::from_u32(state_id)]
+            } else {
+                0
+            };
+            for &(c, child_id) in s.edges.iter() {
+                if profiled {
+                    weight += profile.visits[usize::from_u32(child_id)];
+                }
+                children.push((map_label(c), child_id));
+                stack.push(child_id);
+            }
+            groups.push(SiblingGroup {
+                parent: state_id,
+                children,
+                weight,
+            });
+        }
+        // With no profile, the sort is skipped and the groups keep the depth-first order, in
+        // which they are placed in the same order as the classic depth-first construction.
+        // The sort must be stable so that groups with equal weights also keep that order.
+        if profiled {
+            groups.sort_by_key(|g| Reverse(g.weight));
+        }
+        groups
     }
 }

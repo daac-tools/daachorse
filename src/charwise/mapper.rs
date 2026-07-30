@@ -46,6 +46,11 @@ impl CodeMapper {
         self.alphabet_size
     }
 
+    #[inline(always)]
+    pub fn block_len(&self) -> u32 {
+        self.alphabet_size.next_power_of_two().max(2)
+    }
+
     #[inline]
     #[allow(dead_code)]
     pub fn heap_bytes(&self) -> usize {

@@ -203,12 +203,16 @@ use core::num::NonZeroU32;
 
 use alloc::vec::Vec;
 
-use crate::build_helper::BuildHelper;
 pub use crate::bytewise::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
 pub use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAhoCorasickBuilder};
 use crate::errors::DaachorseError;
 pub use crate::errors::Result;
 pub use crate::serializer::Serializable;
+
+// The root index position.
+pub(crate) const ROOT_STATE_IDX: u32 = 0;
+// The dead index position.
+pub(crate) const DEAD_STATE_IDX: u32 = 1;
 
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 struct Output<V> {
