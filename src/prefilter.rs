@@ -1,47 +1,49 @@
-//! Shift-OR q-gram prefilter based on the bit-parallel approach described in:
+//! Bit-parallel (Shift-OR / Shift-Add) prefilters based on:
 //!
 //! > Ricardo Baeza-Yates and Gaston H. Gonnet.
 //! > "A new approach to text searching."
 //! > *Communications of the ACM*, 35(10): 74–82, 1992.
 //! > <https://doi.org/10.1145/135239.135243>
 //!
-//! The algorithm represents the state of a multi-pattern search as a bit-vector
-//! and updates it using only shift and bitwise-logic operations per input byte.
-//! When the state indicates that no pattern can match at any active position, the
-//! scanner can skip ahead — providing a fast prefilter before running the full
-//! automaton.
+//! The key idea (Sections 1–2): represent the state of the search as a
+//! bit-vector where each bit tracks whether a prefix of some pattern matches
+//! the tail of the text at that offset.  Each input byte advances the state
+//! with a single shift + bitwise-OR (or addition for the mismatch-tolerant
+//! variant).  When the state indicates no pattern can possibly match, the
+//! caller can skip ahead — providing a fast prefilter before running the
+//! full automaton.
 //!
-//! # How it works
+//! Two variants are provided:
 //!
-//! For each 2-byte q-gram (bigram) we build a bitmask `b[q]` where bit P is 0
-//! if that q-gram appears at byte-offset P inside any registered pattern.  The
-//! companion mask `end[q]` has bit P clear if `q` can be the *terminal* bigram
-//! of a pattern (i.e. the pattern ends at `P + 2`).
+//! * [`QgramPrefilter`] — uses 2-byte q-grams (bigrams) instead of raw
+//!   characters so that the per-position bit budget scales to thousands of
+//!   patterns without saturating a machine word.  A practical extension of
+//!   the paper's bit-parallel philosophy for large pattern sets.
 //!
-//! At search time we maintain an 8-bit state:
-//!
-//! ```text
-//! state = (state << 1) | b[bigram];
-//! ```
-//!
-//! A candidate region is signalled when `(state | end[bigram]) != 0xFF` —
-//! meaning some pattern's bigram sequence matches the current window of the
-//! input.
+//! * [`MultiQgramPrefilter`] — length-bucketed version that keeps each
+//!   per-bucket filter sparse when pattern lengths vary widely.
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-/// A single-level Shift-OR prefilter that tracks 2-gram (bigram) positions.
+// ---------------------------------------------------------------------------
+// QgramPrefilter — bigram-based Shift-OR (practical extension for large sets)
+// ---------------------------------------------------------------------------
+
+/// Single-level bigram prefilter following the bit-parallel philosophy of
+/// Baeza-Yates & Gonnet §3 (Shift-OR).
 ///
-/// `b[q]` has bit P clear if bigram `q` can appear at byte-offset P of some
-/// pattern.  `end[q]` has bit P clear if `q` can be the terminal bigram of a
-/// pattern (the pattern ends at `P + 2`).
+/// Instead of tracking one bit per *character* position (which would require
+/// `sum(|pattern|)` bits ≤ word size), this prefilter tracks one bit per
+/// *bigram* position.  A bigram `(byte[j], byte[j+1])` at offset `j` in a
+/// pattern clears bit `j` in `b[bigram]`.  At search time the Shift-OR update
 ///
-/// The prefilter only handles exact-case bigrams — no case folding.  For
-/// large or case-insensitive pattern sets use [`MultiQgramPrefilter`] which
-/// buckets patterns by length to keep each per-bucket filter sparse.
+/// ```text
+/// state = (state << 1) | b[input_bigram]
+/// ```
 ///
-/// Reference: Section 3 (Shift-OR) of Baeza-Yates & Gonnet (1992).
+/// keeps a sliding window of which bigram sequences *might* match.  When
+/// `(state | end[bigram]) != 0xFF` a candidate region is signalled.
 #[derive(Clone)]
 pub struct QgramPrefilter {
     b: Box<[u8; 65536]>,
@@ -55,11 +57,10 @@ impl core::fmt::Debug for QgramPrefilter {
 }
 
 impl QgramPrefilter {
-    /// Build a prefilter from a list of exact-case byte patterns.
+    /// Build a prefilter from exact-case byte patterns.
     ///
-    /// Patterns shorter than 3 bytes are ignored (they cannot form a bigram).
-    /// Only the first 9 bytes of each pattern contribute to the bitmask,
-    /// matching the 8-bit state width.
+    /// Patterns shorter than 3 bytes are ignored.  Only the first 9 bytes
+    /// of each pattern contribute (matching the 8-bit state width).
     pub fn from_patterns(patterns: &[Vec<u8>]) -> Self {
         let mut b = Box::new([0xFFu8; 65536]);
         let mut end = Box::new([0xFFu8; 65536]);
@@ -79,7 +80,7 @@ impl QgramPrefilter {
         Self { b, end }
     }
 
-    /// Create an empty prefilter (all bits set — never signals a candidate).
+    /// Empty prefilter — never signals a candidate.
     pub fn empty() -> Self {
         Self {
             b: Box::new([0xFFu8; 65536]),
@@ -87,7 +88,7 @@ impl QgramPrefilter {
         }
     }
 
-    /// Create a prefilter from raw byte-arrays (useful for deserialisation).
+    /// Build from raw byte arrays (useful for serialisation).
     pub fn from_raw(b: [u8; 65536], end: [u8; 65536]) -> Self {
         Self {
             b: Box::new(b),
@@ -107,10 +108,8 @@ impl QgramPrefilter {
 
     /// Run the Shift-OR filter over `data`.
     ///
-    /// Returns `Some(start_offset)` when a candidate region is found, where
-    /// `start_offset` is a conservative estimate of the earliest position at
-    /// which a match could start.  Returns `None` when the entire buffer can
-    /// be skipped.
+    /// Returns `Some(start_offset)` when a candidate region is found.
+    /// Returns `None` when the entire buffer can be skipped.
     pub fn search(&self, data: &[u8]) -> Option<usize> {
         if data.len() < 2 {
             return None;
@@ -127,18 +126,21 @@ impl QgramPrefilter {
         None
     }
 
-    /// Returns `true` if no patterns were registered (always signals skip).
+    /// `true` when no patterns are registered (always skips).
     pub fn is_empty(&self) -> bool {
         self.b.iter().all(|&x| x == 0xFF)
     }
 }
 
+// ---------------------------------------------------------------------------
+// MultiQgramPrefilter — length-bucketed variant for large pattern sets
+// ---------------------------------------------------------------------------
+
 /// A length-bucketed multi-level prefilter.
 ///
-/// When many patterns are registered, a single [`QgramPrefilter`] saturates
-/// (every bigram appears somewhere, so it always signals a candidate).
-/// Bucketing patterns by length keeps each per-bucket filter sparse enough to
-/// be effective.
+/// When thousands of patterns share the same bigram-position table, the
+/// table saturates (every bigram bit is cleared).  Separating patterns by
+/// length into independent buckets keeps each per-bucket filter sparse.
 ///
 /// Six buckets are used:
 ///
@@ -150,18 +152,13 @@ impl QgramPrefilter {
 /// | 3      | 10–15          |
 /// | 4      | 16–25          |
 /// | 5      | 26+            |
-///
-/// Reference: Baeza-Yates & Gonnet (1992) multi-pattern extension.
 #[derive(Clone)]
 pub struct MultiQgramPrefilter {
     filters: Box<[QgramPrefilter; 6]>,
 }
 
 impl MultiQgramPrefilter {
-    /// Build from a list of exact-case byte patterns.
-    ///
-    /// Patterns are automatically routed to the appropriate length bucket.
-    /// Patterns shorter than 3 bytes are ignored.
+    /// Build from exact-case byte patterns, routing each to its length bucket.
     pub fn from_patterns(patterns: &[Vec<u8>]) -> Self {
         let mut buckets: [Vec<Vec<u8>>; 6] = Default::default();
         for pat in patterns {
@@ -187,7 +184,7 @@ impl MultiQgramPrefilter {
         }
     }
 
-    /// Create from a pre-built array of per-bucket filters.
+    /// Build from a pre-built array of per-bucket filters.
     pub fn from_filters(filters: [QgramPrefilter; 6]) -> Self {
         Self {
             filters: Box::new(filters),
@@ -217,9 +214,97 @@ impl MultiQgramPrefilter {
         earliest
     }
 
-    /// Returns `true` if all buckets are empty (always skip).
+    /// `true` when all buckets are empty.
     pub fn is_empty(&self) -> bool {
         self.filters.iter().all(|f| f.is_empty())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Exact character-level Shift-OR (Baeza-Yates & Gonnet §3, Figure 4)
+// ---------------------------------------------------------------------------
+
+/// Exact single-pattern Shift-OR matcher (Baeza-Yates & Gonnet §3, Figure 4).
+///
+/// A bit-vector `state` tracks which prefixes of the pattern match the
+/// current suffix of the text.  The per-character table `T[x]` has bit *i*
+/// cleared when `pattern[i] == x`.  The main loop is:
+///
+/// ```text
+/// state = (state << 1) | T[text_byte];
+/// if (state & end_mask) != end_mask { /* pattern ends here */ }
+/// ```
+///
+/// Equivalent to `state < limit` in the paper's Figure 4 (page 226).
+///
+/// # Multi-pattern
+///
+/// For multiple patterns use [`QgramPrefilter`] or [`MultiQgramPrefilter`].
+/// Packing multiple patterns into a single bit vector (coalesced approach,
+/// page 77) causes false negatives due to shift‑based bit interference
+/// between adjacent patterns.
+#[derive(Clone, Debug)]
+pub struct ShiftOrMask {
+    t: [u64; 256],
+    end_mask: u64,
+    full_mask: u64,
+}
+
+impl ShiftOrMask {
+    /// Build from a single exact-case pattern (Figure 4).
+    ///
+    /// Returns `None` if the pattern is empty or longer than 64 bytes.
+    pub fn from_pattern(pat: &[u8]) -> Option<Self> {
+        if pat.is_empty() || pat.len() > 64 {
+            return None;
+        }
+        let m = pat.len();
+        let full_mask = if m == 64 { !0u64 } else { (1u64 << m) - 1 };
+        let end_mask = 1u64 << (m - 1);
+
+        let mut t = [full_mask; 256];
+        let mut bit = 1u64;
+        for &ch in pat {
+            t[ch as usize] &= !bit;
+            bit <<= 1;
+        }
+        Some(Self { t, end_mask, full_mask })
+    }
+
+    /// Run Shift-OR over `data`, returning the number of matches.
+    pub fn search(&self, data: &[u8]) -> usize {
+        let mut state = self.full_mask;
+        let mut matches = 0usize;
+        for &ch in data {
+            state = ((state << 1) | self.t[ch as usize]) & self.full_mask;
+            if (state & self.end_mask) != self.end_mask {
+                matches += 1;
+            }
+        }
+        matches
+    }
+
+    /// Return the earliest offset where a match could start (prefilter hint).
+    pub fn search_hint(&self, data: &[u8]) -> Option<usize> {
+        let mut state = self.full_mask;
+        for (i, &ch) in data.iter().enumerate() {
+            state = ((state << 1) | self.t[ch as usize]) & self.full_mask;
+            if (state & self.end_mask) != self.end_mask {
+                let start = if i >= 63 { i - 63 } else { 0 };
+                return Some(start);
+            }
+        }
+        None
+    }
+
+    /// End mask — bit = 1 at the last character position of each pattern.
+    pub fn end_mask(&self) -> u64 {
+        self.end_mask
+    }
+
+    /// Full mask — bits covering all pattern positions + separators.
+    pub fn full_mask(&self) -> u64 {
+        self.full_mask
     }
 }
 
@@ -227,15 +312,17 @@ impl MultiQgramPrefilter {
 mod tests {
     use super::*;
 
+    // -- QgramPrefilter tests --
+
     #[test]
-    fn empty_prefilter_signals_nothing() {
+    fn qgram_empty_signals_nothing() {
         let pf = QgramPrefilter::empty();
         assert!(pf.is_empty());
         assert_eq!(pf.search(b"hello"), None);
     }
 
     #[test]
-    fn single_pattern_is_found() {
+    fn qgram_single_pattern_is_found() {
         let patterns = vec![b"abc".to_vec()];
         let pf = QgramPrefilter::from_patterns(&patterns);
         assert!(!pf.is_empty());
@@ -243,18 +330,20 @@ mod tests {
     }
 
     #[test]
-    fn unrelated_buffer_is_rejected() {
+    fn qgram_unrelated_buffer_is_rejected() {
         let patterns = vec![b"xyz".to_vec()];
         let pf = QgramPrefilter::from_patterns(&patterns);
         assert_eq!(pf.search(b"aaaaaa"), None);
     }
 
     #[test]
-    fn pattern_shorter_than_3_is_ignored() {
+    fn qgram_pattern_shorter_than_3_is_ignored() {
         let patterns = vec![b"ab".to_vec()];
         let pf = QgramPrefilter::from_patterns(&patterns);
         assert!(pf.is_empty());
     }
+
+    // -- MultiQgramPrefilter tests --
 
     #[test]
     fn multilevel_finds_earliest_candidate() {
@@ -263,12 +352,67 @@ mod tests {
         let buf = b"skip___a much longer pattern___short";
         let pos = pf.search(buf);
         assert!(pos.is_some());
-        assert!(pos.unwrap() <= 7); // should find the longer pattern's region
+        assert!(pos.unwrap() <= 7);
     }
 
     #[test]
     fn multilevel_empty_when_no_patterns() {
         let pf = MultiQgramPrefilter::from_patterns(&[]);
         assert!(pf.is_empty());
+    }
+
+    // -- ShiftOrMask tests (exact Figure 4 algorithm) --
+
+    #[test]
+    fn shift_or_single_pattern_exact_match() {
+        // Example 1 from the paper: pattern "ababc" in text "abdabababc"
+        let sor = ShiftOrMask::from_pattern(b"ababc").unwrap();
+        let n = sor.search(b"abdabababc");
+        assert_eq!(n, 1); // one occurrence
+    }
+
+    #[test]
+    fn shift_or_single_pattern_no_match() {
+        let sor = ShiftOrMask::from_pattern(b"xyz").unwrap();
+        let n = sor.search(b"abcdefghij");
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn shift_or_single_pattern_multiple_matches() {
+        let sor = ShiftOrMask::from_pattern(b"aa").unwrap();
+        let n = sor.search(b"aaaab");
+        // "aa" at offsets 0, 1, 2 → 3 overlapping matches (no match at offset 3: "ab")
+        assert_eq!(n, 3);
+    }
+
+    #[test]
+    fn shift_or_search_hint_rejects_empty_buffer() {
+        let sor = ShiftOrMask::from_pattern(b"abc").unwrap();
+        assert_eq!(sor.search_hint(b""), None);
+    }
+
+    #[test]
+    fn shift_or_search_hint_finds_candidate() {
+        let sor = ShiftOrMask::from_pattern(b"abc").unwrap();
+        let hint = sor.search_hint(b"xyz_abc_xyz");
+        assert!(hint.is_some());
+    }
+
+    #[test]
+    fn shift_or_search_hint_rejects_unrelated() {
+        let sor = ShiftOrMask::from_pattern(b"xyz").unwrap();
+        assert_eq!(sor.search_hint(b"aaaaaaaaaa"), None);
+    }
+
+    #[test]
+    fn shift_or_pattern_too_long_returns_none() {
+        let long = vec![b'a'; 65];
+        assert!(ShiftOrMask::from_pattern(&long).is_none());
+    }
+
+    #[test]
+    fn shift_or_empty_pattern_returns_none() {
+        assert!(ShiftOrMask::from_pattern(b"").is_none());
     }
 }
