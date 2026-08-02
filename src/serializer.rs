@@ -142,8 +142,6 @@ where
 
     #[inline(always)]
     fn deserialize_from_slice(mut src: &[u8]) -> Result<(Self, &[u8])> {
-        // To mitigate out-of-memory crashes when parsing a maliciously crafted automaton, restrict
-        // the memory allocation to not exceed the byte limit provided as an argument.
         let mut dst = Vec::<S>::with_capacity(N);
         for _ in 0..N {
             let (x, rest) = S::deserialize_from_slice(src)?;
