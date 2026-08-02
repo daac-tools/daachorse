@@ -11,11 +11,13 @@ use alloc::vec::Vec;
 
 pub use crate::bytewise::builder::DoubleArrayAhoCorasickBuilder;
 use crate::bytewise::iter::{
-    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator, FindOverlappingStepper,
-    FindStepper, LeftmostFindIterator, U8SliceIterator,
+    FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator,
+    FindOverlappingNoSuffixSliceIterator, FindOverlappingSliceIterator, FindOverlappingStepper,
+    FindSliceIterator, FindStepper, LeftmostFindIterator,
 };
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
+use crate::prefilter::{Prefilter, PrefilterGate};
 use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
 use crate::{Empty, MatchKind, Output, DEAD_STATE_IDX, ROOT_STATE_IDX};
@@ -62,6 +64,7 @@ pub struct DoubleArrayAhoCorasick<V> {
     outputs: Vec<Output<V>>,
     match_kind: MatchKind,
     num_states: u32,
+    prefilter: Option<Prefilter>,
 }
 
 impl<V> DoubleArrayAhoCorasick<V> {
@@ -184,7 +187,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<'_, U8SliceIterator<P>, V>
+    pub fn find_iter<P>(&self, haystack: P) -> FindSliceIterator<'_, P, V>
     where
         P: AsRef<[u8]>,
     {
@@ -192,16 +195,22 @@ impl<V> DoubleArrayAhoCorasick<V> {
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
         );
-        FindIterator {
+        FindSliceIterator {
             pma: self,
-            haystack: U8SliceIterator::new(haystack).enumerate(),
+            haystack,
+            pos: 0,
             first_call: true,
+            prefilter: self.prefilter.as_ref(),
+            gate: PrefilterGate::new(),
         }
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack iterator.
     ///
     /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_iter()`] function.
+    /// However, the match-candidate prefilter is not available in this function because it
+    /// requires random access to the haystack; the search is always performed on the Aho-Corasick
+    /// automaton alone, even if the automaton has a prefilter.
     ///
     /// # Arguments
     ///
@@ -286,10 +295,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_overlapping_iter<P>(
-        &self,
-        haystack: P,
-    ) -> FindOverlappingIterator<'_, U8SliceIterator<P>, V>
+    pub fn find_overlapping_iter<P>(&self, haystack: P) -> FindOverlappingSliceIterator<'_, P, V>
     where
         P: AsRef<[u8]>,
     {
@@ -297,9 +303,9 @@ impl<V> DoubleArrayAhoCorasick<V> {
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
         );
-        FindOverlappingIterator {
+        FindOverlappingSliceIterator {
             pma: self,
-            haystack: U8SliceIterator::new(haystack).enumerate(),
+            haystack,
             state_id: ROOT_STATE_IDX,
             output_pos: unsafe {
                 self.states
@@ -307,13 +313,17 @@ impl<V> DoubleArrayAhoCorasick<V> {
                     .output_pos()
             },
             pos: 0,
+            prefilter: self.prefilter.as_ref(),
+            gate: PrefilterGate::new(),
         }
     }
 
     /// Returns an iterator of overlapping matches in the given haystack iterator.
     ///
     /// The algorithm used is the same as the [`DoubleArrayAhoCorasick::find_overlapping_iter()`]
-    /// function.
+    /// function. However, the match-candidate prefilter is not available in this function because
+    /// it requires random access to the haystack; the search is always performed on the
+    /// Aho-Corasick automaton alone, even if the automaton has a prefilter.
     ///
     /// # Arguments
     ///
@@ -407,7 +417,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     pub fn find_overlapping_no_suffix_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<'_, U8SliceIterator<P>, V>
+    ) -> FindOverlappingNoSuffixSliceIterator<'_, P, V>
     where
         P: AsRef<[u8]>,
     {
@@ -415,18 +425,24 @@ impl<V> DoubleArrayAhoCorasick<V> {
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
         );
-        FindOverlappingNoSuffixIterator {
+        FindOverlappingNoSuffixSliceIterator {
             pma: self,
-            haystack: U8SliceIterator::new(haystack).enumerate(),
+            haystack,
             state_id: ROOT_STATE_IDX,
+            pos: 0,
             first_call: true,
+            prefilter: self.prefilter.as_ref(),
+            gate: PrefilterGate::new(),
         }
     }
 
     /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
     ///
     /// The algorithm used is the same as the
-    /// [`DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`] function.
+    /// [`DoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`] function. However, the
+    /// match-candidate prefilter is not available in this function because it requires random
+    /// access to the haystack; the search is always performed on the Aho-Corasick automaton
+    /// alone, even if the automaton has a prefilter.
     ///
     /// # Arguments
     ///
@@ -559,6 +575,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
                     .output_pos()
             },
             skip_empty: false,
+            gate: PrefilterGate::new(),
         }
     }
 
@@ -764,6 +781,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
             + self.leftmost_states.len() * mem::size_of::<State<Empty>>()
             + self.fails.len() * mem::size_of::<u32>()
             + self.outputs.len() * mem::size_of::<Output<V>>()
+            + self.prefilter.as_ref().map_or(0, Prefilter::heap_bytes)
     }
 
     /// Returns the total number of states this automaton has.
@@ -805,7 +823,12 @@ impl<V> DoubleArrayAhoCorasick<V> {
                 + self.fails.serialized_bytes()
                 + self.outputs.serialized_bytes()
                 + MatchKind::serialized_bytes()
-                + u32::serialized_bytes(),
+                + u32::serialized_bytes()
+                + u8::serialized_bytes()
+                + self
+                    .prefilter
+                    .as_ref()
+                    .map_or(0, |_| Prefilter::serialized_bytes()),
         );
         self.states.serialize_to_vec(&mut result);
         self.leftmost_states.serialize_to_vec(&mut result);
@@ -813,6 +836,10 @@ impl<V> DoubleArrayAhoCorasick<V> {
         self.outputs.serialize_to_vec(&mut result);
         self.match_kind.serialize_to_vec(&mut result);
         self.num_states.serialize_to_vec(&mut result);
+        u8::from(self.prefilter.is_some()).serialize_to_vec(&mut result);
+        if let Some(prefilter) = &self.prefilter {
+            prefilter.serialize_to_vec(&mut result);
+        }
         result
     }
 
@@ -872,6 +899,15 @@ impl<V> DoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source)?;
         let (match_kind, source) = MatchKind::deserialize_from_slice(source)?;
         let (num_states, source) = u32::deserialize_from_slice(source)?;
+        let (has_prefilter, source) = u8::deserialize_from_slice(source)?;
+        let (prefilter, source) = match has_prefilter {
+            0 => (None, source),
+            1 => {
+                let (prefilter, source) = Prefilter::deserialize_from_slice(source)?;
+                (Some(prefilter), source)
+            }
+            _ => return Err(DaachorseError::invalid_automaton()),
+        };
         let root_table = if match_kind.is_leftmost() {
             vec![]
         } else {
@@ -885,6 +921,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
             match_kind,
             num_states,
             root_table,
+            prefilter,
         };
         let block_len = usize::from_u32(BLOCK_LEN);
         let outputs_len = pma.outputs.len();
@@ -1014,6 +1051,13 @@ impl<V> DoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source).unwrap_unchecked();
         let (match_kind, source) = MatchKind::deserialize_from_slice(source).unwrap_unchecked();
         let (num_states, source) = u32::deserialize_from_slice(source).unwrap_unchecked();
+        let (has_prefilter, source) = u8::deserialize_from_slice(source).unwrap_unchecked();
+        let (prefilter, source) = if has_prefilter == 0 {
+            (None, source)
+        } else {
+            let (prefilter, source) = Prefilter::deserialize_from_slice(source).unwrap_unchecked();
+            (Some(prefilter), source)
+        };
         let root_table = if match_kind.is_leftmost() {
             vec![]
         } else {
@@ -1028,6 +1072,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
                 match_kind,
                 num_states,
                 root_table,
+                prefilter,
             },
             source,
         )
@@ -1050,6 +1095,58 @@ impl<V> DoubleArrayAhoCorasick<V> {
             }
         }
         table
+    }
+
+    /// Returns the position of the output entries of the given state.
+    ///
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of `states`.
+    #[inline(always)]
+    unsafe fn output_pos_unchecked(&self, state_id: u32) -> Option<NonZeroU32> {
+        self.states
+            .get_unchecked(usize::from_u32(state_id))
+            .output_pos()
+    }
+
+    /// Returns the position of the output entries of the given state for leftmost matching.
+    ///
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of `leftmost_states`.
+    #[inline(always)]
+    unsafe fn leftmost_output_pos_unchecked(&self, state_id: u32) -> Option<NonZeroU32> {
+        self.leftmost_states
+            .get_unchecked(usize::from_u32(state_id))
+            .output_pos()
+    }
+
+    /// Returns the output entry at the given position.
+    ///
+    /// # Safety
+    ///
+    /// `output_pos` must be obtained from [`State::output_pos()`] or [`Output::parent()`] of
+    /// this automaton, which guarantees `output_pos.get() - 1` to be a valid index of `outputs`.
+    #[inline(always)]
+    unsafe fn output_at(&self, output_pos: NonZeroU32) -> &Output<V> {
+        self.outputs
+            .get_unchecked(usize::from_u32(output_pos.get() - 1))
+    }
+
+    /// Returns the value to report when the pattern set contains the empty string, which is
+    /// registered as an output of the root state.
+    ///
+    /// # Safety
+    ///
+    /// The automaton must be built for standard matching; for leftmost matching, `states` is
+    /// empty and the root state access would be out of bounds.
+    #[inline(always)]
+    unsafe fn root_output_value(&self) -> Option<V>
+    where
+        V: Copy,
+    {
+        self.output_pos_unchecked(ROOT_STATE_IDX)
+            .map(|output_pos| self.output_at(output_pos).value())
     }
 
     /// # Safety

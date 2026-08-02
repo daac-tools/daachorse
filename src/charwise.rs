@@ -12,11 +12,13 @@ use alloc::vec::Vec;
 pub use crate::charwise::builder::CharwiseDoubleArrayAhoCorasickBuilder;
 use crate::charwise::iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
-    FindOverlappingNoSuffixIterator, FindOverlappingStepper, FindStepper, LeftmostFindIterator,
-    StrIterator,
+    FindOverlappingNoSuffixIterator, FindOverlappingNoSuffixSliceIterator,
+    FindOverlappingSliceIterator, FindOverlappingStepper, FindSliceIterator, FindStepper,
+    LeftmostFindIterator,
 };
 use crate::charwise::mapper::CodeMapper;
 use crate::errors::{DaachorseError, Result};
+use crate::prefilter::{Prefilter, PrefilterGate};
 use crate::serializer::{Serializable, SerializableVec};
 use crate::utils::FromU32;
 use crate::{MatchKind, Output, DEAD_STATE_IDX, ROOT_STATE_IDX};
@@ -57,6 +59,7 @@ pub struct CharwiseDoubleArrayAhoCorasick<V> {
     outputs: Vec<Output<V>>,
     match_kind: MatchKind,
     num_states: u32,
+    prefilter: Option<Prefilter>,
 }
 
 impl<V> CharwiseDoubleArrayAhoCorasick<V> {
@@ -176,7 +179,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_iter<P>(&self, haystack: P) -> FindIterator<'_, StrIterator<P>, V>
+    pub fn find_iter<P>(&self, haystack: P) -> FindSliceIterator<'_, P, V>
     where
         P: AsRef<str>,
     {
@@ -184,16 +187,22 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
         );
-        FindIterator {
+        FindSliceIterator {
             pma: self,
-            haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
+            haystack,
+            pos: 0,
             first_call: true,
+            prefilter: self.prefilter.as_ref(),
+            gate: PrefilterGate::new(),
         }
     }
 
     /// Returns an iterator of non-overlapping matches in the given haystack iterator.
     ///
-    /// The algorithm used is the same as the [`CharwiseDoubleArrayAhoCorasick::find_iter()`] function.
+    /// The algorithm used is the same as the [`CharwiseDoubleArrayAhoCorasick::find_iter()`]
+    /// function. However, the match-candidate prefilter is not available in this function because
+    /// it requires random access to the haystack; the search is always performed on the
+    /// Aho-Corasick automaton alone, even if the automaton has a prefilter.
     ///
     /// # Arguments
     ///
@@ -282,10 +291,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
-    pub fn find_overlapping_iter<P>(
-        &self,
-        haystack: P,
-    ) -> FindOverlappingIterator<'_, StrIterator<P>, V>
+    pub fn find_overlapping_iter<P>(&self, haystack: P) -> FindOverlappingSliceIterator<'_, P, V>
     where
         P: AsRef<str>,
     {
@@ -293,9 +299,9 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
         );
-        FindOverlappingIterator {
+        FindOverlappingSliceIterator {
             pma: self,
-            haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
+            haystack,
             state_id: ROOT_STATE_IDX,
             pos: 0,
             output_pos: unsafe {
@@ -303,13 +309,18 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                     .get_unchecked(usize::from_u32(ROOT_STATE_IDX))
                     .output_pos()
             },
+            prefilter: self.prefilter.as_ref(),
+            gate: PrefilterGate::new(),
         }
     }
 
     /// Returns an iterator of overlapping matches in the given haystack iterator.
     ///
     /// The algorithm used is the same as the
-    /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`] function.
+    /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_iter()`] function. However, the
+    /// match-candidate prefilter is not available in this function because it requires random
+    /// access to the haystack; the search is always performed on the Aho-Corasick automaton
+    /// alone, even if the automaton has a prefilter.
     ///
     /// # Arguments
     ///
@@ -407,7 +418,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     pub fn find_overlapping_no_suffix_iter<P>(
         &self,
         haystack: P,
-    ) -> FindOverlappingNoSuffixIterator<'_, StrIterator<P>, V>
+    ) -> FindOverlappingNoSuffixSliceIterator<'_, P, V>
     where
         P: AsRef<str>,
     {
@@ -415,18 +426,24 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             self.match_kind.is_standard(),
             "Error: match_kind must be standard."
         );
-        FindOverlappingNoSuffixIterator {
+        FindOverlappingNoSuffixSliceIterator {
             pma: self,
-            haystack: unsafe { CharWithEndOffsetIterator::new(StrIterator::new(haystack)) },
+            haystack,
             state_id: ROOT_STATE_IDX,
+            pos: 0,
             first_call: true,
+            prefilter: self.prefilter.as_ref(),
+            gate: PrefilterGate::new(),
         }
     }
 
     /// Returns an iterator of overlapping matches without suffixes in the given haystack iterator.
     ///
     /// The algorithm used is the same as the
-    /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`] function.
+    /// [`CharwiseDoubleArrayAhoCorasick::find_overlapping_no_suffix_iter()`] function. However,
+    /// the match-candidate prefilter is not available in this function because it requires random
+    /// access to the haystack; the search is always performed on the Aho-Corasick automaton
+    /// alone, even if the automaton has a prefilter.
     ///
     /// # Arguments
     ///
@@ -563,6 +580,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                     .output_pos()
             },
             skip_empty: false,
+            gate: PrefilterGate::new(),
         }
     }
 
@@ -809,6 +827,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         self.states.len() * mem::size_of::<State>()
             + self.mapper.heap_bytes()
             + self.outputs.len() * mem::size_of::<Output<V>>()
+            + self.prefilter.as_ref().map_or(0, Prefilter::heap_bytes)
     }
 
     /// Serializes the automaton into a [`Vec`].
@@ -832,13 +851,22 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                 + self.mapper.serialized_bytes()
                 + self.outputs.serialized_bytes()
                 + MatchKind::serialized_bytes()
-                + u32::serialized_bytes(),
+                + u32::serialized_bytes()
+                + u8::serialized_bytes()
+                + self
+                    .prefilter
+                    .as_ref()
+                    .map_or(0, |_| Prefilter::serialized_bytes()),
         );
         self.states.serialize_to_vec(&mut result);
         self.mapper.serialize_to_vec(&mut result);
         self.outputs.serialize_to_vec(&mut result);
         self.match_kind.serialize_to_vec(&mut result);
         self.num_states.serialize_to_vec(&mut result);
+        u8::from(self.prefilter.is_some()).serialize_to_vec(&mut result);
+        if let Some(prefilter) = &self.prefilter {
+            prefilter.serialize_to_vec(&mut result);
+        }
         result
     }
 
@@ -897,12 +925,22 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source)?;
         let (match_kind, source) = MatchKind::deserialize_from_slice(source)?;
         let (num_states, source) = u32::deserialize_from_slice(source)?;
+        let (has_prefilter, source) = u8::deserialize_from_slice(source)?;
+        let (prefilter, source) = match has_prefilter {
+            0 => (None, source),
+            1 => {
+                let (prefilter, source) = Prefilter::deserialize_from_slice(source)?;
+                (Some(prefilter), source)
+            }
+            _ => return Err(DaachorseError::invalid_automaton()),
+        };
         let pma = Self {
             states,
             mapper,
             outputs,
             match_kind,
             num_states,
+            prefilter,
         };
         for &id in &pma.mapper.table {
             if id == crate::charwise::mapper::INVALID_CODE {
@@ -998,6 +1036,13 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source).unwrap_unchecked();
         let (match_kind, source) = MatchKind::deserialize_from_slice(source).unwrap_unchecked();
         let (num_states, source) = u32::deserialize_from_slice(source).unwrap_unchecked();
+        let (has_prefilter, source) = u8::deserialize_from_slice(source).unwrap_unchecked();
+        let (prefilter, source) = if has_prefilter == 0 {
+            (None, source)
+        } else {
+            let (prefilter, source) = Prefilter::deserialize_from_slice(source).unwrap_unchecked();
+            (Some(prefilter), source)
+        };
         (
             Self {
                 states,
@@ -1005,9 +1050,48 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                 outputs,
                 match_kind,
                 num_states,
+                prefilter,
             },
             source,
         )
+    }
+
+    /// Returns the position of the output entries of the given state.
+    ///
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of `states`.
+    #[inline(always)]
+    unsafe fn output_pos_unchecked(&self, state_id: u32) -> Option<NonZeroU32> {
+        self.states
+            .get_unchecked(usize::from_u32(state_id))
+            .output_pos()
+    }
+
+    /// Returns the output entry at the given position.
+    ///
+    /// # Safety
+    ///
+    /// `output_pos` must be obtained from [`State::output_pos()`] or [`Output::parent()`] of
+    /// this automaton, which guarantees `output_pos.get() - 1` to be a valid index of `outputs`.
+    #[inline(always)]
+    unsafe fn output_at(&self, output_pos: NonZeroU32) -> &Output<V> {
+        self.outputs
+            .get_unchecked(usize::from_u32(output_pos.get() - 1))
+    }
+
+    /// Returns the value to report when the pattern set contains the empty string, which is
+    /// registered as an output of the root state.
+    #[inline(always)]
+    fn root_output_value(&self) -> Option<V>
+    where
+        V: Copy,
+    {
+        // The states of an automaton are never empty, so the root state always exists.
+        unsafe {
+            self.output_pos_unchecked(ROOT_STATE_IDX)
+                .map(|output_pos| self.output_at(output_pos).value())
+        }
     }
 
     /// # Safety
