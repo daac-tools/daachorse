@@ -149,6 +149,8 @@ where
             src = rest;
         }
         Ok((
+            // Safety: dst is guaranteed to have exactly N elements, so the boxed slice can be
+            // converted to a [S; N] without any issues.
             unsafe { dst.into_boxed_slice().try_into().unwrap_unchecked() },
             src,
         ))
