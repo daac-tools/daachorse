@@ -89,6 +89,7 @@ impl Prefilter {
     }
 
     /// Returns the heap size of the filter table in bytes.
+    #[allow(clippy::unused_self)]
     pub const fn heap_bytes(&self) -> usize {
         Self::TABLE_LEN
     }
@@ -96,11 +97,12 @@ impl Prefilter {
     /// Estimates the probability that a uniformly random position in a random text becomes a
     /// candidate, as the product over all 2-gram positions of the fraction of 2-grams accepted
     /// there.
+    #[allow(clippy::as_conversions)]
     fn expected_candidate_rate(&self) -> f64 {
         let mut zeros = [0u32; 8];
         for &bits in self.table.iter() {
             for (i, n) in zeros.iter_mut().enumerate() {
-                *n += u32::from(bits >> i & 1 == 0);
+                *n += u32::from((bits >> i) & 1 == 0);
             }
         }
         let mut rate = 1.;
@@ -204,7 +206,7 @@ impl PrefilterGate {
 
     /// The minimum number of bytes that filter runs in one measurement window must have skipped in
     /// total. Below this, filtering is likely slower than plain automaton scanning.
-    const GATE_MIN_WINDOW_GAIN: usize = 8 * Self::GATE_WINDOW_CALLS as usize;
+    const GATE_MIN_WINDOW_GAIN: usize = 512;
 
     pub(crate) const fn new() -> Self {
         Self {
