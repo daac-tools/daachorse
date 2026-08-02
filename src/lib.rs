@@ -196,6 +196,7 @@ mod edge_map;
 pub mod errors;
 mod intpack;
 mod nfa_builder;
+mod prefilter;
 mod serializer;
 mod utils;
 
