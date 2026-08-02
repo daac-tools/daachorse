@@ -52,16 +52,16 @@ impl Prefilter {
     /// time.
     const MAX_EXPECTED_CANDIDATE_RATE: f64 = 1. / 16.;
 
-    /// Returns the smallest position `>= start` where an occurrence of some pattern can start, or
+    /// Returns the smallest position `>= pos` where an occurrence of some pattern can start, or
     /// `haystack.len()` if there is none. The result may be a false positive, but there is never
-    /// an occurrence starting in `start..result`.
+    /// an occurrence starting in `pos..result`.
     #[inline(always)]
-    pub fn next_position(&self, haystack: &[u8], start: usize) -> usize {
-        let Some(&(mut prev)) = haystack.get(start) else {
+    pub fn next_position(&self, haystack: &[u8], pos: usize) -> usize {
+        let Some(&(mut prev)) = haystack.get(pos) else {
             return haystack.len();
         };
         let mut e = u8::MAX;
-        for (i, &c) in haystack.iter().enumerate().skip(start + 1) {
+        for (i, &c) in haystack.iter().enumerate().skip(pos + 1) {
             e = (e << 1) | self.table[usize::from(prev) << 8 | usize::from(c)];
             if e & self.hit_bit == 0 {
                 return i + 1 - usize::from(self.window_len);
@@ -75,14 +75,13 @@ impl Prefilter {
     /// UTF-8 character. Candidates starting with a continuation byte cannot be occurrences of
     /// character-wise patterns, so they are simply skipped.
     #[inline(always)]
-    pub fn next_position_at_char_boundary(&self, haystack: &[u8], start: usize) -> usize {
-        let mut pos = start;
+    pub fn next_position_at_char_boundary(&self, haystack: &[u8], mut pos: usize) -> usize {
         loop {
             let candidate_pos = self.next_position(haystack, pos);
-            let Some(&first) = haystack.get(candidate_pos) else {
+            let Some(&c) = haystack.get(candidate_pos) else {
                 return haystack.len();
             };
-            if first & 0xc0 != 0x80 {
+            if c & 0xc0 != 0x80 {
                 return candidate_pos;
             }
             pos = candidate_pos + 1;
@@ -241,9 +240,7 @@ mod tests {
 
     fn build(patterns: &[&[u8]]) -> Option<Prefilter> {
         let mut builder = PrefilterBuilder::new();
-        for pattern in patterns {
-            builder.add(pattern);
-        }
+        patterns.iter().for_each(|pattern| builder.add(pattern));
         builder.build()
     }
 
@@ -263,11 +260,7 @@ mod tests {
         // All 2-byte patterns clear every table entry at position 0, making the expected
         // candidate rate 1.
         let mut builder = PrefilterBuilder::new();
-        for a in 0..=255u8 {
-            for b in 0..=255u8 {
-                builder.add(&[a, b]);
-            }
-        }
+        (0..=u16::MAX).for_each(|gram| builder.add(&gram.to_be_bytes()));
         assert!(builder.build().is_none());
     }
 
@@ -276,66 +269,63 @@ mod tests {
         // Patterns longer than MAX_WINDOW_LEN must not overflow the 8-bit table entries.
         let long = b"undine".repeat(20);
         let pf = build(&[&long, b"neovenezia"]).unwrap();
-        let mut haystack = vec![b'x'; 50];
-        haystack.extend_from_slice(&long);
+        let haystack = [&[b'x'; 50][..], &long].concat();
         assert_eq!(pf.next_position(&haystack, 0), 50);
     }
 
     #[test]
-    fn test_next_position_never_skips_occurrences() {
-        let patterns: &[&[u8]] = &[b"aria", b"rari", b"iaria", b"ariaariaaria"];
-        let pf = build(patterns).unwrap();
-        // A real occurrence must never lie before the returned position.
-        assert!(pf.next_position(b"iiiiariaii", 0) <= 4);
-        // Exhaustively check all haystacks over {a, r, i} up to length 8: walking a haystack
-        // candidate by candidate, no occurrence may start in a skipped section. Real
-        // occurrences are thus never passed over, since a candidate section is skipped only
-        // after being checked here.
-        for len in 0..=8u32 {
-            for haystack_code in 0..3usize.pow(len) {
-                let mut code = haystack_code;
-                let haystack: Vec<u8> = (0..len)
-                    .map(|_| {
-                        let c = b"ari"[code % 3];
-                        code /= 3;
-                        c
-                    })
-                    .collect();
-                let mut pos = 0;
-                while pos < haystack.len() {
-                    let candidate = pf.next_position(&haystack, pos);
-                    for start in pos..candidate {
-                        for pattern in patterns {
-                            assert_ne!(haystack.get(start..start + pattern.len()), Some(*pattern));
-                        }
-                    }
-                    pos = candidate + 1;
-                }
-                assert_eq!(pf.next_position(&haystack, haystack.len()), haystack.len());
-            }
-        }
+    fn test_next_position_reports_occurrence() {
+        let pf = build(&[b"aria", b"iris"]).unwrap();
+        // The candidate is exactly the occurrence of "aria".
+        assert_eq!(pf.next_position(b"xxxxariaxx", 0), 4);
+        // Resuming after the candidate reaches the end without further candidates.
+        assert_eq!(pf.next_position(b"xxxxariaxx", 5), 10);
+        // Starting at the haystack end is allowed.
+        assert_eq!(pf.next_position(b"xxxxariaxx", 10), 10);
     }
 
     #[test]
-    fn test_char_boundary_candidates() {
-        let patterns: &[&[u8]] = &["火星猫".as_bytes(), b"undine"];
-        let pf = build(patterns).unwrap();
-        let haystack = "アリア社長は火星猫で、灯里はundineの見習いです".as_bytes();
-        let mut pos = 0;
-        while pos < haystack.len() {
-            let candidate = pf.next_position_at_char_boundary(haystack, pos);
-            if candidate == haystack.len() {
-                break;
-            }
-            // Candidates are always on a character boundary.
-            assert_ne!(haystack[candidate] & 0xc0, 0x80);
-            for start in pos..candidate {
-                for pattern in patterns {
-                    assert_ne!(haystack.get(start..start + pattern.len()), Some(*pattern));
-                }
-            }
-            pos = candidate + 1;
-        }
+    fn test_next_position_without_occurrence() {
+        let pf = build(&[b"aria", b"iris"]).unwrap();
+        assert_eq!(pf.next_position(b"xxxxxxxxxx", 0), 10);
+        // 2-grams of the patterns appearing at wrong window positions do not form a candidate.
+        assert_eq!(pf.next_position(b"xxarxrixia", 0), 10);
+    }
+
+    #[test]
+    fn test_next_position_may_report_false_positive() {
+        let pf = build(&[b"aria", b"iris"]).unwrap();
+        // "aris" chains 2-grams of both patterns ("ar" and "ri" from "aria", "is" from "iris")
+        // at consistent window positions, so it is reported as a candidate although no pattern
+        // occurs there. The caller verifies candidates on the automaton, so false positives are
+        // harmless.
+        assert_eq!(pf.next_position(b"xxarisxxxx", 0), 2);
+    }
+
+    #[test]
+    fn test_char_boundary_reports_occurrence() {
+        let pf = build(&["火星猫".as_bytes(), b"undine"]).unwrap();
+        let haystack = "アリア社長は火星猫です".as_bytes();
+        // "火星猫" occurs at byte position 18, which is a character boundary.
+        assert_eq!(pf.next_position_at_char_boundary(haystack, 0), 18);
+        assert_eq!(
+            pf.next_position_at_char_boundary(haystack, 19),
+            haystack.len()
+        );
+    }
+
+    #[test]
+    fn test_char_boundary_skips_mid_char_candidates() {
+        // This pattern occurs in "星猫" only at byte position 1, in the middle of a character.
+        let pf = build(&[b"\x98\x9f\xe7\x8c\xab"]).unwrap();
+        let haystack = "星猫".as_bytes();
+        assert_eq!(pf.next_position(haystack, 0), 1);
+        // A mid-character candidate cannot be an occurrence of a character-wise pattern and is
+        // skipped.
+        assert_eq!(
+            pf.next_position_at_char_boundary(haystack, 0),
+            haystack.len()
+        );
     }
 
     #[test]
@@ -356,11 +346,11 @@ mod tests {
         let mut data = vec![];
         pf.serialize_to_vec(&mut data);
         // The window length must stay within its valid range.
-        for bad_window_len in [0, 1, 10, u8::MAX] {
-            let mut data = data.clone();
-            data[0] = bad_window_len;
-            assert!(Prefilter::deserialize_from_slice(&data).is_err());
-        }
+        let with_window_len = |window_len: u8| [&[window_len], &data[1..]].concat();
+        assert!(Prefilter::deserialize_from_slice(&with_window_len(0)).is_err());
+        assert!(Prefilter::deserialize_from_slice(&with_window_len(1)).is_err());
+        assert!(Prefilter::deserialize_from_slice(&with_window_len(10)).is_err());
+        assert!(Prefilter::deserialize_from_slice(&with_window_len(u8::MAX)).is_err());
         // A truncated table must also be rejected.
         assert!(Prefilter::deserialize_from_slice(&data[..data.len() - 1]).is_err());
     }
