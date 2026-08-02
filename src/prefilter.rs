@@ -32,6 +32,7 @@ pub struct Prefilter {
     hit_bit: u8,
 }
 
+#[allow(dead_code)]
 impl Prefilter {
     /// The maximum window length: an 8-bit state supports up to `8 + 2 - 1` bytes because a window of
     /// `m` bytes yields `m - 1` overlapping 2-grams.
@@ -120,6 +121,7 @@ pub struct PrefilterBuilder {
     min_len: usize,
 }
 
+#[allow(dead_code)]
 impl PrefilterBuilder {
     pub fn new() -> Self {
         Self {
@@ -196,6 +198,7 @@ pub struct PrefilterGate {
     enabled: bool,
 }
 
+#[allow(dead_code)]
 impl PrefilterGate {
     /// The number of filter runs in one measurement window of [`PrefilterGate`].
     const GATE_WINDOW_CALLS: u32 = 64;
