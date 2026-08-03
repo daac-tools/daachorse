@@ -1010,6 +1010,44 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         )
     }
 
+    /// Returns the position of the output entries of the given state.
+    ///
+    /// # Safety
+    ///
+    /// `state_id` must be smaller than the length of `states`.
+    #[inline(always)]
+    unsafe fn output_pos_unchecked(&self, state_id: u32) -> Option<NonZeroU32> {
+        self.states
+            .get_unchecked(usize::from_u32(state_id))
+            .output_pos()
+    }
+
+    /// Returns the output entry at the given position.
+    ///
+    /// # Safety
+    ///
+    /// `output_pos` must be obtained from [`State::output_pos()`] or [`Output::parent()`] of
+    /// this automaton, which guarantees `output_pos.get() - 1` to be a valid index of `outputs`.
+    #[inline(always)]
+    unsafe fn output_at(&self, output_pos: NonZeroU32) -> &Output<V> {
+        self.outputs
+            .get_unchecked(usize::from_u32(output_pos.get() - 1))
+    }
+
+    /// Returns the value to report when the pattern set contains the empty string, which is
+    /// registered as an output of the root state.
+    #[inline(always)]
+    fn root_output_value(&self) -> Option<V>
+    where
+        V: Copy,
+    {
+        // The states of an automaton are never empty, so the root state always exists.
+        unsafe {
+            self.output_pos_unchecked(ROOT_STATE_IDX)
+                .map(|output_pos| self.output_at(output_pos).value())
+        }
+    }
+
     /// # Safety
     ///
     /// `state_id` must be smaller than the length of states.
