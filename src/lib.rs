@@ -209,6 +209,7 @@ pub use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CharwiseDoubleArrayAho
 use crate::errors::DaachorseError;
 pub use crate::errors::Result;
 pub use crate::serializer::Serializable;
+use crate::utils::FromU32;
 
 // The root index position.
 pub(crate) const ROOT_STATE_IDX: u32 = 0;
@@ -244,14 +245,18 @@ where
 
     #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    pub fn length(self) -> u32 {
-        self.length
-    }
-
-    #[allow(clippy::missing_const_for_fn)]
-    #[inline(always)]
     pub fn parent(self) -> Option<NonZeroU32> {
         self.parent
+    }
+
+    /// Creates a match of this output ending at the position `end`.
+    #[inline(always)]
+    pub(crate) fn to_match(self, end: usize) -> Match<V> {
+        Match {
+            length: usize::from_u32(self.length),
+            end,
+            value: self.value,
+        }
     }
 }
 
