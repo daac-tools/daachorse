@@ -5,7 +5,6 @@ use core::num::NonZeroU32;
 
 use crate::charwise::CharwiseDoubleArrayAhoCorasick;
 use crate::prefilter::{Prefilter, PrefilterGate};
-use crate::utils::FromU32;
 use crate::{Match, ROOT_STATE_IDX};
 
 /// Decodes the character starting at byte position `pos`.
@@ -652,11 +651,7 @@ where
                         self.skip_empty = true;
                     }
                     let out = unsafe { self.pma.output_at(output_pos) };
-                    return Some(Match {
-                        length: usize::from_u32(out.length()),
-                        end,
-                        value: out.value(),
-                    });
+                    return Some(out.to_match(end));
                 }
             } else if let Some(output_pos) = unsafe { self.pma.output_pos_unchecked(state_id) } {
                 last_output_pos.replace(output_pos);

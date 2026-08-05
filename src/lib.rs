@@ -252,12 +252,6 @@ where
 
     #[allow(clippy::missing_const_for_fn)]
     #[inline(always)]
-    pub fn length(self) -> u32 {
-        self.length
-    }
-
-    #[allow(clippy::missing_const_for_fn)]
-    #[inline(always)]
     pub fn parent(self) -> Option<NonZeroU32> {
         self.parent
     }

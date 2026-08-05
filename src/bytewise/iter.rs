@@ -97,7 +97,6 @@ where
                 })
             };
         }
-
         let mut state_id = ROOT_STATE_IDX;
         for (pos, c) in self.haystack.by_ref() {
             // state_id is always smaller than self.pma.states.len() because
@@ -481,11 +480,7 @@ where
                         self.skip_empty = true;
                     }
                     let out = unsafe { self.pma.output_at(output_pos) };
-                    return Some(Match {
-                        length: usize::from_u32(out.length()),
-                        end,
-                        value: out.value(),
-                    });
+                    return Some(out.to_match(end));
                 }
             } else if let Some(output_pos) =
                 unsafe { self.pma.leftmost_output_pos_unchecked(state_id) }
@@ -569,11 +564,7 @@ where
                 .pma
                 .outputs
                 .get_unchecked(usize::from_u32(output_pos.get() - 1));
-            Match {
-                length: usize::from_u32(out.length()),
-                end: self.pos,
-                value: out.value(),
-            }
+            out.to_match(self.pos)
         })
     }
 }
