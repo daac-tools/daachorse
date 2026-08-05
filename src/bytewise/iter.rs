@@ -313,6 +313,8 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         if self.first_call {
             self.first_call = false;
+            // This iterator is created only for standard matching, as required by
+            // root_output_value().
             if let Some(value) = unsafe { self.pma.root_output_value() } {
                 return Some(Match {
                     length: 0,
@@ -541,6 +543,8 @@ where
         self.pos += 1;
         // state_id is always smaller than self.pma.states.len() because
         // self.pma.next_state_id_unchecked() ensures to return such a value.
+        // This stepper is created only for standard matching, as required by
+        // root_output_value().
         unsafe {
             if self.pma.root_output_value().is_some() {
                 return;
