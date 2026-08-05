@@ -64,6 +64,9 @@ impl Prefilter {
         for (i, &c) in haystack.iter().enumerate().skip(pos + 1) {
             e = (e << 1) | self.table[usize::from(prev) << 8 | usize::from(c)];
             if e & self.hit_bit == 0 {
+                // Starting from an all-one state, the hit bit cannot become zero until
+                // `window_len - 1` 2-grams have been consumed, so this subtraction cannot
+                // underflow.
                 return i + 1 - usize::from(self.window_len);
             }
             prev = c;
