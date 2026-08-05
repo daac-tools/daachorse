@@ -15,12 +15,6 @@ use crate::{Match, ROOT_STATE_IDX};
 /// Each skip length is recorded into `gate`; once the gate closes because the skips turned out
 /// too short to pay off, `*prefilter` is cleared (disabling it for the callers' later calls as
 /// well) and scanning falls through to the plain loop.
-///
-/// This function is shared by the slice-based iterators of standard matching; the callers
-/// handle the match, which keeps their differing fields out of it.
-///
-/// This must always be inlined; an actual function call here would force the compiler to keep
-/// the iterator fields in memory within the loop.
 #[inline(always)]
 fn scan<V>(
     pma: &DoubleArrayAhoCorasick<V>,
