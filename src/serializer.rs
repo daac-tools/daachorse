@@ -91,6 +91,39 @@ impl Serializable for Option<NonZeroU32> {
     }
 }
 
+impl<S> Serializable for Option<S>
+where
+    S: Serializable,
+{
+    #[inline(always)]
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        if let Some(x) = self {
+            1u8.serialize_to_vec(dst);
+            x.serialize_to_vec(dst);
+        } else {
+            0u8.serialize_to_vec(dst);
+        }
+    }
+
+    #[inline(always)]
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
+        let (flag, src) = u8::deserialize_from_slice(src)?;
+        match flag {
+            0 => Ok((None, src)),
+            1 => {
+                let (x, src) = S::deserialize_from_slice(src)?;
+                Ok((Some(x), src))
+            }
+            _ => Err(DaachorseError::invalid_automaton()),
+        }
+    }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        u8::serialized_bytes() + S::serialized_bytes()
+    }
+}
+
 pub trait SerializableVec: Sized {
     fn serialize_to_vec(&self, dst: &mut Vec<u8>);
 
@@ -204,6 +237,31 @@ mod tests {
         let (y, rest) = Option::<NonZeroU32>::deserialize_from_slice(&data).unwrap();
         assert_eq!(&[42], rest);
         assert_eq!(x, y);
+    }
+
+    #[test]
+    fn test_option() {
+        let x = Some(0x01234567u32);
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(vec![0x01, 0x67, 0x45, 0x23, 0x01], data);
+        assert_eq!(5, Option::<u32>::serialized_bytes());
+        data.push(42);
+        let (y, rest) = Option::<u32>::deserialize_from_slice(&data).unwrap();
+        assert_eq!(&[42], rest);
+        assert_eq!(x, y);
+
+        let x: Option<u32> = None;
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(vec![0x00], data);
+        data.push(42);
+        let (y, rest) = Option::<u32>::deserialize_from_slice(&data).unwrap();
+        assert_eq!(&[42], rest);
+        assert_eq!(x, y);
+
+        // An invalid flag must be rejected.
+        assert!(Option::<u32>::deserialize_from_slice(&[2, 0, 0, 0, 0]).is_err());
     }
 
     #[test]

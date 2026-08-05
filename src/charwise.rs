@@ -852,21 +852,20 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                 + self.outputs.serialized_bytes()
                 + MatchKind::serialized_bytes()
                 + u32::serialized_bytes()
-                + u8::serialized_bytes()
+                // A serialized None is a single flag byte; see the Serializable impl of Option.
                 + self
                     .prefilter
                     .as_ref()
-                    .map_or(0, |_| Prefilter::serialized_bytes()),
+                    .map_or(u8::serialized_bytes(), |_| {
+                        Option::<Prefilter>::serialized_bytes()
+                    }),
         );
         self.states.serialize_to_vec(&mut result);
         self.mapper.serialize_to_vec(&mut result);
         self.outputs.serialize_to_vec(&mut result);
         self.match_kind.serialize_to_vec(&mut result);
         self.num_states.serialize_to_vec(&mut result);
-        u8::from(self.prefilter.is_some()).serialize_to_vec(&mut result);
-        if let Some(prefilter) = &self.prefilter {
-            prefilter.serialize_to_vec(&mut result);
-        }
+        self.prefilter.serialize_to_vec(&mut result);
         result
     }
 
@@ -925,15 +924,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source)?;
         let (match_kind, source) = MatchKind::deserialize_from_slice(source)?;
         let (num_states, source) = u32::deserialize_from_slice(source)?;
-        let (has_prefilter, source) = u8::deserialize_from_slice(source)?;
-        let (prefilter, source) = match has_prefilter {
-            0 => (None, source),
-            1 => {
-                let (prefilter, source) = Prefilter::deserialize_from_slice(source)?;
-                (Some(prefilter), source)
-            }
-            _ => return Err(DaachorseError::invalid_automaton()),
-        };
+        let (prefilter, source) = Option::<Prefilter>::deserialize_from_slice(source)?;
         let pma = Self {
             states,
             mapper,
@@ -1036,13 +1027,8 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         let (outputs, source) = Vec::<Output<V>>::deserialize_from_slice(source).unwrap_unchecked();
         let (match_kind, source) = MatchKind::deserialize_from_slice(source).unwrap_unchecked();
         let (num_states, source) = u32::deserialize_from_slice(source).unwrap_unchecked();
-        let (has_prefilter, source) = u8::deserialize_from_slice(source).unwrap_unchecked();
-        let (prefilter, source) = if has_prefilter == 0 {
-            (None, source)
-        } else {
-            let (prefilter, source) = Prefilter::deserialize_from_slice(source).unwrap_unchecked();
-            (Some(prefilter), source)
-        };
+        let (prefilter, source) =
+            Option::<Prefilter>::deserialize_from_slice(source).unwrap_unchecked();
         (
             Self {
                 states,
