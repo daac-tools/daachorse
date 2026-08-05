@@ -2,6 +2,7 @@
 
 use core::num::NonZeroU32;
 
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use crate::errors::{DaachorseError, Result};
@@ -127,6 +128,36 @@ where
 
     fn serialized_bytes(&self) -> usize {
         u32::serialized_bytes() + S::serialized_bytes() * self.len()
+    }
+}
+
+impl<S, const N: usize> SerializableVec for Box<[S; N]>
+where
+    S: Serializable,
+{
+    #[inline(always)]
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.iter().for_each(|x| x.serialize_to_vec(dst));
+    }
+
+    #[inline(always)]
+    fn deserialize_from_slice(mut src: &[u8]) -> Result<(Self, &[u8])> {
+        let mut dst = Vec::<S>::with_capacity(N);
+        for _ in 0..N {
+            let (x, rest) = S::deserialize_from_slice(src)?;
+            dst.push(x);
+            src = rest;
+        }
+        Ok((
+            // Safety: dst is guaranteed to have exactly N elements, so the boxed slice can be
+            // converted to a [S; N] without any issues.
+            unsafe { dst.into_boxed_slice().try_into().unwrap_unchecked() },
+            src,
+        ))
+    }
+
+    fn serialized_bytes(&self) -> usize {
+        N * S::serialized_bytes()
     }
 }
 
