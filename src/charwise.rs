@@ -856,7 +856,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                 + self
                     .prefilter
                     .as_ref()
-                    .map_or(u8::serialized_bytes(), |_| {
+                    .map_or_else(u8::serialized_bytes, |_| {
                         Option::<Prefilter>::serialized_bytes()
                     }),
         );
