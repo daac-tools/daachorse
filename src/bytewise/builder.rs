@@ -5,6 +5,7 @@ use crate::bytewise::{DoubleArrayAhoCorasick, MatchKind, State, BLOCK_LEN};
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::U24;
 use crate::nfa_builder::{NfaBuilder, DEAD_STATE_ID};
+use crate::prefilter::{Prefilter, PrefilterBuilder};
 use crate::utils::FromU32;
 use crate::{Empty, DEAD_STATE_IDX, ROOT_STATE_IDX};
 
@@ -16,6 +17,7 @@ pub struct DoubleArrayAhoCorasickBuilder {
     states: Vec<State<u32>>,
     match_kind: MatchKind,
     corpus: Vec<Vec<u8>>,
+    use_prefilter: bool,
 }
 
 impl Default for DoubleArrayAhoCorasickBuilder {
@@ -53,6 +55,7 @@ impl DoubleArrayAhoCorasickBuilder {
             states: vec![],
             match_kind: MatchKind::Standard,
             corpus: vec![],
+            use_prefilter: true,
         }
     }
 
@@ -83,6 +86,40 @@ impl DoubleArrayAhoCorasickBuilder {
     #[must_use]
     pub const fn match_kind(mut self, kind: MatchKind) -> Self {
         self.match_kind = kind;
+        self
+    }
+
+    /// Specifies whether to build the match-candidate prefilter, which is enabled by default.
+    ///
+    /// The prefilter accelerates the slice-based search methods on pattern sets where it is
+    /// likely to pay off, in exchange for 64KiB of additional heap memory and serialized size.
+    /// Disable it when the memory matters more than the search speed.
+    ///
+    /// # Arguments
+    ///
+    /// * `yes` - Whether to build the prefilter.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasickBuilder;
+    ///
+    /// let patterns = vec!["bcd", "ab"];
+    /// let pma = DoubleArrayAhoCorasickBuilder::new()
+    ///     .use_prefilter(false)
+    ///     .build(patterns)
+    ///     .unwrap();
+    ///
+    /// let mut it = pma.find_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    #[must_use]
+    pub const fn use_prefilter(mut self, yes: bool) -> Self {
+        self.use_prefilter = yes;
         self
     }
 
@@ -223,7 +260,7 @@ impl DoubleArrayAhoCorasickBuilder {
         P: AsRef<[u8]>,
         V: Copy,
     {
-        let nfa = self.build_sparse_nfa(patvals)?;
+        let (nfa, prefilter) = self.build_sparse_nfa(patvals)?;
         let profile = if self.corpus.is_empty() {
             Profile::default()
         } else {
@@ -235,10 +272,9 @@ impl DoubleArrayAhoCorasickBuilder {
         let num_states = u32::try_from(nfa.states.len() - 1)
             .map_err(|_| DaachorseError::automaton_scale("num_states", u32::MAX))?;
 
-        let mut root_table = vec![];
         let mut leftmost_states = vec![];
         let mut fails = vec![];
-        if self.match_kind.is_leftmost() {
+        let root_table = if self.match_kind.is_leftmost() {
             leftmost_states.reserve_exact(self.states.len());
             fails.reserve_exact(self.states.len());
             for s in &self.states {
@@ -250,9 +286,10 @@ impl DoubleArrayAhoCorasickBuilder {
                 fails.push(s.fail);
             }
             self.states = vec![];
+            vec![]
         } else {
-            root_table = DoubleArrayAhoCorasick::<V>::build_root_table(&self.states);
-        }
+            DoubleArrayAhoCorasick::<V>::build_root_table(&self.states)
+        };
         Ok(DoubleArrayAhoCorasick {
             states: self.states,
             leftmost_states,
@@ -261,18 +298,27 @@ impl DoubleArrayAhoCorasickBuilder {
             match_kind: self.match_kind,
             num_states,
             root_table,
+            prefilter,
         })
     }
 
-    fn build_sparse_nfa<I, P, V>(&self, patvals: I) -> Result<BytewiseNfaBuilder<V>>
+    fn build_sparse_nfa<I, P, V>(
+        &self,
+        patvals: I,
+    ) -> Result<(BytewiseNfaBuilder<V>, Option<Prefilter>)>
     where
         I: IntoIterator<Item = (P, V)>,
         P: AsRef<[u8]>,
         V: Copy,
     {
         let mut nfa = BytewiseNfaBuilder::new(self.match_kind);
+        let mut prefilter_builder = self.use_prefilter.then(PrefilterBuilder::new);
         for (pattern, value) in patvals {
-            nfa.add(pattern.as_ref(), value)?;
+            let pattern = pattern.as_ref();
+            if let Some(builder) = &mut prefilter_builder {
+                builder.add(pattern);
+            }
+            nfa.add(pattern, value)?;
         }
         if nfa.len > usize::from_u32(U24::MAX) {
             return Err(DaachorseError::automaton_scale("patvals.len()", U24::MAX));
@@ -282,7 +328,7 @@ impl DoubleArrayAhoCorasickBuilder {
             MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),
         };
         nfa.build_outputs(&q);
-        Ok(nfa)
+        Ok((nfa, prefilter_builder.and_then(PrefilterBuilder::build)))
     }
 
     fn profile_corpus<V>(&self, nfa: &BytewiseNfaBuilder<V>) -> Profile
