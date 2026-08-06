@@ -26,7 +26,6 @@ exclude = [".*"]
 [dependencies]
 
 [dev-dependencies]
-rand = "0.9"
 
 [features]
 default = ["alloc"]

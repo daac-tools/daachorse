@@ -304,6 +304,26 @@ mod tests {
     }
 
     #[test]
+    fn test_min_window_pattern_builds() {
+        // A 2-byte shortest pattern is exactly the minimum window and must build a filter that
+        // reports its occurrences.
+        let pf = build(&[b"ai", b"aika"]).unwrap();
+        assert_eq!(pf.next_position(b"xxxxaixxxx", 0), 4);
+        assert_eq!(pf.next_position(b"xxxxxxxxxx", 0), 10);
+    }
+
+    #[test]
+    fn test_window_is_capped_at_exactly_nine_bytes() {
+        // The 10-byte pattern is filtered through its 9-byte window "neovenezi".
+        let pf = build(&[b"neovenezia"]).unwrap();
+        // The full 9-byte window is a candidate even where the pattern's tenth byte differs.
+        assert_eq!(pf.next_position(b"xxneovenezix", 0), 2);
+        // A text sharing only the first 8 window bytes is not a candidate: the window must be
+        // 9 bytes long, not shorter.
+        assert_eq!(pf.next_position(b"xxneovenezxx", 0), 12);
+    }
+
+    #[test]
     fn test_char_boundary_reports_occurrence() {
         let pf = build(&["火星猫".as_bytes(), b"undine"]).unwrap();
         let haystack = "アリア社長は火星猫です";
@@ -327,6 +347,69 @@ mod tests {
             pf.next_position_at_char_boundary(haystack, 0),
             haystack.len()
         );
+    }
+
+    #[test]
+    fn test_char_boundary_candidate_right_after_mid_char_candidate() {
+        // Byte-wise patterns can put a candidate in the middle of a character immediately
+        // before a boundary candidate; skipping the former must not lose the latter.
+        let pf = build(&[b"\x9f\xe7\x8c", "猫".as_bytes()]).unwrap();
+        let haystack = "星猫"; // bytes: e6 98 9f | e7 8c ab
+        assert_eq!(pf.next_position(haystack.as_bytes(), 0), 2);
+        assert_eq!(pf.next_position_at_char_boundary(haystack, 0), 3);
+    }
+
+    #[test]
+    fn test_next_position_never_goes_backward() {
+        // The scan loops rely on next_position never returning a position before `pos`;
+        // otherwise next_position_at_char_boundary could loop forever. The bit-parallel state
+        // guarantees this: a hit needs `window_len - 1` shifts after the reset at `pos`.
+        let pf = build(&[b"\x9f\xe7\x8c", "猫".as_bytes()]).unwrap();
+        let haystack = "星猫".as_bytes();
+        for pos in 0..=haystack.len() {
+            assert!(pf.next_position(haystack, pos) >= pos, "pos {pos}");
+        }
+    }
+
+    #[test]
+    fn test_gate_closes_after_low_gain_window() {
+        let mut gate = PrefilterGate::new();
+        // 64 runs skipping 7 bytes each stay below the 512-byte window threshold, so the gate
+        // closes exactly at the window end.
+        for _ in 0..63 {
+            gate.record(7);
+            assert!(gate.is_enabled());
+        }
+        gate.record(7);
+        assert!(!gate.is_enabled());
+    }
+
+    #[test]
+    fn test_gate_stays_open_at_exact_threshold() {
+        let mut gate = PrefilterGate::new();
+        // 64 runs skipping 8 bytes each reach exactly the 512-byte threshold: not below it, so
+        // the gate stays open.
+        for _ in 0..64 {
+            gate.record(8);
+        }
+        assert!(gate.is_enabled());
+    }
+
+    #[test]
+    fn test_gate_evaluates_each_window_independently() {
+        let mut gate = PrefilterGate::new();
+        // A single huge skip keeps the first window far above the threshold.
+        gate.record(100_000);
+        for _ in 0..63 {
+            gate.record(0);
+        }
+        assert!(gate.is_enabled());
+        // The gain of the first window must not leak into the second: 64 gainless runs must
+        // close the gate.
+        for _ in 0..64 {
+            gate.record(0);
+        }
+        assert!(!gate.is_enabled());
     }
 
     #[test]
