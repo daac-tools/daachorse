@@ -32,7 +32,6 @@ pub struct Prefilter {
     hit_bit: u8,
 }
 
-#[allow(dead_code)]
 impl Prefilter {
     /// The maximum window length: an 8-bit state supports up to `8 + 2 - 1` bytes because a window of
     /// `m` bytes yields `m - 1` overlapping 2-grams.
@@ -75,16 +74,15 @@ impl Prefilter {
     }
 
     /// Same as [`Prefilter::next_position`], but never returns a position in the middle of a
-    /// UTF-8 character. Candidates starting with a continuation byte cannot be occurrences of
-    /// character-wise patterns, so they are simply skipped.
+    /// UTF-8 character. Candidates starting in the middle of a character cannot be occurrences
+    /// of character-wise patterns, so they are simply skipped.
     #[inline(always)]
-    pub fn next_position_at_char_boundary(&self, haystack: &[u8], mut pos: usize) -> usize {
+    pub fn next_position_at_char_boundary(&self, haystack: &str, mut pos: usize) -> usize {
         loop {
-            let candidate_pos = self.next_position(haystack, pos);
-            let Some(&c) = haystack.get(candidate_pos) else {
-                return haystack.len();
-            };
-            if c & 0xc0 != 0x80 {
+            let candidate_pos = self.next_position(haystack.as_bytes(), pos);
+            // is_char_boundary() returns true at the haystack end, so exhausted scans also
+            // return here.
+            if haystack.is_char_boundary(candidate_pos) {
                 return candidate_pos;
             }
             pos = candidate_pos + 1;
@@ -125,7 +123,6 @@ pub struct PrefilterBuilder {
     min_len: usize,
 }
 
-#[allow(dead_code)]
 impl PrefilterBuilder {
     pub fn new() -> Self {
         Self {
@@ -202,7 +199,6 @@ pub struct PrefilterGate {
     enabled: bool,
 }
 
-#[allow(dead_code)]
 impl PrefilterGate {
     /// The number of filter runs in one measurement window of [`PrefilterGate`].
     const GATE_WINDOW_CALLS: u32 = 64;
@@ -310,7 +306,7 @@ mod tests {
     #[test]
     fn test_char_boundary_reports_occurrence() {
         let pf = build(&["火星猫".as_bytes(), b"undine"]).unwrap();
-        let haystack = "アリア社長は火星猫です".as_bytes();
+        let haystack = "アリア社長は火星猫です";
         // "火星猫" occurs at byte position 18, which is a character boundary.
         assert_eq!(pf.next_position_at_char_boundary(haystack, 0), 18);
         assert_eq!(
@@ -323,8 +319,8 @@ mod tests {
     fn test_char_boundary_skips_mid_char_candidates() {
         // This pattern occurs in "星猫" only at byte position 1, in the middle of a character.
         let pf = build(&[b"\x98\x9f\xe7\x8c\xab"]).unwrap();
-        let haystack = "星猫".as_bytes();
-        assert_eq!(pf.next_position(haystack, 0), 1);
+        let haystack = "星猫";
+        assert_eq!(pf.next_position(haystack.as_bytes(), 0), 1);
         // A mid-character candidate cannot be an occurrence of a character-wise pattern and is
         // skipped.
         assert_eq!(

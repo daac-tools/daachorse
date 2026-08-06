@@ -13,6 +13,13 @@
 //! only supports constant-time state-to-state traversal but also represents each state using only
 //! 12 bytes of memory.
 //!
+//! In addition, a match-candidate prefilter based on 2-grams is enabled by default. It lets the
+//! slice-based search methods quickly skip sections of the haystack that contain no occurrence of
+//! any pattern, accelerating matching on pattern sets where it is likely to pay off, in exchange
+//! for 64KiB of additional heap memory and serialized size. The prefilter never changes match
+//! results. You can disable it with [`DoubleArrayAhoCorasickBuilder::use_prefilter()`] or
+//! [`CharwiseDoubleArrayAhoCorasickBuilder::use_prefilter()`].
+//!
 //! The main technical ideas behind this library appear in the following paper:
 //!
 //! > Shunsuke Kanda, Koichi Akabe, and Yusuke Oda.

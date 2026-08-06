@@ -6,6 +6,7 @@ use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, Sta
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
 use crate::nfa_builder::DEAD_STATE_ID;
+use crate::prefilter::{Prefilter, PrefilterBuilder};
 use crate::utils::FromU32;
 use crate::DEAD_STATE_IDX;
 
@@ -18,6 +19,7 @@ pub struct CharwiseDoubleArrayAhoCorasickBuilder {
     mapper: CodeMapper,
     match_kind: MatchKind,
     corpus: Vec<String>,
+    use_prefilter: bool,
 }
 
 impl Default for CharwiseDoubleArrayAhoCorasickBuilder {
@@ -56,6 +58,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             mapper: CodeMapper::default(),
             match_kind: MatchKind::Standard,
             corpus: vec![],
+            use_prefilter: true,
         }
     }
 
@@ -67,6 +70,43 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     #[must_use]
     pub const fn match_kind(mut self, kind: MatchKind) -> Self {
         self.match_kind = kind;
+        self
+    }
+
+    /// Specifies whether to build the match-candidate prefilter, which is enabled by default.
+    ///
+    /// The prefilter accelerates the slice-based search methods on pattern sets where it is
+    /// likely to pay off, in exchange for 64KiB of additional heap memory and serialized size.
+    /// Disable it when the memory matters more than the search speed.
+    ///
+    /// # Arguments
+    ///
+    /// * `yes` - Whether to build the prefilter.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasickBuilder;
+    ///
+    /// let patterns = vec!["全世界", "世界"];
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///     .use_prefilter(false)
+    ///     .build(patterns)
+    ///     .unwrap();
+    ///
+    /// let mut it = pma.find_overlapping_iter("全世界");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((3, 9, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
+    #[must_use]
+    pub const fn use_prefilter(mut self, yes: bool) -> Self {
+        self.use_prefilter = yes;
         self
     }
 
@@ -210,7 +250,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         P: AsRef<str>,
         V: Copy,
     {
-        let nfa = self.build_original_nfa_and_mapper(patvals)?;
+        let (nfa, prefilter) = self.build_original_nfa_and_mapper(patvals)?;
 
         let profile = if self.corpus.is_empty() {
             Profile::default()
@@ -229,23 +269,28 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             outputs: nfa.outputs,
             match_kind: self.match_kind,
             num_states,
+            prefilter,
         })
     }
 
     fn build_original_nfa_and_mapper<I, P, V>(
         &mut self,
         patvals: I,
-    ) -> Result<CharwiseNfaBuilder<V>>
+    ) -> Result<(CharwiseNfaBuilder<V>, Option<Prefilter>)>
     where
         I: IntoIterator<Item = (P, V)>,
         P: AsRef<str>,
         V: Copy,
     {
         let mut nfa = CharwiseNfaBuilder::new(self.match_kind);
+        let mut prefilter_builder = self.use_prefilter.then(PrefilterBuilder::new);
         let mut freqs = vec![];
         {
             let mut chars = vec![];
             for (pattern, value) in patvals {
+                if let Some(builder) = &mut prefilter_builder {
+                    builder.add(pattern.as_ref().as_bytes());
+                }
                 chars.clear();
                 pattern.as_ref().chars().for_each(|c| chars.push(c));
                 nfa.add(&chars, value)?;
@@ -266,7 +311,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),
         };
         nfa.build_outputs(&q);
-        Ok(nfa)
+        Ok((nfa, prefilter_builder.and_then(PrefilterBuilder::build)))
     }
 
     fn profile_corpus<V>(&self, nfa: &CharwiseNfaBuilder<V>) -> Profile

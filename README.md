@@ -27,6 +27,10 @@ the length of the input text. This crate uses the
 the pattern match automaton for time and memory efficiency. The data structure not only supports
 constant-time state-to-state traversal but also represents each state using only 12 bytes of memory.
 
+In addition, a match-candidate prefilter based on 2-grams is enabled by default. It lets the
+slice-based search methods quickly skip sections of the haystack that contain no occurrence of
+any pattern.
+
 ## Performance comparison
 
 ![](./figures/comparison.svg)
