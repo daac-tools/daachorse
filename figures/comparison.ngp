@@ -1760,7 +1760,7 @@ new data
 	data::type=bar_fill_x
 	data::interpolation=spline
 	data::fit=
-	data::math_x='X*1000'
+	data::math_x='X*1024'
 	data::math_y='5-Y'
 	data::func_f=
 	data::func_g=
