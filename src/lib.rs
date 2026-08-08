@@ -182,6 +182,25 @@
 //!
 //! assert_eq!(None, it.next());
 //! ```
+//!
+//! ## Profile-Guided Optimization (PGO)
+//!
+//! The double array constructed by daachorse is designed to improve CPU cache efficiency. However,
+//! it is not always the optimal layout for every document being scanned.
+//!
+//! daachorse addresses this issue by supporting Profile-Guided Optimization (PGO). By providing a
+//! corpus when constructing the automaton, the memory layout is optimized, which may improve
+//! performance on documents similar to the given corpus.
+//!
+//! ```
+//! use daachorse::{DoubleArrayAhoCorasick, DoubleArrayAhoCorasickBuilder};
+//!
+//! let patterns = vec!["bcd", "ab", "a"];
+//! let pma: DoubleArrayAhoCorasick<u32> = DoubleArrayAhoCorasickBuilder::new()
+//!     .corpus(["abcd"])
+//!     .build(patterns)
+//!     .unwrap();
+//! ```
 
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
