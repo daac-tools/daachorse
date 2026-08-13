@@ -233,8 +233,9 @@ let serialized = pma.serialize();
 // guaranteed, use `deserialize()`.
 let (pma_deserialized, _) = DoubleArrayAhoCorasick::<u32>::deserialize(&serialized).unwrap();
 
-// Unsafe version: If you build the automaton at compile time, `deserialize_unchecked()` is also an
-// option.
+// Unsafe version: If you serialized the automaton yourself and can guarantee that it has not
+// been modified (e.g., when the automaton is serialized in `build.rs` and embedded at build
+// time), `deserialize_unchecked()` is also an option.
 let (pma_deserialized, _) = unsafe {
     DoubleArrayAhoCorasick::<u32>::deserialize_unchecked(&serialized)
 };
