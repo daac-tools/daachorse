@@ -201,6 +201,32 @@
 //!     .build(patterns)
 //!     .unwrap();
 //! ```
+//!
+//! ## Serialization
+//!
+//! daachorse supports serializing automata into byte sequences.
+//!
+//! **Note: A major version upgrade may break serialization format compatibility.**
+//!
+//! ```
+//! use daachorse::DoubleArrayAhoCorasick;
+//!
+//! let patterns = vec!["ab", "a", "abcd"];
+//! let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+//!
+//! let serialized = pma.serialize();
+//!
+//! // Safe version: If the origin of the serialized automaton is unknown and its safety is not
+//! // guaranteed, use `deserialize()`.
+//! let (pma_deserialized, _) = DoubleArrayAhoCorasick::<u32>::deserialize(&serialized).unwrap();
+//!
+//! // Unsafe version: If you serialized the automaton yourself and can guarantee that it has not
+//! // been modified (e.g., when the automaton is serialized in `build.rs` and embedded at build
+//! // time), `deserialize_unchecked()` is also an option.
+//! let (pma_deserialized, _) = unsafe {
+//!     DoubleArrayAhoCorasick::<u32>::deserialize_unchecked(&serialized)
+//! };
+//! ```
 
 #![deny(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
