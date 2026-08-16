@@ -854,7 +854,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                 if *self.depths.get_unchecked(state_id) != 0 {
                     continue;
                 }
-                let base_depth = loop {
+                let mut depth = loop {
                     let depth = *self.depths.get_unchecked(state_id);
                     if depth != 0 || state_id == usize::from_u32(ROOT_STATE_IDX) {
                         break depth;
@@ -877,11 +877,11 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                     path.push(state_id);
                     state_id = parent_id;
                 };
-                let mut depth = base_depth;
-                for idx in path.drain(..).rev() {
-                    if depth != u32::MAX {
-                        depth += 1;
-                    }
+                if depth == u32::MAX && !path.is_empty() {
+                    return Err(DaachorseError::invalid_automaton());
+                }
+                while let Some(idx) = path.pop() {
+                    depth += 1;
                     *self.depths.get_unchecked_mut(idx) = depth;
                 }
             }
