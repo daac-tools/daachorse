@@ -520,6 +520,7 @@ where
 }
 
 /// Stepper created by [`DoubleArrayAhoCorasick::find_stepper()`].
+#[derive(Clone)]
 pub struct FindStepper<'a, V> {
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
     pub(crate) state_id: u32,
@@ -602,6 +603,7 @@ where
 }
 
 /// Stepper created by [`DoubleArrayAhoCorasick::find_overlapping_stepper()`].
+#[derive(Clone)]
 pub struct FindOverlappingStepper<'a, V> {
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
     pub(crate) state_id: u32,
