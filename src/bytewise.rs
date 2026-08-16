@@ -591,7 +591,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Examples
     ///
-    /// ## Example 1
+    /// ## Example 1: Basic usage
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasick;
@@ -621,7 +621,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value())); // bcd
     /// ```
     ///
-    /// ## Example 2
+    /// ## Example 2: Behavior with zero-length pattern
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasick;
@@ -637,6 +637,30 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// stepper.consume(b'a');
     /// let m = stepper.matches().unwrap();
     /// assert_eq!((1, 1, 3), (m.start(), m.end(), m.value())); // ""
+    /// ```
+    ///
+    /// ## Example 3: Cloning stepper
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["abc", "abd"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_stepper();
+    ///
+    /// stepper.consume(b'a');
+    /// stepper.consume(b'b');
+    ///
+    /// let mut stepper2 = stepper.clone();
+    ///
+    /// stepper.consume(b'c');
+    /// let m = stepper.matches().unwrap();
+    /// assert_eq!((0, 3, 0), (m.start(), m.end(), m.value())); // abc
+    ///
+    /// stepper2.consume(b'd');
+    /// let m = stepper2.matches().unwrap();
+    /// assert_eq!((0, 3, 1), (m.start(), m.end(), m.value())); // abd
     /// ```
     #[must_use]
     pub fn find_stepper(&self) -> FindStepper<'_, V>
@@ -671,7 +695,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Examples
     ///
-    /// ## Example 1
+    /// ## Example 1: Basic usage
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasick;
@@ -707,7 +731,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// assert_eq!(None, it.next());
     /// ```
     ///
-    /// ## Example 2
+    /// ## Example 2: Behavior with zero-length pattern
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasick;
@@ -728,6 +752,34 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value())); // a
     /// let m = it.next().unwrap();
     /// assert_eq!((1, 1, 3), (m.start(), m.end(), m.value())); // ""
+    /// assert_eq!(None, it.next());
+    /// ```
+    ///
+    /// ## Example 3: Cloning stepper
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["abc", "abd"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_overlapping_stepper();
+    ///
+    /// stepper.consume(b'a');
+    /// stepper.consume(b'b');
+    ///
+    /// let mut stepper2 = stepper.clone();
+    ///
+    /// stepper.consume(b'c');
+    /// let mut it = stepper.matches();
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 3, 0), (m.start(), m.end(), m.value())); // abc
+    /// assert_eq!(None, it.next());
+    ///
+    /// stepper2.consume(b'd');
+    /// let mut it = stepper2.matches();
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 3, 1), (m.start(), m.end(), m.value())); // abd
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]

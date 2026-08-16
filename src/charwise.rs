@@ -597,7 +597,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Examples
     ///
-    /// ## Example 1
+    /// ## Example 1: Basic usage
     ///
     /// ```
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -631,7 +631,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// assert_eq!((12, 15, 2), (m.start(), m.end(), m.value())); // に
     /// ```
     ///
-    /// ## Example 2
+    /// ## Example 2: Behavior with zero-length pattern
     ///
     /// ```
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -647,6 +647,30 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// stepper.consume('全');
     /// let m = stepper.matches().unwrap();
     /// assert_eq!((3, 3, 3), (m.start(), m.end(), m.value())); // ""
+    /// ```
+    ///
+    /// ## Example 3: Cloning stepper
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["アリア", "アリス"];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_stepper();
+    ///
+    /// stepper.consume('ア');
+    /// stepper.consume('リ');
+    ///
+    /// let mut stepper2 = stepper.clone();
+    ///
+    /// stepper.consume('ア');
+    /// let m = stepper.matches().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value())); // アリア
+    ///
+    /// stepper2.consume('ス');
+    /// let m = stepper2.matches().unwrap();
+    /// assert_eq!((0, 9, 1), (m.start(), m.end(), m.value())); // アリス
     /// ```
     #[must_use]
     pub fn find_stepper(&self) -> FindStepper<'_, V>
@@ -681,7 +705,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// # Examples
     ///
-    /// ## Example 1
+    /// ## Example 1: Basic usage
     ///
     /// ```
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -721,7 +745,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// assert_eq!(None, it.next());
     /// ```
     ///
-    /// ## Example 2
+    /// ## Example 2: Behavior with zero-length pattern
     ///
     /// ```
     /// use daachorse::CharwiseDoubleArrayAhoCorasick;
@@ -742,6 +766,34 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// assert_eq!((0, 3, 2), (m.start(), m.end(), m.value())); // に
     /// let m = it.next().unwrap();
     /// assert_eq!((3, 3, 3), (m.start(), m.end(), m.value())); // ""
+    /// assert_eq!(None, it.next());
+    /// ```
+    ///
+    /// ## Example 3: Cloning stepper
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["アリア", "アリス"];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_overlapping_stepper();
+    ///
+    /// stepper.consume('ア');
+    /// stepper.consume('リ');
+    ///
+    /// let mut stepper2 = stepper.clone();
+    ///
+    /// stepper.consume('ア');
+    /// let mut it = stepper.matches();
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 0), (m.start(), m.end(), m.value())); // アリア
+    /// assert_eq!(None, it.next());
+    ///
+    /// stepper2.consume('ス');
+    /// let mut it = stepper2.matches();
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 9, 1), (m.start(), m.end(), m.value())); // アリス
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
