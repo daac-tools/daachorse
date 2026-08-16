@@ -65,6 +65,7 @@ pub struct DoubleArrayAhoCorasick<V> {
     match_kind: MatchKind,
     num_states: u32,
     prefilter: Option<Prefilter>,
+    depths: Vec<u32>,
 }
 
 impl<V> DoubleArrayAhoCorasick<V> {
@@ -762,6 +763,84 @@ impl<V> DoubleArrayAhoCorasick<V> {
         self.match_kind
     }
 
+    /// Computes and caches depths of states to enable [`FindStepper::depth()`] and
+    /// [`FindOverlappingStepper::depth()`].
+    ///
+    /// This cache is not serialized, so you need to call this function again after deserialization.
+    ///
+    /// # Errors
+    ///
+    /// [`DaachorseError`] is returned when the automaton is invalid. This can occur with
+    /// malformed automata that pose no safety issue but cannot be fully validated during
+    /// deserialization.
+    ///
+    /// # Panics
+    ///
+    /// If you do not specify [`MatchKind::Standard`] during construction, the stepper is not
+    /// supported and the function will panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["ab", "b"];
+    /// let mut pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+    /// pma.cache_depths().unwrap();
+    ///
+    /// let mut stepper = pma.find_overlapping_stepper();
+    /// stepper.consume(b'a');
+    /// stepper.consume(b'b');
+    /// assert_eq!(Some(2), stepper.depth());
+    /// ```
+    pub fn cache_depths(&mut self) -> Result<()> {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        let mut base_id_map = vec![0; self.states.len()];
+        self.depths = vec![0; self.states.len()];
+        unsafe {
+            for (i, s) in self.states.iter().enumerate() {
+                if let Some(b) = s.base() {
+                    *base_id_map.get_unchecked_mut(usize::from_u32(b.get())) =
+                        u32::try_from(i + 1).unwrap();
+                }
+            }
+            let mut path = vec![];
+            for mut state_id in 0..self.states.len() {
+                if *self.depths.get_unchecked(state_id) != 0 {
+                    continue;
+                }
+                let base_depth = loop {
+                    let depth = *self.depths.get_unchecked(state_id);
+                    if depth != 0 || state_id == usize::from_u32(ROOT_STATE_IDX) {
+                        break depth;
+                    }
+                    if path.len() > self.states.len() {
+                        return Err(DaachorseError::invalid_automaton());
+                    }
+                    let c = self.states.get_unchecked(state_id).check();
+                    let parent_id = *base_id_map.get_unchecked(state_id ^ usize::from(c));
+                    if parent_id == 0 {
+                        *self.depths.get_unchecked_mut(state_id) = u32::MAX;
+                        break u32::MAX;
+                    }
+                    path.push(state_id);
+                    state_id = usize::from_u32(parent_id - 1);
+                };
+                let mut depth = base_depth;
+                for idx in path.drain(..).rev() {
+                    if depth != u32::MAX {
+                        depth += 1;
+                    }
+                    *self.depths.get_unchecked_mut(idx) = depth;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Returns the total amount of heap used by this automaton in bytes.
     ///
     /// # Examples
@@ -782,6 +861,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
             + self.fails.len() * mem::size_of::<u32>()
             + self.outputs.len() * mem::size_of::<Output<V>>()
             + self.prefilter.as_ref().map_or(0, Prefilter::heap_bytes)
+            + self.depths.len() * mem::size_of::<u32>()
     }
 
     /// Returns the total number of states this automaton has.
@@ -913,6 +993,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
             num_states,
             root_table,
             prefilter,
+            depths: vec![],
         };
         let block_len = usize::from_u32(BLOCK_LEN);
         let outputs_len = pma.outputs.len();
@@ -1059,6 +1140,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
                 num_states,
                 root_table,
                 prefilter,
+                depths: vec![],
             },
             source,
         )

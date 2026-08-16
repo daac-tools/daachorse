@@ -69,3 +69,25 @@ fn test_leftmost_find_iter_with_standard() {
         .unwrap();
     pma.leftmost_find_iter("");
 }
+
+#[test]
+#[should_panic]
+fn test_cache_depth_with_leftmost_longest() {
+    let mut pma: CharwiseDoubleArrayAhoCorasick<usize> =
+        CharwiseDoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostLongest)
+            .build(["pattern"])
+            .unwrap();
+    let _ = pma.cache_depths();
+}
+
+#[test]
+#[should_panic]
+fn test_cache_depth_with_leftmost_first() {
+    let mut pma: CharwiseDoubleArrayAhoCorasick<usize> =
+        CharwiseDoubleArrayAhoCorasickBuilder::new()
+            .match_kind(MatchKind::LeftmostFirst)
+            .build(["pattern"])
+            .unwrap();
+    let _ = pma.cache_depths();
+}

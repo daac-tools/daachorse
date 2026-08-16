@@ -60,6 +60,7 @@ pub struct CharwiseDoubleArrayAhoCorasick<V> {
     match_kind: MatchKind,
     num_states: u32,
     prefilter: Option<Prefilter>,
+    depths: Vec<u32>,
 }
 
 impl<V> CharwiseDoubleArrayAhoCorasick<V> {
@@ -810,6 +811,84 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         self.states.len()
     }
 
+    /// Computes and caches depths of states to enable [`FindStepper::depth()`] and
+    /// [`FindOverlappingStepper::depth()`].
+    ///
+    /// This cache is not serialized, so you need to call this function again after deserialization.
+    ///
+    /// # Errors
+    ///
+    /// [`DaachorseError`] is returned when the automaton is invalid. This can occur with
+    /// malformed automata that pose no safety issue but cannot be fully validated during
+    /// deserialization.
+    ///
+    /// # Panics
+    ///
+    /// If you do not specify [`MatchKind::Standard`] during construction, the stepper is not
+    /// supported and the function will panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["世界", "界"];
+    /// let mut pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+    /// pma.cache_depths().unwrap();
+    ///
+    /// let mut stepper = pma.find_overlapping_stepper();
+    /// stepper.consume('世');
+    /// stepper.consume('界');
+    /// assert_eq!(Some(2), stepper.depth());
+    /// ```
+    pub fn cache_depths(&mut self) -> Result<()> {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        let alphabet_size = self.mapper.alphabet_size();
+        self.depths = vec![0; self.states.len()];
+        unsafe {
+            let mut path = vec![];
+            for mut state_id in 0..self.states.len() {
+                if *self.depths.get_unchecked(state_id) != 0 {
+                    continue;
+                }
+                let base_depth = loop {
+                    let depth = *self.depths.get_unchecked(state_id);
+                    if depth != 0 || state_id == usize::from_u32(ROOT_STATE_IDX) {
+                        break depth;
+                    }
+                    if path.len() > self.states.len() {
+                        return Err(DaachorseError::invalid_automaton());
+                    }
+                    let parent_id = usize::from_u32(self.states.get_unchecked(state_id).check());
+                    let is_child = self
+                        .states
+                        .get(parent_id)
+                        .and_then(State::base)
+                        .is_some_and(|base| {
+                            base.get() ^ u32::try_from(state_id).unwrap() < alphabet_size
+                        });
+                    if !is_child {
+                        *self.depths.get_unchecked_mut(state_id) = u32::MAX;
+                        break u32::MAX;
+                    }
+                    path.push(state_id);
+                    state_id = parent_id;
+                };
+                let mut depth = base_depth;
+                for idx in path.drain(..).rev() {
+                    if depth != u32::MAX {
+                        depth += 1;
+                    }
+                    *self.depths.get_unchecked_mut(idx) = depth;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Returns the total amount of heap used by this automaton in bytes.
     ///
     /// # Examples
@@ -828,6 +907,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             + self.mapper.heap_bytes()
             + self.outputs.len() * mem::size_of::<Output<V>>()
             + self.prefilter.as_ref().map_or(0, Prefilter::heap_bytes)
+            + self.depths.len() * mem::size_of::<u32>()
     }
 
     /// Serializes the automaton into a [`Vec`].
@@ -932,6 +1012,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             match_kind,
             num_states,
             prefilter,
+            depths: vec![],
         };
         for &id in &pma.mapper.table {
             if id == crate::charwise::mapper::INVALID_CODE {
@@ -1037,6 +1118,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                 match_kind,
                 num_states,
                 prefilter,
+                depths: vec![],
             },
             source,
         )
