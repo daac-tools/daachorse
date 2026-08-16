@@ -644,7 +644,7 @@ where
 
     /// Returns the depth in bytes of the current state from the root state.
     ///
-    /// If the depths have not been cached by [`DoubleArrayAhoCorasick::cache_depths()`], `None`　is
+    /// If the depths have not been cached by [`DoubleArrayAhoCorasick::cache_depths()`], `None` is
     /// returned.
     #[must_use]
     #[inline(always)]
