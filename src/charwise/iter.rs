@@ -917,6 +917,8 @@ mod tests {
     #[test]
     fn test_find_stepper_depth() {
         let mut pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(["世界"]).unwrap();
+        let stepper = pma.find_stepper();
+        assert_eq!(None, stepper.depth());
         pma.cache_depths().unwrap();
         let mut stepper = pma.find_stepper();
         assert_eq!(Some(0), stepper.depth());
