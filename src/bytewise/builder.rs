@@ -299,6 +299,7 @@ impl DoubleArrayAhoCorasickBuilder {
             num_states,
             root_table,
             prefilter,
+            depths: vec![],
         })
     }
 

@@ -520,6 +520,7 @@ where
 }
 
 /// Stepper created by [`DoubleArrayAhoCorasick::find_stepper()`].
+#[derive(Clone)]
 pub struct FindStepper<'a, V> {
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
     pub(crate) state_id: u32,
@@ -565,6 +566,16 @@ where
             out.to_match(self.pos)
         })
     }
+
+    /// Returns the depth of the current state from the root state.
+    ///
+    /// If the depths have not been cached by [`DoubleArrayAhoCorasick::cache_depths()`], `None` is
+    /// returned.
+    #[must_use]
+    #[inline(always)]
+    pub fn depth(&self) -> Option<u32> {
+        self.pma.depths.get(usize::from_u32(self.state_id)).copied()
+    }
 }
 
 /// Iterator created by [`FindOverlappingStepper::matches()`].
@@ -592,6 +603,7 @@ where
 }
 
 /// Stepper created by [`DoubleArrayAhoCorasick::find_overlapping_stepper()`].
+#[derive(Clone)]
 pub struct FindOverlappingStepper<'a, V> {
     pub(crate) pma: &'a DoubleArrayAhoCorasick<V>,
     pub(crate) state_id: u32,
@@ -629,6 +641,16 @@ where
             output_pos,
         }
     }
+
+    /// Returns the depth in bytes of the current state from the root state.
+    ///
+    /// If the depths have not been cached by [`DoubleArrayAhoCorasick::cache_depths()`], `None` is
+    /// returned.
+    #[must_use]
+    #[inline(always)]
+    pub fn depth(&self) -> Option<u32> {
+        self.pma.depths.get(usize::from_u32(self.state_id)).copied()
+    }
 }
 
 #[cfg(test)]
@@ -663,6 +685,37 @@ mod tests {
             ],
             result
         );
+    }
+
+    #[test]
+    fn test_overlapping_stepper_depth() {
+        let mut pma = DoubleArrayAhoCorasick::<u32>::new(["ab", "b"]).unwrap();
+        let stepper = pma.find_overlapping_stepper();
+        assert_eq!(None, stepper.depth());
+        pma.cache_depths().unwrap();
+        let mut stepper = pma.find_overlapping_stepper();
+        assert_eq!(Some(0), stepper.depth());
+        stepper.consume(b'a');
+        assert_eq!(Some(1), stepper.depth());
+        stepper.consume(b'b');
+        assert_eq!(Some(2), stepper.depth());
+        stepper.consume(b'b');
+        assert_eq!(Some(1), stepper.depth());
+    }
+
+    #[test]
+    fn test_find_stepper_depth() {
+        let mut pma = DoubleArrayAhoCorasick::<u32>::new(["ab"]).unwrap();
+        let stepper = pma.find_stepper();
+        assert_eq!(None, stepper.depth());
+        pma.cache_depths().unwrap();
+        let mut stepper = pma.find_stepper();
+        assert_eq!(Some(0), stepper.depth());
+        stepper.consume(b'a');
+        assert_eq!(Some(1), stepper.depth());
+        stepper.consume(b'b');
+        assert!(stepper.matches().is_some());
+        assert_eq!(Some(0), stepper.depth());
     }
 
     #[test]

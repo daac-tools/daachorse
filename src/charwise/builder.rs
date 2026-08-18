@@ -270,6 +270,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             match_kind: self.match_kind,
             num_states,
             prefilter,
+            depths: vec![],
         })
     }
 

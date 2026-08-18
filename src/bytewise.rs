@@ -65,6 +65,7 @@ pub struct DoubleArrayAhoCorasick<V> {
     match_kind: MatchKind,
     num_states: u32,
     prefilter: Option<Prefilter>,
+    depths: Vec<u32>,
 }
 
 impl<V> DoubleArrayAhoCorasick<V> {
@@ -590,7 +591,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Examples
     ///
-    /// ## Example 1
+    /// ## Example 1: Basic usage
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasick;
@@ -620,7 +621,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// assert_eq!((1, 4, 0), (m.start(), m.end(), m.value())); // bcd
     /// ```
     ///
-    /// ## Example 2
+    /// ## Example 2: Behavior with zero-length pattern
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasick;
@@ -636,6 +637,30 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// stepper.consume(b'a');
     /// let m = stepper.matches().unwrap();
     /// assert_eq!((1, 1, 3), (m.start(), m.end(), m.value())); // ""
+    /// ```
+    ///
+    /// ## Example 3: Cloning stepper
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["abc", "abd"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_stepper();
+    ///
+    /// stepper.consume(b'a');
+    /// stepper.consume(b'b');
+    ///
+    /// let mut stepper2 = stepper.clone();
+    ///
+    /// stepper.consume(b'c');
+    /// let m = stepper.matches().unwrap();
+    /// assert_eq!((0, 3, 0), (m.start(), m.end(), m.value())); // abc
+    ///
+    /// stepper2.consume(b'd');
+    /// let m = stepper2.matches().unwrap();
+    /// assert_eq!((0, 3, 1), (m.start(), m.end(), m.value())); // abd
     /// ```
     #[must_use]
     pub fn find_stepper(&self) -> FindStepper<'_, V>
@@ -670,7 +695,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     ///
     /// # Examples
     ///
-    /// ## Example 1
+    /// ## Example 1: Basic usage
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasick;
@@ -706,7 +731,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// assert_eq!(None, it.next());
     /// ```
     ///
-    /// ## Example 2
+    /// ## Example 2: Behavior with zero-length pattern
     ///
     /// ```
     /// use daachorse::DoubleArrayAhoCorasick;
@@ -727,6 +752,34 @@ impl<V> DoubleArrayAhoCorasick<V> {
     /// assert_eq!((0, 1, 2), (m.start(), m.end(), m.value())); // a
     /// let m = it.next().unwrap();
     /// assert_eq!((1, 1, 3), (m.start(), m.end(), m.value())); // ""
+    /// assert_eq!(None, it.next());
+    /// ```
+    ///
+    /// ## Example 3: Cloning stepper
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["abc", "abd"];
+    /// let pma = DoubleArrayAhoCorasick::new(patterns).unwrap();
+    ///
+    /// let mut stepper = pma.find_overlapping_stepper();
+    ///
+    /// stepper.consume(b'a');
+    /// stepper.consume(b'b');
+    ///
+    /// let mut stepper2 = stepper.clone();
+    ///
+    /// stepper.consume(b'c');
+    /// let mut it = stepper.matches();
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 3, 0), (m.start(), m.end(), m.value())); // abc
+    /// assert_eq!(None, it.next());
+    ///
+    /// stepper2.consume(b'd');
+    /// let mut it = stepper2.matches();
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 3, 1), (m.start(), m.end(), m.value())); // abd
     /// assert_eq!(None, it.next());
     /// ```
     #[must_use]
@@ -762,6 +815,84 @@ impl<V> DoubleArrayAhoCorasick<V> {
         self.match_kind
     }
 
+    /// Computes and caches depths of states to enable [`FindStepper::depth()`] and
+    /// [`FindOverlappingStepper::depth()`].
+    ///
+    /// This cache is not serialized, so you need to call this function again after deserialization.
+    ///
+    /// # Errors
+    ///
+    /// [`DaachorseError`] is returned when the automaton is invalid. This can occur with
+    /// malformed automata that pose no safety issue but cannot be fully validated during
+    /// deserialization.
+    ///
+    /// # Panics
+    ///
+    /// If you do not specify [`MatchKind::Standard`] during construction, the stepper is not
+    /// supported and the function will panic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["ab", "b"];
+    /// let mut pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+    /// pma.cache_depths().unwrap();
+    ///
+    /// let mut stepper = pma.find_overlapping_stepper();
+    /// stepper.consume(b'a');
+    /// stepper.consume(b'b');
+    /// assert_eq!(Some(2), stepper.depth());
+    /// ```
+    pub fn cache_depths(&mut self) -> Result<()> {
+        assert!(
+            self.match_kind.is_standard(),
+            "Error: match_kind must be standard."
+        );
+        let mut base_id_map = vec![0; self.states.len()];
+        self.depths = vec![0; self.states.len()];
+        unsafe {
+            for (i, s) in self.states.iter().enumerate() {
+                if let Some(b) = s.base() {
+                    *base_id_map.get_unchecked_mut(usize::from_u32(b.get())) =
+                        u32::try_from(i + 1).unwrap();
+                }
+            }
+            let mut path = vec![];
+            for mut state_id in 0..self.states.len() {
+                if *self.depths.get_unchecked(state_id) != 0 {
+                    continue;
+                }
+                let mut depth = loop {
+                    let depth = *self.depths.get_unchecked(state_id);
+                    if depth != 0 || state_id == usize::from_u32(ROOT_STATE_IDX) {
+                        break depth;
+                    }
+                    if path.len() > self.states.len() {
+                        return Err(DaachorseError::invalid_automaton());
+                    }
+                    let c = self.states.get_unchecked(state_id).check();
+                    let parent_id = *base_id_map.get_unchecked(state_id ^ usize::from(c));
+                    if parent_id == 0 {
+                        *self.depths.get_unchecked_mut(state_id) = u32::MAX;
+                        break u32::MAX;
+                    }
+                    path.push(state_id);
+                    state_id = usize::from_u32(parent_id - 1);
+                };
+                if depth == u32::MAX && !path.is_empty() {
+                    return Err(DaachorseError::invalid_automaton());
+                }
+                while let Some(idx) = path.pop() {
+                    depth += 1;
+                    *self.depths.get_unchecked_mut(idx) = depth;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Returns the total amount of heap used by this automaton in bytes.
     ///
     /// # Examples
@@ -782,6 +913,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
             + self.fails.len() * mem::size_of::<u32>()
             + self.outputs.len() * mem::size_of::<Output<V>>()
             + self.prefilter.as_ref().map_or(0, Prefilter::heap_bytes)
+            + self.depths.len() * mem::size_of::<u32>()
     }
 
     /// Returns the total number of states this automaton has.
@@ -913,6 +1045,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
             num_states,
             root_table,
             prefilter,
+            depths: vec![],
         };
         let block_len = usize::from_u32(BLOCK_LEN);
         let outputs_len = pma.outputs.len();
@@ -1059,6 +1192,7 @@ impl<V> DoubleArrayAhoCorasick<V> {
                 num_states,
                 root_table,
                 prefilter,
+                depths: vec![],
             },
             source,
         )

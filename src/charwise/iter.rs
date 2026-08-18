@@ -5,6 +5,7 @@ use core::num::NonZeroU32;
 
 use crate::charwise::CharwiseDoubleArrayAhoCorasick;
 use crate::prefilter::{Prefilter, PrefilterGate};
+use crate::utils::FromU32;
 use crate::{Match, ROOT_STATE_IDX};
 
 /// Decodes the character starting at byte position `pos`.
@@ -687,6 +688,7 @@ where
 }
 
 /// Stepper created by [`CharwiseDoubleArrayAhoCorasick::find_stepper()`].
+#[derive(Clone)]
 pub struct FindStepper<'a, V> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) state_id: u32,
@@ -725,6 +727,16 @@ where
             out.to_match(self.pos)
         })
     }
+
+    /// Returns the depth of the current state from the root state.
+    ///
+    /// If the depths have not been cached by [`CharwiseDoubleArrayAhoCorasick::cache_depths()`],
+    /// `None` is returned.
+    #[must_use]
+    #[inline(always)]
+    pub fn depth(&self) -> Option<u32> {
+        self.pma.depths.get(usize::from_u32(self.state_id)).copied()
+    }
 }
 
 /// Iterator created by [`FindOverlappingStepper::matches()`].
@@ -752,6 +764,7 @@ where
 }
 
 /// Stepper created by [`CharwiseDoubleArrayAhoCorasick::find_overlapping_stepper()`].
+#[derive(Clone)]
 pub struct FindOverlappingStepper<'a, V> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) state_id: u32,
@@ -785,6 +798,16 @@ where
             pos: self.pos,
             output_pos,
         }
+    }
+
+    /// Returns the depth in characters of the current state from the root state.
+    ///
+    /// If the depths have not been cached by [`CharwiseDoubleArrayAhoCorasick::cache_depths()`],
+    /// `None` is returned.
+    #[must_use]
+    #[inline(always)]
+    pub fn depth(&self) -> Option<u32> {
+        self.pma.depths.get(usize::from_u32(self.state_id)).copied()
     }
 }
 
@@ -873,6 +896,37 @@ mod tests {
             ],
             result
         );
+    }
+
+    #[test]
+    fn test_overlapping_stepper_depth() {
+        let mut pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(["世界", "界"]).unwrap();
+        let stepper = pma.find_overlapping_stepper();
+        assert_eq!(None, stepper.depth());
+        pma.cache_depths().unwrap();
+        let mut stepper = pma.find_overlapping_stepper();
+        assert_eq!(Some(0), stepper.depth());
+        stepper.consume('世');
+        assert_eq!(Some(1), stepper.depth());
+        stepper.consume('界');
+        assert_eq!(Some(2), stepper.depth());
+        stepper.consume('界');
+        assert_eq!(Some(1), stepper.depth());
+    }
+
+    #[test]
+    fn test_find_stepper_depth() {
+        let mut pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(["世界"]).unwrap();
+        let stepper = pma.find_stepper();
+        assert_eq!(None, stepper.depth());
+        pma.cache_depths().unwrap();
+        let mut stepper = pma.find_stepper();
+        assert_eq!(Some(0), stepper.depth());
+        stepper.consume('世');
+        assert_eq!(Some(1), stepper.depth());
+        stepper.consume('界');
+        assert!(stepper.matches().is_some());
+        assert_eq!(Some(0), stepper.depth());
     }
 
     #[test]
