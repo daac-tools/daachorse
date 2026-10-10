@@ -13,7 +13,7 @@ pub use crate::bytewise::builder::DoubleArrayAhoCorasickBuilder;
 use crate::bytewise::iter::{
     FindIterator, FindOverlappingIterator, FindOverlappingNoSuffixIterator,
     FindOverlappingNoSuffixSliceIterator, FindOverlappingSliceIterator, FindOverlappingStepper,
-    FindSliceIterator, FindStepper, LeftmostFindIterator,
+    FindSliceIterator, FindStepper, LeftmostFindIterator, PatternIterator,
 };
 use crate::errors::{DaachorseError, Result};
 use crate::intpack::{U24nU8, U24};
@@ -933,6 +933,31 @@ impl<V> DoubleArrayAhoCorasick<V> {
         usize::from_u32(self.num_states)
     }
 
+    /// Returns an iterator that yields all registered pattern-value pairs in lexicographical order.
+    ///
+    /// When using [`MatchKind::LeftmostFirst`], patterns registered after any of their proper
+    /// prefixes can never be matched. Consequently, they are not stored in the automaton and
+    /// will not be yielded.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::DoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["bcd", "ab", "a"];
+    /// let pma = DoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+    ///
+    /// let mut it = pma.iter();
+    /// assert_eq!(Some((b"a".to_vec(), 2)), it.next());
+    /// assert_eq!(Some((b"ab".to_vec(), 1)), it.next());
+    /// assert_eq!(Some((b"bcd".to_vec(), 0)), it.next());
+    /// assert_eq!(None, it.next());
+    /// ```
+    #[must_use]
+    pub fn iter(&self) -> PatternIterator<'_, V> {
+        PatternIterator::new(self)
+    }
+
     /// Serializes the automaton into a [`Vec`].
     ///
     /// # Examples
@@ -1196,6 +1221,21 @@ impl<V> DoubleArrayAhoCorasick<V> {
             },
             source,
         )
+    }
+
+    /// Returns the BASE, CHECK, and output position of the element at the given index of the
+    /// double array used for the match kind, or `None` if the index is out of range.
+    fn element(&self, idx: u32) -> Option<(Option<NonZeroU32>, u8, Option<NonZeroU32>)> {
+        let idx = usize::from_u32(idx);
+        if self.match_kind.is_leftmost() {
+            self.leftmost_states
+                .get(idx)
+                .map(|s| (s.base(), s.check(), s.output_pos()))
+        } else {
+            self.states
+                .get(idx)
+                .map(|s| (s.base(), s.check(), s.output_pos()))
+        }
     }
 
     /// Builds a dense transition table for the root state.

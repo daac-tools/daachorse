@@ -14,7 +14,7 @@ use crate::charwise::iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
     FindOverlappingNoSuffixIterator, FindOverlappingNoSuffixSliceIterator,
     FindOverlappingSliceIterator, FindOverlappingStepper, FindSliceIterator, FindStepper,
-    LeftmostFindIterator,
+    LeftmostFindIterator, PatternIterator,
 };
 use crate::charwise::mapper::CodeMapper;
 use crate::errors::{DaachorseError, Result};
@@ -861,6 +861,31 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     #[must_use]
     pub fn num_elements(&self) -> usize {
         self.states.len()
+    }
+
+    /// Returns an iterator that yields all registered pattern-value pairs in lexicographical order.
+    ///
+    /// When using [`MatchKind::LeftmostFirst`], patterns registered after any of their proper
+    /// prefixes can never be matched. Consequently, they are not stored in the automaton and
+    /// will not be yielded.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::CharwiseDoubleArrayAhoCorasick;
+    ///
+    /// let patterns = vec!["全世界", "世界", "に"];
+    /// let pma = CharwiseDoubleArrayAhoCorasick::<u32>::new(patterns).unwrap();
+    ///
+    /// let mut it = pma.iter();
+    /// assert_eq!(Some(("に".to_string(), 2)), it.next());
+    /// assert_eq!(Some(("世界".to_string(), 1)), it.next());
+    /// assert_eq!(Some(("全世界".to_string(), 0)), it.next());
+    /// assert_eq!(None, it.next());
+    /// ```
+    #[must_use]
+    pub fn iter(&self) -> PatternIterator<'_, V> {
+        PatternIterator::new(self)
     }
 
     /// Computes and caches depths of states to enable [`FindStepper::depth()`] and
