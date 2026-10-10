@@ -342,7 +342,8 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     where
         V: Copy,
     {
-        let block_len = self.mapper.block_len();
+        // The alphabet size never exceeds the number of Unicode scalar values.
+        let block_len = self.mapper.block_len().unwrap();
         let groups = nfa.sibling_groups(profile, |c| self.mapper.get(c).unwrap());
         let helper = BuildHelper::new(&groups, nfa.states.len(), block_len, false)?;
 

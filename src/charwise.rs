@@ -1099,7 +1099,11 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
                 return Err(DaachorseError::invalid_automaton());
             }
         }
-        let block_len = usize::from_u32(pma.mapper.block_len());
+        // `next_state_id_unchecked()` relies on that each block covers all codes in the alphabet.
+        let Some(block_len) = pma.mapper.block_len() else {
+            return Err(DaachorseError::invalid_automaton());
+        };
+        let block_len = usize::from_u32(block_len);
         if pma.states.is_empty() {
             return Err(DaachorseError::invalid_automaton());
         }
@@ -1735,5 +1739,33 @@ mod tests {
         ];
         let pma = CharwiseDoubleArrayAhoCorasick::<u32>::deserialize(&bytes);
         assert!(pma.is_err());
+    }
+
+    #[test]
+    fn test_deserialize_overflowing_alphabet_size() {
+        // The block length, i.e., the alphabet size rounded up to a power of two, overflows u32.
+        // If it were wrapped, the states would pass the length check, and transitions with the
+        // code 0x7fffffff would access out of the states.
+        let mut bytes = [
+            2, 0, 0, 0, // states
+            1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // states[0]
+            0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // states[1]
+            1, 0, 0, 0, // table
+            0xff, 0xff, 0xff, 0x7f, // table[0]
+            1, 0, 0, 0x80, // alphabet_size
+            0, 0, 0, 0, // outputs
+            0, // match_kind
+            1, 0, 0, 0, // num_states
+            0, // prefilter
+        ];
+        let pma = CharwiseDoubleArrayAhoCorasick::<u32>::deserialize(&bytes);
+        assert!(pma.is_err());
+
+        // The other fields are valid: the automaton is accepted with the code 0 and the alphabet
+        // size 1.
+        bytes[40..44].copy_from_slice(&0u32.to_le_bytes());
+        bytes[44..48].copy_from_slice(&1u32.to_le_bytes());
+        let pma = CharwiseDoubleArrayAhoCorasick::<u32>::deserialize(&bytes);
+        assert!(pma.is_ok());
     }
 }
