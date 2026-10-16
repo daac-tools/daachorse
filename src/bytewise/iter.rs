@@ -3,7 +3,9 @@
 use core::iter::Enumerate;
 use core::num::NonZeroU32;
 
-use crate::bytewise::DoubleArrayAhoCorasick;
+use alloc::vec::Vec;
+
+use crate::bytewise::{DoubleArrayAhoCorasick, State};
 use crate::prefilter::{Prefilter, PrefilterGate};
 use crate::utils::FromU32;
 use crate::{Match, ROOT_STATE_IDX};
@@ -650,6 +652,141 @@ where
     #[inline(always)]
     pub fn depth(&self) -> Option<u32> {
         self.pma.depths.get(usize::from_u32(self.state_id)).copied()
+    }
+}
+
+/// Iterator created by [`DoubleArrayAhoCorasick::iter()`].
+pub struct PatternIterator<'a, V> {
+    pma: &'a DoubleArrayAhoCorasick<V>,
+    // Children grouped by the BASE values of their parents. The children of a state with BASE
+    // value `b` are stored in `children[offsets[b]..offsets[b + 1]]`.
+    offsets: Vec<u32>,
+    children: Vec<u32>,
+    // Bit vector tracking visited groups. The group corresponding to BASE value `b` is
+    // represented by bit `b % u64::BITS` of `visited[b / u64::BITS]`.
+    visited: Vec<u64>,
+    // Ranges of unvisited children for states along the path from the root.
+    stack: Vec<(usize, usize)>,
+    pattern: Vec<u8>,
+    output_pos: Option<NonZeroU32>,
+}
+
+impl<'a, V> PatternIterator<'a, V> {
+    /// Creates an iterator that yields patterns through a depth-first traversal of the trie.
+    ///
+    /// Because the double array does not maintain parent-to-child links, elements are grouped
+    /// in advance by the BASE values of their parents (`idx ^ check`). Children are visited in
+    /// order of their labels, ensuring that patterns are yielded in lexicographical order.
+    /// Each group is visited at most once, bounding the traversal complexity to the number of
+    /// elements even if malformed automata share BASE values across states.
+    pub(crate) fn new(pma: &'a DoubleArrayAhoCorasick<V>) -> Self {
+        let (offsets, children) = if pma.match_kind.is_leftmost() {
+            Self::group_children(&pma.leftmost_states)
+        } else {
+            Self::group_children(&pma.states)
+        };
+        // Allocates one bit per group (i.e., per BASE value), packing `u64::BITS` bits per word.
+        let num_words = offsets.len().div_ceil(usize::from_u32(u64::BITS));
+        let mut it = Self {
+            pma,
+            offsets,
+            children,
+            visited: vec![0; num_words],
+            stack: vec![],
+            pattern: vec![],
+            output_pos: None,
+        };
+        if let Some((base, _, output_pos)) = pma.element(ROOT_STATE_IDX) {
+            it.push_state(base);
+            it.output_pos = output_pos;
+        }
+        it
+    }
+
+    /// Groups all elements by their parents' BASE values using counting sort.
+    fn group_children<F>(states: &[State<F>]) -> (Vec<u32>, Vec<u32>)
+    where
+        F: Copy,
+    {
+        let len = u32::try_from(states.len()).unwrap_or(u32::MAX);
+        let mut offsets = vec![0; usize::from_u32(len) + 2];
+        for (idx, s) in (0..len).zip(states) {
+            let base = idx ^ u32::from(s.check());
+            if base < len {
+                offsets[usize::from_u32(base) + 2] += 1;
+            }
+        }
+        for i in 1..offsets.len() {
+            offsets[i] += offsets[i - 1];
+        }
+        let mut children = vec![0; usize::from_u32(offsets[usize::from_u32(len) + 1])];
+        for (idx, s) in (0..len).zip(states) {
+            let base = idx ^ u32::from(s.check());
+            if base < len {
+                let pos = &mut offsets[usize::from_u32(base) + 1];
+                children[usize::from_u32(*pos)] = idx;
+                *pos += 1;
+            }
+        }
+        offsets.pop();
+        (offsets, children)
+    }
+
+    /// Pushes the children of a state with the given BASE value onto the stack.
+    fn push_state(&mut self, base: Option<NonZeroU32>) {
+        let mut range = 0..0;
+        if let Some(base) = base {
+            let b = usize::from_u32(base.get());
+            let word_bits = usize::from_u32(u64::BITS);
+            let mask = 1 << (b % word_bits);
+            let visited = self
+                .visited
+                .get_mut(b / word_bits)
+                .filter(|w| **w & mask == 0);
+            if let (Some(w), Some(&[start, end])) = (visited, self.offsets.get(b..b + 2)) {
+                *w |= mask;
+                range = usize::from_u32(start)..usize::from_u32(end);
+                self.children[range.clone()].sort_unstable_by_key(|&idx| idx ^ base.get());
+            }
+        }
+        self.stack.push((range.start, range.end));
+    }
+}
+
+impl<V> Iterator for PatternIterator<'_, V>
+where
+    V: Copy,
+{
+    type Item = (Vec<u8>, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            // The output list of a state contains patterns ending at that state, followed by
+            // shorter patterns registered for its suffixes, which must be skipped.
+            if let Some(output_pos) = self.output_pos.take() {
+                let Some(out) = self.pma.outputs.get(usize::from_u32(output_pos.get() - 1)) else {
+                    // Reached only by malformed automata. Stops iteration permanently.
+                    self.stack.clear();
+                    return None;
+                };
+                if usize::from_u32(out.length) == self.pattern.len() {
+                    self.output_pos = out.parent();
+                    return Some((self.pattern.clone(), out.value()));
+                }
+            }
+            let (next, end) = self.stack.last_mut()?;
+            if next < end {
+                let child = self.children[*next];
+                *next += 1;
+                let (base, check, output_pos) = self.pma.element(child)?;
+                self.pattern.push(check);
+                self.push_state(base);
+                self.output_pos = output_pos;
+            } else {
+                self.stack.pop();
+                self.pattern.pop();
+            }
+        }
     }
 }
 

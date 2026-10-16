@@ -46,9 +46,13 @@ impl CodeMapper {
         self.alphabet_size
     }
 
+    /// Returns the alphabet size rounded up to a power of two, or `None` if it overflows, which
+    /// only occurs with malformed mappers given by deserialization.
     #[inline(always)]
-    pub fn block_len(&self) -> u32 {
-        self.alphabet_size.next_power_of_two().max(2)
+    pub fn block_len(&self) -> Option<u32> {
+        self.alphabet_size
+            .checked_next_power_of_two()
+            .map(|len| len.max(2))
     }
 
     #[inline]

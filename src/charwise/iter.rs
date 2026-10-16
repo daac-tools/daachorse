@@ -3,7 +3,10 @@
 use core::iter::Enumerate;
 use core::num::NonZeroU32;
 
-use crate::charwise::CharwiseDoubleArrayAhoCorasick;
+use alloc::string::String;
+use alloc::vec::Vec;
+
+use crate::charwise::{CharwiseDoubleArrayAhoCorasick, State};
 use crate::prefilter::{Prefilter, PrefilterGate};
 use crate::utils::FromU32;
 use crate::{Match, ROOT_STATE_IDX};
@@ -808,6 +811,147 @@ where
     #[inline(always)]
     pub fn depth(&self) -> Option<u32> {
         self.pma.depths.get(usize::from_u32(self.state_id)).copied()
+    }
+}
+
+/// Returns the parent index of element `idx` with state `s`, or `None` if the element
+/// is the root or is not reachable from its parent via a valid label.
+#[inline(always)]
+fn parent_of(states: &[State], chars: &[Option<char>], idx: u32, s: &State) -> Option<u32> {
+    let parent = s.check();
+    let base = states.get(usize::from_u32(parent))?.base()?;
+    let label = usize::from_u32(base.get() ^ idx);
+    (idx != ROOT_STATE_IDX && matches!(chars.get(label), Some(Some(_)))).then_some(parent)
+}
+
+/// Returns the transition character from the state with the given BASE value to element `idx`.
+#[inline(always)]
+fn label(chars: &[Option<char>], base: u32, idx: u32) -> char {
+    // Elements in `PatternIterator::children` are guaranteed to have valid labels.
+    chars[usize::from_u32(base ^ idx)].unwrap()
+}
+
+/// Iterator created by [`CharwiseDoubleArrayAhoCorasick::iter()`].
+pub struct PatternIterator<'a, V> {
+    pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
+    // Characters corresponding to mapped labels.
+    chars: Vec<Option<char>>,
+    // Children grouped by their parents. The children of a state with index `i` are stored in
+    // `children[offsets[i]..offsets[i + 1]]`.
+    offsets: Vec<u32>,
+    children: Vec<u32>,
+    // BASE values and ranges of unvisited children for states along the path from the root.
+    stack: Vec<(u32, usize, usize)>,
+    pattern: String,
+    output_pos: Option<NonZeroU32>,
+}
+
+impl<'a, V> PatternIterator<'a, V> {
+    /// Creates an iterator that yields patterns through a depth-first traversal of the trie.
+    ///
+    /// Because the double array does not maintain parent-to-child links, elements are grouped
+    /// in advance by their parents (`check`). Children are visited in order of their
+    /// characters, ensuring that patterns are yielded in lexicographical order. Each element
+    /// belongs to at most one group and the root to none, bounding the traversal complexity to
+    /// the number of elements even in malformed automata.
+    pub(crate) fn new(pma: &'a CharwiseDoubleArrayAhoCorasick<V>) -> Self {
+        // Restores characters from mapped labels.
+        let alphabet_size = usize::from_u32(pma.mapper.alphabet_size());
+        let mut chars = vec![None; alphabet_size.min(pma.mapper.table.len())];
+        for (c, &code) in pma.mapper.table.iter().enumerate() {
+            if let Some(slot) = chars.get_mut(usize::from_u32(code)) {
+                *slot = u32::try_from(c).ok().and_then(char::from_u32);
+            }
+        }
+
+        let (offsets, children) = Self::group_children(&pma.states, &chars);
+        let mut it = Self {
+            pma,
+            chars,
+            offsets,
+            children,
+            stack: vec![],
+            pattern: String::new(),
+            output_pos: None,
+        };
+        if let Some(s) = pma.states.get(usize::from_u32(ROOT_STATE_IDX)) {
+            it.push_state(ROOT_STATE_IDX, s);
+            it.output_pos = s.output_pos();
+        }
+        it
+    }
+
+    /// Groups all elements by their parents' indices using counting sort.
+    fn group_children(states: &[State], chars: &[Option<char>]) -> (Vec<u32>, Vec<u32>) {
+        let len = u32::try_from(states.len()).unwrap_or(u32::MAX);
+        let mut offsets = vec![0; usize::from_u32(len) + 2];
+        for (idx, s) in (0..len).zip(states) {
+            if let Some(parent) = parent_of(states, chars, idx, s) {
+                offsets[usize::from_u32(parent) + 2] += 1;
+            }
+        }
+        for i in 1..offsets.len() {
+            offsets[i] += offsets[i - 1];
+        }
+        let mut children = vec![0; usize::from_u32(offsets[usize::from_u32(len) + 1])];
+        for (idx, s) in (0..len).zip(states) {
+            if let Some(parent) = parent_of(states, chars, idx, s) {
+                let pos = &mut offsets[usize::from_u32(parent) + 1];
+                children[usize::from_u32(*pos)] = idx;
+                *pos += 1;
+            }
+        }
+        offsets.pop();
+        (offsets, children)
+    }
+
+    /// Pushes the children of a state with the given index onto the stack.
+    fn push_state(&mut self, state_id: u32, s: &State) {
+        let base = s.base().map_or(0, NonZeroU32::get);
+        let state_id = usize::from_u32(state_id);
+        let start = usize::from_u32(self.offsets[state_id]);
+        let end = usize::from_u32(self.offsets[state_id + 1]);
+        let chars = &self.chars;
+        self.children[start..end].sort_unstable_by_key(|&idx| label(chars, base, idx));
+        self.stack.push((base, start, end));
+    }
+}
+
+impl<V> Iterator for PatternIterator<'_, V>
+where
+    V: Copy,
+{
+    type Item = (String, V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            // The output list of a state contains patterns ending at that state, followed by
+            // shorter patterns registered for its suffixes, which must be skipped.
+            if let Some(output_pos) = self.output_pos.take() {
+                let Some(out) = self.pma.outputs.get(usize::from_u32(output_pos.get() - 1)) else {
+                    // Reached only by malformed automata. Stops iteration permanently.
+                    self.stack.clear();
+                    return None;
+                };
+                if usize::from_u32(out.length) == self.pattern.len() {
+                    self.output_pos = out.parent();
+                    return Some((self.pattern.clone(), out.value()));
+                }
+            }
+            let (base, next, end) = self.stack.last_mut()?;
+            if next < end {
+                let child = self.children[*next];
+                *next += 1;
+                let c = label(&self.chars, *base, child);
+                let s = &self.pma.states[usize::from_u32(child)];
+                self.pattern.push(c);
+                self.push_state(child, s);
+                self.output_pos = s.output_pos();
+            } else {
+                self.stack.pop();
+                self.pattern.pop();
+            }
+        }
     }
 }
 
