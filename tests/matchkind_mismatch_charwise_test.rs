@@ -124,6 +124,26 @@ fn test_leftmost_find_iter_experimental_with_leftmost_longest() {
 
 #[test]
 #[should_panic]
+fn test_leftmost_finder_experimental_with_leftmost_first() {
+    let pma: CharwiseDoubleArrayAhoCorasick<usize> = CharwiseDoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostFirst)
+        .build(["pattern"])
+        .unwrap();
+    let _ = pma.leftmost_finder_experimental();
+}
+
+#[test]
+#[should_panic]
+fn test_leftmost_finder_experimental_with_leftmost_longest() {
+    let pma: CharwiseDoubleArrayAhoCorasick<usize> = CharwiseDoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostLongest)
+        .build(["pattern"])
+        .unwrap();
+    let _ = pma.leftmost_finder_experimental();
+}
+
+#[test]
+#[should_panic]
 fn test_leftmost_find_iter_with_leftmost_longest_experimental() {
     let pma: CharwiseDoubleArrayAhoCorasick<usize> = CharwiseDoubleArrayAhoCorasickBuilder::new()
         .match_kind(MatchKind::LeftmostLongestExperimental)

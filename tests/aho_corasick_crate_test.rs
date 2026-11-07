@@ -812,3 +812,47 @@ fn test_experimental_parent_and_candidate_matches() {
         .collect();
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn test_leftmost_finder_experimental_buffer_reuse() {
+    let patterns_sets: &[&[&str]] = &[
+        &["xy", "b", "a", "bacd", "xybacelong"],
+        &["", "xy", "b", "a", "bacd", "xybacelong"],
+    ];
+    let haystacks = [
+        "xybacex",
+        "no match here",
+        "b",
+        "xybacelong",
+        "xy and b and a",
+    ];
+
+    for patterns in patterns_sets {
+        for match_kind in [
+            MatchKind::LeftmostLongestExperimental,
+            MatchKind::LeftmostFirstExperimental,
+        ] {
+            let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+                .match_kind(match_kind)
+                .build::<_, _, usize>(*patterns)
+                .unwrap();
+
+            let mut finder = pma.leftmost_finder_experimental();
+            for h in haystacks {
+                let expected: Vec<_> = pma.leftmost_find_iter_experimental(h).collect();
+                let actual: Vec<_> = finder.find_iter(h).collect();
+                assert_eq!(expected, actual, "Mismatch on haystack: {h}");
+            }
+
+            // Test early termination leaving leftover matches in buffer:
+            // "xybacex" yields multiple matches. Consuming only 1 leaves leftover matches buffered.
+            let mut it = finder.find_iter("xybacex");
+            assert!(it.next().is_some());
+            #[allow(clippy::drop_non_drop)]
+            drop(it);
+            let actual: Vec<_> = finder.find_iter("b").collect();
+            let expected: Vec<_> = pma.leftmost_find_iter_experimental("b").collect();
+            assert_eq!(expected, actual);
+        }
+    }
+}

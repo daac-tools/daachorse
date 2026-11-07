@@ -516,17 +516,19 @@ pub enum MatchKind {
     /// reported.
     LeftmostFirst = 2,
 
-    /// Experimental leftmost-longest match semantics guaranteeing worst-case linear time `O(N)`.
+    /// Experimental leftmost-longest match semantics running in linear time.
     ///
-    /// This enables [`leftmost_find_iter_experimental()`](CharwiseDoubleArrayAhoCorasick::leftmost_find_iter_experimental()).
+    /// This enables [`leftmost_find_iter_experimental()`](CharwiseDoubleArrayAhoCorasick::leftmost_find_iter_experimental())
+    /// and [`leftmost_finder_experimental()`](CharwiseDoubleArrayAhoCorasick::leftmost_finder_experimental()).
     /// When multiple patterns start at the same position, the longest pattern is reported.
     ///
     /// Note: Currently supported only on [`CharwiseDoubleArrayAhoCorasick`].
     LeftmostLongestExperimental = 3,
 
-    /// Experimental leftmost-first match semantics guaranteeing worst-case linear time `O(N)`.
+    /// Experimental leftmost-first match semantics running in linear time.
     ///
-    /// This enables [`leftmost_find_iter_experimental()`](CharwiseDoubleArrayAhoCorasick::leftmost_find_iter_experimental()).
+    /// This enables [`leftmost_find_iter_experimental()`](CharwiseDoubleArrayAhoCorasick::leftmost_find_iter_experimental())
+    /// and [`leftmost_finder_experimental()`](CharwiseDoubleArrayAhoCorasick::leftmost_finder_experimental()).
     /// When multiple patterns start at the same position, the pattern that was registered earlier is reported.
     ///
     /// Note: Currently supported only on [`CharwiseDoubleArrayAhoCorasick`].

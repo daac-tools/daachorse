@@ -14,7 +14,8 @@ use crate::charwise::iter::{
     CharWithEndOffsetIterator, FindIterator, FindOverlappingIterator,
     FindOverlappingNoSuffixIterator, FindOverlappingNoSuffixSliceIterator,
     FindOverlappingSliceIterator, FindOverlappingStepper, FindSliceIterator, FindStepper,
-    LeftmostFindIterator, LeftmostFindIteratorExperimental, PatternIterator,
+    LeftmostFindIterator, LeftmostFindIteratorExperimental, LeftmostFinderExperimental,
+    PatternIterator,
 };
 use crate::charwise::mapper::CodeMapper;
 use crate::errors::{DaachorseError, Result};
@@ -576,7 +577,7 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         assert!(
             self.match_kind == MatchKind::LeftmostFirst
                 || self.match_kind == MatchKind::LeftmostLongest,
-            "Error: match_kind must be leftmost_first or leftmost_longest. For experimental leftmost, use leftmost_find_iter_experimental()."
+            "Error: match_kind must be leftmost_first or leftmost_longest. For experimental leftmost, use leftmost_find_iter_experimental() or leftmost_finder_experimental()."
         );
         LeftmostFindIterator {
             pma: self,
@@ -592,13 +593,30 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
         }
     }
 
-    /// Returns an iterator of non-overlapping leftmost matches in the input text.
+    /// Returns an iterator of non-overlapping leftmost matches in the given haystack.
     ///
-    /// Matches are evaluated in a single forward pass in worst-case linear time `O(N)`.
+    /// Matches are evaluated in linear time.
+    ///
+    /// Depending on the [`MatchKind`] option specified during construction, the behavior differs
+    /// for multiple possible matches, as follows.
+    ///
+    ///  - If you set [`MatchKind::LeftmostLongestExperimental`], it reports the match corresponding to
+    ///    the longest pattern.
+    ///
+    ///  - If you set [`MatchKind::LeftmostFirstExperimental`], it reports the match corresponding to
+    ///    the pattern that was registered earlier in the automaton.
+    ///
+    /// If the pattern set contains an empty string (length 0), the empty string matches at all
+    /// positions between characters that do not overlap with other patterns.
+    ///
+    /// This iterator maintains an internal buffer and may allocate heap memory during search.
+    /// For repeated searches, consider using
+    /// [`leftmost_finder_experimental()`](Self::leftmost_finder_experimental) to retain a buffer
+    /// across searches and avoid repeated allocations.
     ///
     /// # Arguments
     ///
-    /// * `haystack` - A string to search.
+    /// * `haystack` - String to search in.
     ///
     /// # Panics
     ///
@@ -606,6 +624,8 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     /// or [`MatchKind::LeftmostFirstExperimental`].
     ///
     /// # Examples
+    ///
+    /// ## LeftmostLongestExperimental
     ///
     /// ```
     /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
@@ -623,6 +643,25 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
     ///
     /// assert_eq!(None, it.next());
     /// ```
+    ///
+    /// ## LeftmostFirstExperimental
+    ///
+    /// ```
+    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["ab", "abcd"];
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///     .match_kind(MatchKind::LeftmostFirstExperimental)
+    ///     .build(&patterns)
+    ///     .unwrap();
+    ///
+    /// let mut it = pma.leftmost_find_iter_experimental("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 0), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
     pub fn leftmost_find_iter_experimental<P>(
         &self,
         haystack: P,
@@ -635,7 +674,52 @@ impl<V> CharwiseDoubleArrayAhoCorasick<V> {
             self.match_kind.is_leftmost_experimental(),
             "Error: match_kind must be leftmost_longest_experimental or leftmost_first_experimental."
         );
-        LeftmostFindIteratorExperimental::new(self, haystack)
+        LeftmostFindIteratorExperimental::with_buf(self, haystack, Vec::new())
+    }
+
+    /// Returns a finder for non-overlapping leftmost matches that retains an internal buffer across searches.
+    ///
+    /// Matches are evaluated in linear time.
+    ///
+    /// While [`leftmost_find_iter_experimental()`](Self::leftmost_find_iter_experimental)
+    /// allocates an internal buffer for each search, this finder retains its buffer across searches,
+    /// eliminating repeated heap allocations during repeated searches.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the automaton was not constructed with [`MatchKind::LeftmostLongestExperimental`]
+    /// or [`MatchKind::LeftmostFirstExperimental`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["ab", "abcd"];
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///     .match_kind(MatchKind::LeftmostLongestExperimental)
+    ///     .build(&patterns)
+    ///     .unwrap();
+    ///
+    /// let mut finder = pma.leftmost_finder_experimental();
+    ///
+    /// let mut it = finder.find_iter("abcd");
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 4, 1), (m.start(), m.end(), m.value()));
+    /// assert_eq!(None, it.next());
+    ///
+    /// // The finder can be reused across subsequent searches without reallocation:
+    /// let mut it = finder.find_iter("ab");
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 2, 0), (m.start(), m.end(), m.value()));
+    /// assert_eq!(None, it.next());
+    /// ```
+    #[must_use]
+    pub fn leftmost_finder_experimental(&self) -> LeftmostFinderExperimental<'_, V>
+    where
+        V: Copy,
+    {
+        LeftmostFinderExperimental::new(self)
     }
 
     /// Returns a stepper of non-overlapping matches that consumes characters one by one.
