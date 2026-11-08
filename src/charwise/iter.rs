@@ -707,7 +707,14 @@ where
 /// Iterator created by [`CharwiseDoubleArrayAhoCorasick::leftmost_find_iter_experimental()`].
 ///
 /// Matches are evaluated in linear time.
-pub struct LeftmostFindIteratorExperimental<'a, P, V, B = Vec<Match<V>>, const V0: bool = false> {
+pub struct LeftmostFindIteratorExperimental<
+    'a,
+    P,
+    V,
+    B = Vec<Match<V>>,
+    const REORDER: bool = true,
+    const FAST_PUSH: bool = true,
+> {
     pub(crate) pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
     pub(crate) haystack: P,
     pub(crate) pos: usize,
@@ -722,12 +729,11 @@ pub struct LeftmostFindIteratorExperimental<'a, P, V, B = Vec<Match<V>>, const V
 #[cold]
 #[inline(never)]
 fn push_cold_helper<V: Copy>(buf: &mut Vec<Match<V>>, m: Match<V>) {
-    let mut tmp = core::mem::take(buf);
-    tmp.push(m);
-    *buf = tmp;
+    buf.push(m);
 }
 
-impl<'a, P, V, B, const V0: bool> LeftmostFindIteratorExperimental<'a, P, V, B, V0>
+impl<'a, P, V, B, const REORDER: bool, const FAST_PUSH: bool>
+    LeftmostFindIteratorExperimental<'a, P, V, B, REORDER, FAST_PUSH>
 where
     P: AsRef<str>,
     V: Copy,
@@ -839,21 +845,35 @@ where
                         // Mismatch occurred at `state`. Emit committed matches (`ep`) that precede
                         // the pending suffix `state.leftmost_experimental_fail()`.
                         // SAFETY: `ep` is a valid emit index from `state.output_pos()`, and `pos >= pattern_length`.
-                        let m = unsafe {
-                            Self::extract_emits(&self.pma.emits, ep, pos, self.buf.borrow_mut())
-                        };
-                        if state_id == ROOT_STATE_IDX {
-                            // Pending suffix reached ROOT. Step `ROOT` on `code` and advance past `c`.
-                            // SAFETY: `states` has ROOT_STATE_IDX and `code` is in alphabet.
-                            self.state_id = unsafe { Self::step_root(states, code) };
-                            self.pos = pos + char_len;
+                        if REORDER {
+                            if state_id == ROOT_STATE_IDX {
+                                // Pending suffix reached ROOT. Step `ROOT` on `code` and advance past `c`.
+                                // SAFETY: `states` has ROOT_STATE_IDX and `code` is in alphabet.
+                                self.state_id = unsafe { Self::step_root(states, code) };
+                                self.pos = pos + char_len;
+                            } else {
+                                // Pending suffix is a non-root state. Character `c` at `pos` has not been
+                                // consumed yet; retain `pos` so the next call attempts transition on `c`.
+                                self.state_id = state_id;
+                                self.pos = pos;
+                            }
+                            let m = unsafe {
+                                Self::extract_emits(&self.pma.emits, ep, pos, self.buf.borrow_mut())
+                            };
+                            return Some(m);
                         } else {
-                            // Pending suffix is a non-root state. Character `c` at `pos` has not been
-                            // consumed yet; retain `pos` so the next call attempts transition on `c`.
-                            self.state_id = state_id;
-                            self.pos = pos;
+                            let m = unsafe {
+                                Self::extract_emits(&self.pma.emits, ep, pos, self.buf.borrow_mut())
+                            };
+                            if state_id == ROOT_STATE_IDX {
+                                self.state_id = unsafe { Self::step_root(states, code) };
+                                self.pos = pos + char_len;
+                            } else {
+                                self.state_id = state_id;
+                                self.pos = pos;
+                            }
+                            return Some(m);
                         }
-                        return Some(m);
                     }
                 }
             } else {
@@ -966,7 +986,7 @@ where
             let Some(pred) = emit.pred else {
                 return m;
             };
-            if V0 {
+            if FAST_PUSH {
                 if buf.len() < buf.capacity() {
                     let len = buf.len();
                     core::ptr::write(buf.as_mut_ptr().add(len), m);
@@ -1016,7 +1036,21 @@ where
     }
 }
 
-impl<'a, P, V, B> LeftmostFindIteratorExperimental<'a, P, V, B, false>
+impl<'a, P, V, B, const REORDER: bool, const FAST_PUSH: bool>
+    LeftmostFindIteratorExperimental<'a, P, V, B, REORDER, FAST_PUSH>
+where
+    P: AsRef<str>,
+    V: Copy,
+    B: BorrowMut<Vec<Match<V>>>,
+{
+    /// Consumes the iterator and returns the underlying buffer.
+    #[inline(always)]
+    pub fn into_buf(self) -> B {
+        self.buf
+    }
+}
+
+impl<'a, P, V, B> LeftmostFindIteratorExperimental<'a, P, V, B>
 where
     P: AsRef<str>,
     V: Copy,
@@ -1029,24 +1063,8 @@ where
     }
 }
 
-impl<'a, P, V, B> LeftmostFindIteratorExperimental<'a, P, V, B, true>
-where
-    P: AsRef<str>,
-    V: Copy,
-    B: BorrowMut<Vec<Match<V>>>,
-{
-    /// Creates a new experimental leftmost iterator using push_pull_on_grow.
-    #[inline(always)]
-    pub fn with_buf_push_pull(
-        pma: &'a CharwiseDoubleArrayAhoCorasick<V>,
-        haystack: P,
-        buf: B,
-    ) -> Self {
-        Self::with_buf_impl(pma, haystack, buf)
-    }
-}
-
-impl<'a, P, V, B, const V0: bool> Iterator for LeftmostFindIteratorExperimental<'a, P, V, B, V0>
+impl<'a, P, V, B, const REORDER: bool, const FAST_PUSH: bool> Iterator
+    for LeftmostFindIteratorExperimental<'a, P, V, B, REORDER, FAST_PUSH>
 where
     P: AsRef<str>,
     V: Copy,
@@ -1170,21 +1188,51 @@ impl<'a, V: Copy> LeftmostFinderExperimental<'a, V> {
         LeftmostFindIteratorExperimental::with_buf(self.pma, haystack, &mut self.buf)
     }
 
-    /// Evaluates search using the unoptimized V0 logic (&mut state_id without EOF guard / root branch elimination).
+    /// Evaluates search using the baseline un-reordered logic.
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn find_iter_baseline<'b, P>(
+        &'b mut self,
+        haystack: P,
+    ) -> LeftmostFindIteratorExperimental<'a, P, V, &'b mut Vec<Match<V>>, false, false>
+    where
+        P: AsRef<str>,
+    {
+        LeftmostFindIteratorExperimental::<P, V, &'b mut Vec<Match<V>>, false, false>::with_buf_impl(
+            self.pma,
+            haystack,
+            &mut self.buf,
+        )
+    }
+
+    /// Evaluates search using leaf reordering with standard `buf.push(m)`.
+    #[doc(hidden)]
+    #[inline(always)]
+    pub fn find_iter_reordered_std<'b, P>(
+        &'b mut self,
+        haystack: P,
+    ) -> LeftmostFindIteratorExperimental<'a, P, V, &'b mut Vec<Match<V>>, true, false>
+    where
+        P: AsRef<str>,
+    {
+        LeftmostFindIteratorExperimental::<P, V, &'b mut Vec<Match<V>>, true, false>::with_buf_impl(
+            self.pma,
+            haystack,
+            &mut self.buf,
+        )
+    }
+
+    /// Alias for backwards compatibility.
     #[doc(hidden)]
     #[inline(always)]
     pub fn find_iter_v0<'b, P>(
         &'b mut self,
         haystack: P,
-    ) -> LeftmostFindIteratorExperimental<'a, P, V, &'b mut Vec<Match<V>>, true>
+    ) -> LeftmostFindIteratorExperimental<'a, P, V, &'b mut Vec<Match<V>>, false, false>
     where
         P: AsRef<str>,
     {
-        LeftmostFindIteratorExperimental::<P, V, &'b mut Vec<Match<V>>, true>::with_buf_impl(
-            self.pma,
-            haystack,
-            &mut self.buf,
-        )
+        self.find_iter_baseline(haystack)
     }
 }
 
