@@ -60,7 +60,7 @@ const AC_LEFTMOST_FIRST: TestCollection = &[BASICS, NON_OVERLAPPING, LEFTMOST, L
 
 /// A collection of tests for the Aho-Corasick algorithm that should always be true.
 /// That is, all iterators should produce the same answer.
-const BASICS: &'static [SearchTest] = &[
+const BASICS: &[SearchTest] = &[
     t!(basic000, &[], "", &[]),
     t!(basic_daachorse001, &[], "a", &[]),
     t!(basic_daachorse002, &[], "abc", &[]),
@@ -126,7 +126,7 @@ const BASICS: &'static [SearchTest] = &[
 /// some do in order to write clearer tests. For example, standard000 will
 /// pass with leftmost-first semantics, but standard010 will not. We write
 /// both to emphasize how the match semantics work.
-const STANDARD: &'static [SearchTest] = &[
+const STANDARD: &[SearchTest] = &[
     t!(standard000, &["ab", "abcd"], "abcd", &[(0, 0, 2)]),
     t!(standard010, &["abcd", "ab"], "abcd", &[(1, 0, 2)]),
     t!(standard020, &["abcd", "ab", "abc"], "abcd", &[(1, 0, 2)]),
@@ -149,7 +149,7 @@ const STANDARD: &'static [SearchTest] = &[
 /// both leftmost-first and leftmost-longest match kinds. Stated differently,
 /// among ambiguous matches, the longest match and the match that appeared
 /// first when constructing the automaton should always be the same.
-const LEFTMOST: &'static [SearchTest] = &[
+const LEFTMOST: &[SearchTest] = &[
     t!(leftmost000, &["ab", "ab"], "abcd", &[(0, 0, 2)]),
     t!(leftmost010, &["a", ""], "a", &[(0, 0, 1)]),
     t!(leftmost011, &["a", ""], "ab", &[(0, 0, 1), (1, 2, 2)]),
@@ -219,7 +219,7 @@ const LEFTMOST: &'static [SearchTest] = &[
 /// Tests for non-overlapping leftmost-first match semantics. These tests
 /// should generally be specific to leftmost-first, which means they should
 /// generally fail under leftmost-longest semantics.
-const LEFTMOST_FIRST: &'static [SearchTest] = &[
+const LEFTMOST_FIRST: &[SearchTest] = &[
     t!(leftfirst000, &["ab", "abcd"], "abcd", &[(0, 0, 2)]),
     t!(leftfirst010, &["", "a"], "a", &[(0, 0, 0), (0, 1, 1)]),
     t!(leftfirst011, &["", "a", ""], "a", &[(0, 0, 0), (0, 1, 1),]),
@@ -252,7 +252,7 @@ const LEFTMOST_FIRST: &'static [SearchTest] = &[
 /// Tests for non-overlapping leftmost-longest match semantics. These tests
 /// should generally be specific to leftmost-longest, which means they should
 /// generally fail under leftmost-first semantics.
-const LEFTMOST_LONGEST: &'static [SearchTest] = &[
+const LEFTMOST_LONGEST: &[SearchTest] = &[
     t!(leftlong000, &["ab", "abcd"], "abcd", &[(1, 0, 4)]),
     t!(leftlong010, &["abcd", "bcd", "cd", "b"], "abcd", &[(0, 0, 4),]),
     t!(leftlong020, &["", "a"], "a", &[(1, 0, 1)]),
@@ -283,7 +283,7 @@ const LEFTMOST_LONGEST: &'static [SearchTest] = &[
 ///
 /// Generally these tests shouldn't pass when using overlapping semantics.
 /// These should pass for both standard and leftmost match semantics.
-const NON_OVERLAPPING: &'static [SearchTest] = &[
+const NON_OVERLAPPING: &[SearchTest] = &[
     t!(nover010, &["abcd", "bcd", "cd"], "abcd", &[(0, 0, 4),]),
     t!(nover020, &["bcd", "cd", "abcd"], "abcd", &[(2, 0, 4),]),
     t!(nover030, &["abc", "bc"], "zazabcz", &[(0, 3, 6),]),
@@ -303,7 +303,7 @@ const NON_OVERLAPPING: &'static [SearchTest] = &[
 ///
 /// This only supports standard match semantics, since leftmost-{first,longest}
 /// do not support overlapping matches.
-const OVERLAPPING: &'static [SearchTest] = &[
+const OVERLAPPING: &[SearchTest] = &[
     t!(
         over000,
         &["abcd", "bcd", "cd", "b"],
@@ -655,7 +655,7 @@ fn run_search_tests<F: FnMut(&SearchTest) -> Vec<Match<usize>>>(which: TestColle
         for test in tests {
             assert_eq!(
                 test.matches,
-                get_match_triples(f(&test)).as_slice(),
+                get_match_triples(f(test)).as_slice(),
                 "test: {}, patterns: {:?}, haystack: {:?}",
                 test.name,
                 test.patterns,
