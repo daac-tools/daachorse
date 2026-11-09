@@ -726,12 +726,6 @@ pub struct LeftmostFindIteratorExperimental<
     pub(crate) epsilon_cursor: usize,
 }
 
-#[cold]
-#[inline(never)]
-fn push_cold_helper<V: Copy>(buf: &mut Vec<Match<V>>, m: Match<V>) {
-    buf.push(m);
-}
-
 impl<'a, P, V, B, const REORDER: bool, const FAST_PUSH: bool>
     LeftmostFindIteratorExperimental<'a, P, V, B, REORDER, FAST_PUSH>
 where
@@ -905,19 +899,20 @@ where
         }
 
         // Text boundary reached (EOF). Drain any remaining matches along the failure chain.
-        if state_id == ROOT_STATE_IDX {
-            self.pos = pos;
-            return None;
-        }
-        // SAFETY: `state_id` is a valid state index, and pos sits on a valid character boundary.
-        let m = unsafe {
-            Self::drain_fail_chain(
-                states,
-                &self.pma.emits,
-                self.buf.borrow_mut(),
-                &mut state_id,
-                pos,
-            )
+        // Sitting at ROOT_STATE_IDX means no pattern suffixes remain to be drained.
+        let m = if state_id == ROOT_STATE_IDX {
+            None
+        } else {
+            // SAFETY: `state_id` is a valid state index, and pos sits on a valid character boundary.
+            unsafe {
+                Self::drain_fail_chain(
+                    states,
+                    &self.pma.emits,
+                    self.buf.borrow_mut(),
+                    &mut state_id,
+                    pos,
+                )
+            }
         };
         self.pos = pos;
         self.state_id = state_id;
@@ -976,6 +971,14 @@ where
         mut anchor: usize,
         buf: &mut Vec<Match<V>>,
     ) -> Match<V> {
+        // Out-of-line fallback for buffer reallocation.
+        // Isolates RawVec::grow_one register pressure from the search loop.
+        #[cold]
+        #[inline(never)]
+        fn push_cold<V: Copy>(buf: &mut Vec<Match<V>>, m: Match<V>) {
+            buf.push(m);
+        }
+
         let mut curr_ep = head_pos;
         loop {
             // SAFETY: head_pos and all chained pred links are valid 1-based indices in emits.
@@ -992,7 +995,7 @@ where
                     core::ptr::write(buf.as_mut_ptr().add(len), m);
                     buf.set_len(len + 1);
                 } else {
-                    push_cold_helper(buf, m);
+                    push_cold(buf, m);
                 }
             } else {
                 buf.push(m);
@@ -1018,17 +1021,21 @@ where
         state_id: &mut u32,
         pos: usize,
     ) -> Option<Match<V>> {
-        while *state_id != ROOT_STATE_IDX {
-            // SAFETY: caller guarantees *state_id is a valid state index in states.
+        loop {
+            // SAFETY: caller guarantees *state_id is a valid non-root state index in states.
             let state = unsafe { states.get_unchecked(usize::from_u32(*state_id)) };
             if !state.leftmost_experimental_has_emit() {
                 break;
             }
-            *state_id = state.leftmost_experimental_fail();
+            let next_id = state.leftmost_experimental_fail();
+            *state_id = next_id;
             if let Some(ep) = state.output_pos() {
                 // SAFETY: caller guarantees states and emits invariants are preserved.
                 let m = unsafe { Self::extract_emits(emits, ep, pos, buf) };
                 return Some(m);
+            }
+            if next_id == ROOT_STATE_IDX {
+                return None;
             }
         }
         *state_id = ROOT_STATE_IDX;
