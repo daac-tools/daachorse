@@ -344,6 +344,115 @@ where
     }
 }
 
+/// An emit node representing a committed match in experimental leftmost matching.
+///
+/// Matches are linked in reverse order via `pred`, allowing different trie branches to
+/// share common predecessor chains.
+///
+/// For the head of a chain, `gap` is the byte distance from the state's boundary (the mismatch
+/// position) to the end of the match. For a predecessor match, `gap` is the byte distance
+/// between the end of this match and the start of the next match.
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+pub(crate) struct Emit<V> {
+    /// Value associated with the pattern.
+    pub(crate) value: V,
+    /// Pattern length in bytes.
+    pub(crate) length: u32,
+    /// Relative byte distance to the state boundary (head) or next match (predecessor).
+    pub(crate) gap: u32,
+    /// 1-based index pointing to the preceding match in this chain.
+    pub(crate) pred: Option<NonZeroU32>,
+}
+
+impl<V> Emit<V>
+where
+    V: Copy,
+{
+    #[inline(always)]
+    pub(crate) const fn new(value: V, length: u32, gap: u32, pred: Option<NonZeroU32>) -> Self {
+        Self {
+            value,
+            length,
+            gap,
+            pred,
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) const fn from_output(pat: (V, u32), gap: u32, pred: Option<NonZeroU32>) -> Self {
+        Self::new(pat.0, pat.1, gap, pred)
+    }
+
+    /// Returns a copy of this emit with an updated gap.
+    #[inline(always)]
+    pub(crate) const fn with_gap(self, gap: u32) -> Self {
+        Self { gap, ..self }
+    }
+
+    /// Returns a copy of this emit with an updated predecessor link.
+    #[inline(always)]
+    pub(crate) const fn with_pred(self, pred: Option<NonZeroU32>) -> Self {
+        Self { pred, ..self }
+    }
+
+    /// Returns a copy of this emit with its gap incremented by `inc` bytes.
+    #[inline(always)]
+    pub(crate) fn with_incremented_gap(self, inc: usize) -> Self {
+        Self {
+            gap: self.gap + u32::try_from(inc).unwrap(),
+            ..self
+        }
+    }
+
+    /// Converts this emit into a [`Match`] ending at `end`.
+    #[inline(always)]
+    pub(crate) fn to_match(self, end: usize) -> Match<V> {
+        Match {
+            length: usize::from_u32(self.length),
+            end,
+            value: self.value,
+        }
+    }
+}
+
+impl<V> Serializable for Emit<V>
+where
+    V: Serializable,
+{
+    #[inline(always)]
+    fn serialize_to_vec(&self, dst: &mut Vec<u8>) {
+        self.value.serialize_to_vec(dst);
+        self.length.serialize_to_vec(dst);
+        self.gap.serialize_to_vec(dst);
+        self.pred.serialize_to_vec(dst);
+    }
+
+    #[inline(always)]
+    fn deserialize_from_slice(src: &[u8]) -> Result<(Self, &[u8])> {
+        let (value, src) = V::deserialize_from_slice(src)?;
+        let (length, src) = u32::deserialize_from_slice(src)?;
+        let (gap, src) = u32::deserialize_from_slice(src)?;
+        let (pred, src) = Option::<NonZeroU32>::deserialize_from_slice(src)?;
+        Ok((
+            Self {
+                value,
+                length,
+                gap,
+                pred,
+            },
+            src,
+        ))
+    }
+
+    #[inline(always)]
+    fn serialized_bytes() -> usize {
+        V::serialized_bytes()
+            + u32::serialized_bytes()
+            + u32::serialized_bytes()
+            + Option::<NonZeroU32>::serialized_bytes()
+    }
+}
+
 /// Match result.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Match<V> {
@@ -382,7 +491,8 @@ where
 }
 
 /// A search option of the Aho-Corasick automaton
-/// specified in [`DoubleArrayAhoCorasickBuilder::match_kind`].
+/// specified in [`DoubleArrayAhoCorasickBuilder::match_kind`] or
+/// [`CharwiseDoubleArrayAhoCorasickBuilder::match_kind`].
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[repr(u8)]
 pub enum MatchKind {
@@ -405,6 +515,24 @@ pub enum MatchKind {
     /// will be reported. For example, when matching patterns `ab|a|abcd` over `abcd`, `ab` will be
     /// reported.
     LeftmostFirst = 2,
+
+    /// Experimental leftmost-longest match semantics running in linear time.
+    ///
+    /// This enables [`leftmost_find_iter_experimental()`](CharwiseDoubleArrayAhoCorasick::leftmost_find_iter_experimental())
+    /// and [`leftmost_finder_experimental()`](CharwiseDoubleArrayAhoCorasick::leftmost_finder_experimental()).
+    /// When multiple patterns start at the same position, the longest pattern is reported.
+    ///
+    /// Note: Currently supported only on [`CharwiseDoubleArrayAhoCorasick`].
+    LeftmostLongestExperimental = 3,
+
+    /// Experimental leftmost-first match semantics running in linear time.
+    ///
+    /// This enables [`leftmost_find_iter_experimental()`](CharwiseDoubleArrayAhoCorasick::leftmost_find_iter_experimental())
+    /// and [`leftmost_finder_experimental()`](CharwiseDoubleArrayAhoCorasick::leftmost_finder_experimental()).
+    /// When multiple patterns start at the same position, the pattern that was registered earlier is reported.
+    ///
+    /// Note: Currently supported only on [`CharwiseDoubleArrayAhoCorasick`].
+    LeftmostFirstExperimental = 4,
 }
 
 impl MatchKind {
@@ -417,7 +545,11 @@ impl MatchKind {
     }
 
     pub(crate) fn is_leftmost_first(self) -> bool {
-        self == Self::LeftmostFirst
+        self == Self::LeftmostFirst || self == Self::LeftmostFirstExperimental
+    }
+
+    pub(crate) fn is_leftmost_experimental(self) -> bool {
+        self == Self::LeftmostLongestExperimental || self == Self::LeftmostFirstExperimental
     }
 }
 
@@ -426,6 +558,8 @@ impl From<u8> for MatchKind {
         match src {
             1 => Self::LeftmostLongest,
             2 => Self::LeftmostFirst,
+            3 => Self::LeftmostLongestExperimental,
+            4 => Self::LeftmostFirstExperimental,
             _ => Self::Standard,
         }
     }
@@ -437,6 +571,8 @@ impl From<MatchKind> for u8 {
             MatchKind::Standard => 0,
             MatchKind::LeftmostLongest => 1,
             MatchKind::LeftmostFirst => 2,
+            MatchKind::LeftmostLongestExperimental => 3,
+            MatchKind::LeftmostFirstExperimental => 4,
         }
     }
 }
@@ -514,6 +650,22 @@ mod tests {
         x.serialize_to_vec(&mut data);
         assert_eq!(data.len(), MatchKind::serialized_bytes());
         let (y, rest) = MatchKind::deserialize_from_slice(&data).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(x, y);
+    }
+
+    #[test]
+    fn test_serialize_emit() {
+        let x = Emit {
+            value: 42u32,
+            length: 57,
+            gap: 10,
+            pred: NonZeroU32::new(13),
+        };
+        let mut data = vec![];
+        x.serialize_to_vec(&mut data);
+        assert_eq!(data.len(), Emit::<u32>::serialized_bytes());
+        let (y, rest) = Emit::deserialize_from_slice(&data).unwrap();
         assert!(rest.is_empty());
         assert_eq!(x, y);
     }

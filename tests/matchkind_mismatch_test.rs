@@ -89,3 +89,21 @@ fn test_cache_depth_with_leftmost_first() {
         .unwrap();
     let _ = pma.cache_depths();
 }
+
+#[test]
+#[should_panic]
+fn test_bytewise_builder_with_leftmost_longest_experimental() {
+    let _pma: DoubleArrayAhoCorasick<u32> = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostLongestExperimental)
+        .build(["pattern"])
+        .unwrap();
+}
+
+#[test]
+#[should_panic]
+fn test_bytewise_builder_with_leftmost_first_experimental() {
+    let _pma: DoubleArrayAhoCorasick<u32> = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostFirstExperimental)
+        .build(["pattern"])
+        .unwrap();
+}

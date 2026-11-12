@@ -60,7 +60,14 @@ impl Prefilter {
             return haystack.len();
         };
         let mut e = u8::MAX;
-        for (i, &c) in haystack.iter().enumerate().skip(pos + 1) {
+        // Direct range indexing is intentionally preferred over `.iter().enumerate().skip(pos + 1)`.
+        // When inlined into the dense outer search loop, the compiler fails to optimize away the
+        // compound iterator state (`Skip` bound and `Enumerate` counter), bloating loop arithmetic
+        // and spilling registers to the stack. Since the loop bound is `haystack.len()`,
+        // `haystack[i]` incurs no bounds checks after optimization.
+        #[allow(clippy::needless_range_loop)]
+        for i in pos + 1..haystack.len() {
+            let c = haystack[i];
             e = (e << 1) | self.table[usize::from(prev) << 8 | usize::from(c)];
             if e & self.hit_bit == 0 {
                 // Starting from an all-one state, the hit bit cannot become zero until

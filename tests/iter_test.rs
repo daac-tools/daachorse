@@ -113,6 +113,41 @@ fn test_iter_leftmost_longest() {
         .build(patterns)
         .unwrap();
     assert_eq!(to_strings(&expected), charwise_pairs(&pma));
+    let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostLongestExperimental)
+        .build(patterns)
+        .unwrap();
+    assert_eq!(to_strings(&expected), charwise_pairs(&pma));
+}
+
+#[test]
+fn test_iter_experimental_duplicates_and_suffixes() {
+    // 1. Duplicate patterns: leftmost matching keeps the first-registered value.
+    let patvals = [("ab", 10), ("a", 20), ("ab", 30), ("abc", 40)];
+    let expected = [("a", 20), ("ab", 10), ("abc", 40)];
+
+    let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostLongestExperimental)
+        .build_with_values(patvals)
+        .unwrap();
+    assert_eq!(to_strings(&expected), charwise_pairs(&pma));
+
+    // 2. Suffixes and leaf matches
+    let patterns = ["aria", "ria", "ia", "a", ""];
+    let expected = [("", 4), ("a", 3), ("aria", 0), ("ia", 2), ("ria", 1)];
+    let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostLongestExperimental)
+        .build(patterns)
+        .unwrap();
+    assert_eq!(to_strings(&expected), charwise_pairs(&pma));
+
+    // 3. Prefiltered experimental automaton
+    let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostLongestExperimental)
+        .use_prefilter(true)
+        .build(patterns)
+        .unwrap();
+    assert_eq!(to_strings(&expected), charwise_pairs(&pma));
 }
 
 #[test]
@@ -127,6 +162,11 @@ fn test_iter_leftmost_first() {
     assert_eq!(to_bytes(&expected), bytewise_pairs(&pma));
     let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
         .match_kind(MatchKind::LeftmostFirst)
+        .build(patterns)
+        .unwrap();
+    assert_eq!(to_strings(&expected), charwise_pairs(&pma));
+    let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+        .match_kind(MatchKind::LeftmostFirstExperimental)
         .build(patterns)
         .unwrap();
     assert_eq!(to_strings(&expected), charwise_pairs(&pma));
@@ -198,6 +238,19 @@ fn test_iter_deserialized() {
         let (pma, _) = DoubleArrayAhoCorasick::<u32>::deserialize(&bytes).unwrap();
         assert_eq!(to_bytes(&expected), bytewise_pairs(&pma));
 
+        let pma: CharwiseDoubleArrayAhoCorasick<u32> = CharwiseDoubleArrayAhoCorasickBuilder::new()
+            .match_kind(match_kind)
+            .build(patterns)
+            .unwrap();
+        let bytes = pma.serialize();
+        let (pma, _) = CharwiseDoubleArrayAhoCorasick::<u32>::deserialize(&bytes).unwrap();
+        assert_eq!(to_strings(&expected), charwise_pairs(&pma));
+    }
+
+    for match_kind in [
+        MatchKind::LeftmostLongestExperimental,
+        MatchKind::LeftmostFirstExperimental,
+    ] {
         let pma: CharwiseDoubleArrayAhoCorasick<u32> = CharwiseDoubleArrayAhoCorasickBuilder::new()
             .match_kind(match_kind)
             .build(patterns)

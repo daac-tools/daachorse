@@ -132,3 +132,19 @@ corpus_test!(
     MatchKind::LeftmostFirst,
     leftmost_find_iter
 );
+
+corpus_test!(
+    charwise_leftmost_longest_experimental,
+    CharwiseDoubleArrayAhoCorasickBuilder,
+    CharwiseDoubleArrayAhoCorasick<u32>,
+    MatchKind::LeftmostLongestExperimental,
+    leftmost_find_iter_experimental
+);
+
+corpus_test!(
+    charwise_leftmost_first_experimental,
+    CharwiseDoubleArrayAhoCorasickBuilder,
+    CharwiseDoubleArrayAhoCorasick<u32>,
+    MatchKind::LeftmostFirstExperimental,
+    leftmost_find_iter_experimental
+);

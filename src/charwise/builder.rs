@@ -2,7 +2,10 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
 use crate::build_helper::{BuildHelper, Profile};
-use crate::charwise::{CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State};
+use crate::charwise::{
+    CharwiseDoubleArrayAhoCorasick, CodeMapper, MatchKind, State,
+    LEFTMOST_EXPERIMENTAL_MAX_NUM_STATES,
+};
 use crate::errors::{DaachorseError, Result};
 use crate::nfa_builder::NfaBuilder;
 use crate::nfa_builder::DEAD_STATE_ID;
@@ -67,6 +70,25 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
     /// # Arguments
     ///
     /// * `kind` - Match kind.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use daachorse::{CharwiseDoubleArrayAhoCorasickBuilder, MatchKind};
+    ///
+    /// let patterns = vec!["ab", "abcd"];
+    /// let pma = CharwiseDoubleArrayAhoCorasickBuilder::new()
+    ///     .match_kind(MatchKind::LeftmostLongest)
+    ///     .build(&patterns)
+    ///     .unwrap();
+    ///
+    /// let mut it = pma.leftmost_find_iter("abcd");
+    ///
+    /// let m = it.next().unwrap();
+    /// assert_eq!((0, 4, 1), (m.start(), m.end(), m.value()));
+    ///
+    /// assert_eq!(None, it.next());
+    /// ```
     #[must_use]
     pub const fn match_kind(mut self, kind: MatchKind) -> Self {
         self.match_kind = kind;
@@ -267,6 +289,7 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             states: self.states,
             mapper: self.mapper,
             outputs: nfa.outputs,
+            emits: nfa.emits,
             match_kind: self.match_kind,
             num_states,
             prefilter,
@@ -307,11 +330,17 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         }
         self.mapper = CodeMapper::new(&freqs);
 
-        let q = match self.match_kind {
-            MatchKind::Standard => nfa.build_fails(),
-            MatchKind::LeftmostLongest | MatchKind::LeftmostFirst => nfa.build_fails_leftmost(),
+        match self.match_kind {
+            MatchKind::Standard => nfa.build_outputs(&nfa.build_fails()),
+            MatchKind::LeftmostFirst | MatchKind::LeftmostLongest => {
+                nfa.build_outputs(&nfa.build_fails_leftmost());
+            }
+            MatchKind::LeftmostLongestExperimental | MatchKind::LeftmostFirstExperimental => {
+                // In experimental leftmost matching, failure transitions and match emit chains are
+                // mutually dependent, requiring a joint pass.
+                nfa.build_fails_and_emits_leftmost_experimental();
+            }
         };
-        nfa.build_outputs(&q);
         Ok((nfa, prefilter_builder.and_then(PrefilterBuilder::build)))
     }
 
@@ -347,6 +376,16 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         let groups = nfa.sibling_groups(profile, |c| self.mapper.get(c).unwrap());
         let helper = BuildHelper::new(&groups, nfa.states.len(), block_len, false)?;
 
+        // Bit 31 of `fail` is used to flag whether the failure chain has emits, limiting states to LEFTMOST_EXPERIMENTAL_MAX_NUM_STATES.
+        if self.match_kind.is_leftmost_experimental()
+            && helper.num_elements() > LEFTMOST_EXPERIMENTAL_MAX_NUM_STATES
+        {
+            return Err(DaachorseError::automaton_scale(
+                "states.len()",
+                LEFTMOST_EXPERIMENTAL_MAX_NUM_STATES,
+            ));
+        }
+
         self.states
             .resize(usize::from_u32(helper.num_elements()), State::default());
         for group in &groups {
@@ -365,7 +404,11 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
         Ok(())
     }
 
-    fn set_fails_and_outputs<V>(&mut self, nfa: &CharwiseNfaBuilder<V>, state_id_map: &[u32]) {
+    /// Maps NFA failure transitions and output positions into the double-array states.
+    fn set_fails_and_outputs<V>(&mut self, nfa: &CharwiseNfaBuilder<V>, state_id_map: &[u32])
+    where
+        V: Copy,
+    {
         for (i, s) in nfa.states.iter().enumerate() {
             if i == usize::from_u32(DEAD_STATE_ID) {
                 continue;
@@ -382,7 +425,12 @@ impl CharwiseDoubleArrayAhoCorasickBuilder {
             } else {
                 let fail_idx = state_id_map[usize::from_u32(fail_id)];
                 debug_assert_ne!(fail_idx, DEAD_STATE_IDX);
-                self.states[idx].set_fail(fail_idx);
+                if self.match_kind.is_leftmost_experimental() {
+                    self.states[idx]
+                        .set_leftmost_experimental_fail(fail_idx, s.fail_has_emit.get());
+                } else {
+                    self.states[idx].set_fail(fail_idx);
+                }
             }
         }
     }
